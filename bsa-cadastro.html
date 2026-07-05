@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<title>BSA Cadastro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F6F8F4;
+    --surface:#FFFFFF;
+    --pitch:#0F5C3D;
+    --pitch-dark:#0B4530;
+    --pitch-soft:#E4EFE8;
+    --gold:#FFC800;
+    --gold-soft:#FFF3CC;
+    --coral:#FF5A36;
+    --coral-soft:#FFE4DC;
+    --ink:#142B20;
+    --ink-soft:#5C7268;
+    --line:#DCE5DD;
+    --radius:18px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif; height:100%;}
+  body{
+    padding-bottom:calc(72px + env(safe-area-inset-bottom));
+    padding-top:env(safe-area-inset-top);
+  }
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  .display{font-family:'Space Grotesk',sans-serif;}
+
+  header.top{
+    position:sticky; top:0; z-index:20;
+    background:var(--pitch);
+    color:#fff;
+    padding:18px 20px 16px;
+    border-radius:0 0 22px 22px;
+    box-shadow:0 6px 18px rgba(15,92,61,0.18);
+  }
+  header.top .row{display:flex; align-items:center; justify-content:space-between;}
+  header.top h1{font-family:'Space Grotesk',sans-serif; font-size:20px; font-weight:700; margin:0; letter-spacing:0.2px;}
+  header.top .sub{font-size:12.5px; opacity:0.8; margin-top:2px;}
+  .badge-count{
+    background:var(--gold); color:var(--pitch-dark); font-family:'Space Grotesk';
+    font-weight:700; font-size:13px; padding:5px 11px; border-radius:20px;
+  }
+
+  .searchbar{
+    margin:14px 16px 6px; display:flex; gap:8px;
+  }
+  .searchbar input{
+    flex:1; border:none; border-radius:14px; padding:12px 14px; font-size:15px;
+    background:var(--surface); color:var(--ink); font-family:'Inter';
+    box-shadow:0 2px 6px rgba(20,43,32,0.06);
+  }
+  .searchbar input::placeholder{color:var(--ink-soft);}
+
+  .chipsrow{display:flex; gap:8px; overflow-x:auto; padding:6px 16px 14px; scrollbar-width:none;}
+  .chipsrow::-webkit-scrollbar{display:none;}
+  .chip{
+    flex:0 0 auto; padding:7px 14px; border-radius:20px; font-size:13px; font-weight:600;
+    background:var(--surface); color:var(--ink-soft); border:1px solid var(--line); cursor:pointer;
+    white-space:nowrap;
+  }
+  .chip.active{background:var(--pitch); color:#fff; border-color:var(--pitch);}
+
+  main{padding:4px 16px 20px;}
+
+  .card{
+    background:var(--surface); border-radius:var(--radius); padding:12px;
+    display:flex; align-items:center; gap:12px; margin-bottom:10px;
+    box-shadow:0 2px 8px rgba(20,43,32,0.05);
+    border:1px solid var(--line);
+  }
+  .card.inativo{opacity:0.5;}
+  .avatar-wrap{position:relative; flex:0 0 auto;}
+  .avatar{
+    width:56px; height:56px; border-radius:50%; object-fit:cover;
+    border:2px solid var(--gold); background:var(--pitch-soft);
+  }
+  .avatar.placeholder{display:flex; align-items:center; justify-content:center; font-family:'Space Grotesk'; font-weight:700; color:var(--pitch); font-size:18px;}
+  .dot{
+    position:absolute; bottom:-2px; right:-2px; width:14px; height:14px; border-radius:50%;
+    border:2px solid var(--surface);
+  }
+  .dot.ativo{background:var(--pitch);}
+  .dot.inadimplente{background:var(--coral);}
+  .dot.isento{background:var(--gold);}
+
+  .card .info{flex:1; min-width:0;}
+  .card .info .name{font-weight:600; font-size:15px; margin:0 0 2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .card .info .meta{font-size:12.5px; color:var(--ink-soft); display:flex; gap:6px; flex-wrap:wrap; align-items:center;}
+  .pill{
+    background:var(--pitch-soft); color:var(--pitch-dark); font-size:11px; font-weight:600;
+    padding:2px 8px; border-radius:10px; font-family:'IBM Plex Mono';
+  }
+  .card .chevron{color:var(--line); font-size:20px; flex:0 0 auto;}
+
+  .empty{
+    text-align:center; padding:60px 20px; color:var(--ink-soft);
+  }
+  .empty .big{font-size:44px; margin-bottom:8px;}
+  .empty .cta{font-family:'Space Grotesk'; font-weight:600; color:var(--pitch); margin-top:10px;}
+
+  nav.tabbar{
+    position:fixed; bottom:0; left:0; right:0; z-index:30;
+    background:var(--surface); border-top:1px solid var(--line);
+    display:flex; padding:8px 12px calc(8px + env(safe-area-inset-bottom));
+    gap:8px;
+  }
+  nav.tabbar button{
+    flex:1; border:none; background:transparent; padding:8px 4px; border-radius:14px;
+    font-family:'Inter'; font-weight:600; font-size:12.5px; color:var(--ink-soft);
+    display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer;
+  }
+  nav.tabbar button .ic{font-size:20px;}
+  nav.tabbar button.active{color:var(--pitch); background:var(--pitch-soft);}
+
+  .screen{display:none;}
+  .screen.active{display:block;}
+
+  /* Form */
+  .formwrap{padding:16px 16px 30px;}
+  .formwrap h2{font-family:'Space Grotesk'; font-size:19px; margin:6px 0 18px;}
+  .field{margin-bottom:16px;}
+  .field label{display:block; font-size:13px; font-weight:600; color:var(--ink-soft); margin-bottom:6px;}
+  .field input, .field select, .field textarea{
+    width:100%; border:1px solid var(--line); border-radius:12px; padding:12px 13px;
+    font-size:15px; font-family:'Inter'; background:var(--surface); color:var(--ink);
+  }
+  .field textarea{resize:vertical; min-height:70px;}
+  .field-row{display:flex; gap:10px;}
+  .field-row .field{flex:1;}
+  .hint{font-size:12px; color:var(--ink-soft); margin-top:5px;}
+
+  .photo-box{
+    display:flex; align-items:center; gap:14px; margin-bottom:18px;
+  }
+  .photo-preview{
+    width:84px; height:84px; border-radius:50%; object-fit:cover; background:var(--pitch-soft);
+    border:2px dashed var(--line); display:flex; align-items:center; justify-content:center;
+    color:var(--ink-soft); font-size:26px; flex:0 0 auto;
+  }
+  .photo-preview img{width:100%; height:100%; border-radius:50%; object-fit:cover;}
+  .btn{
+    border:none; border-radius:14px; padding:13px 18px; font-family:'Space Grotesk';
+    font-weight:600; font-size:14.5px; cursor:pointer; text-align:center;
+  }
+  .btn-primary{background:var(--pitch); color:#fff; width:100%;}
+  .btn-primary:active{background:var(--pitch-dark);}
+  .btn-gold{background:var(--gold); color:var(--pitch-dark);}
+  .btn-outline{background:transparent; border:1.5px solid var(--pitch); color:var(--pitch);}
+  .btn-danger{background:var(--coral-soft); color:#B23A20;}
+  .btn-block{width:100%; margin-top:8px;}
+
+  .cat-toggle{display:flex; align-items:center; gap:8px; margin-top:4px;}
+  .cat-toggle input{width:auto;}
+  .cat-toggle span{font-size:12.5px; color:var(--ink-soft);}
+
+  /* Camera overlay */
+  .camera-overlay{
+    position:fixed; inset:0; background:#000; z-index:100; display:none;
+    flex-direction:column; align-items:center; justify-content:center;
+  }
+  .camera-overlay.active{display:flex;}
+  .camera-overlay video{width:100%; max-width:480px; aspect-ratio:1/1; object-fit:cover; border-radius:20px;}
+  .camera-overlay canvas{display:none;}
+  .camera-controls{display:flex; gap:16px; margin-top:22px; padding-bottom:env(safe-area-inset-bottom);}
+  .camera-controls button{
+    border:none; border-radius:50%; width:64px; height:64px; font-size:26px;
+    background:#fff; color:var(--pitch); cursor:pointer;
+  }
+  .camera-controls .cancel{background:rgba(255,255,255,0.15); color:#fff; width:48px; height:48px; align-self:center; font-size:20px;}
+
+  /* Detail modal */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(10,20,15,0.45); z-index:90; display:none;
+    align-items:flex-end; justify-content:center;
+  }
+  .modal-overlay.active{display:flex;}
+  .modal-sheet{
+    background:var(--bg); width:100%; max-width:520px; border-radius:24px 24px 0 0;
+    max-height:88vh; overflow-y:auto; padding:8px 0 24px;
+    animation:slideup 0.22s ease-out;
+  }
+  @keyframes slideup{from{transform:translateY(24px); opacity:0.6;} to{transform:translateY(0); opacity:1;}}
+  .modal-handle{width:36px; height:4px; background:var(--line); border-radius:3px; margin:10px auto 4px;}
+
+  .toast{
+    position:fixed; bottom:90px; left:50%; transform:translateX(-50%);
+    background:var(--pitch-dark); color:#fff; padding:11px 20px; border-radius:30px;
+    font-size:13.5px; font-weight:600; z-index:200; opacity:0; transition:opacity 0.25s;
+    box-shadow:0 6px 16px rgba(0,0,0,0.2); pointer-events:none; white-space:nowrap;
+  }
+  .toast.show{opacity:1;}
+
+  .setup-banner{
+    margin:14px 16px; padding:14px; background:var(--coral-soft); border-radius:14px;
+    color:#8A2E19; font-size:13px; line-height:1.5;
+  }
+  .setup-banner b{display:block; margin-bottom:4px; font-family:'Space Grotesk';}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="row">
+    <div>
+      <h1>BSA Cadastro</h1>
+      <div class="sub" id="statusLine">conectando...</div>
+    </div>
+    <div class="badge-count mono" id="countBadge">0</div>
+  </div>
+</header>
+
+<div id="setupBanner" class="setup-banner" style="display:none;">
+  <b>Configuração necessária</b>
+  Abra este arquivo com um editor de texto e preencha o objeto <span class="mono">firebaseConfig</span> no final do código com os dados do seu projeto Firebase. Sem isso o app não sincroniza.
+</div>
+
+<!-- LISTA -->
+<section class="screen active" id="screen-lista">
+  <div class="searchbar">
+    <input type="text" id="searchInput" placeholder="Buscar aluno por nome...">
+  </div>
+  <div class="chipsrow" id="unitChips">
+    <div class="chip active" data-unit="todas">Todas unidades</div>
+    <div class="chip" data-unit="Carlos Prates">Carlos Prates</div>
+    <div class="chip" data-unit="Estoril">Estoril</div>
+  </div>
+  <div class="chipsrow" id="statusChips" style="padding-top:0;">
+    <div class="chip active" data-status="todos">Todos status</div>
+    <div class="chip" data-status="ativo">Ativo</div>
+    <div class="chip" data-status="inadimplente">Inadimplente</div>
+    <div class="chip" data-status="isento">Isento</div>
+  </div>
+  <main id="listContainer">
+    <div class="empty">
+      <div class="big">🎽</div>
+      <div>Nenhum aluno cadastrado ainda.</div>
+      <div class="cta" onclick="goToScreen('cadastro')">+ Cadastrar primeiro aluno</div>
+    </div>
+  </main>
+</section>
+
+<!-- CADASTRO -->
+<section class="screen" id="screen-cadastro">
+  <div class="formwrap">
+    <h2 id="formTitle">Novo aluno</h2>
+
+    <div class="photo-box">
+      <div class="photo-preview" id="photoPreview">📷</div>
+      <div style="flex:1;">
+        <button class="btn btn-gold" id="btnOpenCamera" type="button">Tirar foto</button>
+        <div class="hint">Foto de frente, boa luz — usada no reconhecimento facial da presença.</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Nome completo</label>
+      <input type="text" id="fNome" placeholder="Nome do aluno">
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Data de nascimento</label>
+        <input type="date" id="fNascimento">
+      </div>
+      <div class="field">
+        <label>Categoria</label>
+        <input type="text" id="fCategoria" readonly>
+        <div class="cat-toggle">
+          <input type="checkbox" id="fCategoriaManualToggle">
+          <span>Ajustar manualmente</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Unidade</label>
+      <select id="fUnidade">
+        <option value="Carlos Prates">Carlos Prates</option>
+        <option value="Estoril">Estoril</option>
+      </select>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Nome do responsável</label>
+        <input type="text" id="fRespNome" placeholder="Pai/mãe/responsável">
+      </div>
+      <div class="field">
+        <label>WhatsApp</label>
+        <input type="tel" id="fRespWhats" placeholder="(31) 9....">
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Status mensalidade</label>
+        <select id="fStatusMens">
+          <option value="ativo">Ativo</option>
+          <option value="inadimplente">Inadimplente</option>
+          <option value="isento">Isento</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Data de matrícula</label>
+        <input type="date" id="fMatricula">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Observações (opcional)</label>
+      <textarea id="fObs" placeholder="Alergias, restrições, observações gerais..."></textarea>
+    </div>
+
+    <button class="btn btn-primary" id="btnSalvar">Salvar aluno</button>
+    <button class="btn btn-outline btn-block" id="btnCancelar" type="button">Cancelar</button>
+  </div>
+</section>
+
+<nav class="tabbar">
+  <button class="active" data-screen="lista"><span class="ic">📋</span>Alunos</button>
+  <button data-screen="cadastro"><span class="ic">➕</span>Novo</button>
+</nav>
+
+<!-- Camera overlay -->
+<div class="camera-overlay" id="cameraOverlay">
+  <video id="cameraVideo" autoplay playsinline muted></video>
+  <canvas id="cameraCanvas"></canvas>
+  <div class="camera-controls">
+    <button class="cancel" id="btnCancelCamera">✕</button>
+    <button id="btnCapture">📸</button>
+  </div>
+</div>
+
+<!-- Detail modal -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal-sheet" id="detailSheet">
+    <div class="modal-handle"></div>
+    <div id="detailContent" style="padding:10px 20px 0;"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script>
+/* =========================================================
+   BSA CADASTRO — configuração do Firebase
+   Preencha com os dados do SEU projeto (ver guia enviado).
+   ========================================================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyDmM2m_QnEeRflAKCyb11TzOrZM7iVgLCA",
+  authDomain: "bsa-app-493c3.firebaseapp.com",
+  projectId: "bsa-app-493c3",
+  storageBucket: "bsa-app-493c3.firebasestorage.app",
+  messagingSenderId: "455452879388",
+  appId: "1:455452879388:web:7135d93c116b2fe7cfcdd9"
+};
+
+let db, auth;
+let alunosCache = [];
+let editingId = null;
+let capturedPhoto = null;
+let currentStream = null;
+let filterUnit = "todas";
+let filterStatus = "todos";
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+function initFirebase(){
+  if(firebaseConfig.apiKey === "COLE_AQUI"){
+    document.getElementById('setupBanner').style.display = 'block';
+    document.getElementById('statusLine').textContent = 'configuração pendente';
+    return;
+  }
+  try{
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    auth = firebase.auth();
+    db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+    auth.signInAnonymously().catch(err=>{
+      document.getElementById('statusLine').textContent = 'erro de login: ' + err.message;
+    });
+    auth.onAuthStateChanged(user=>{
+      if(user){
+        document.getElementById('statusLine').textContent = 'sincronizado';
+        listenAlunos();
+      }
+    });
+  }catch(e){
+    document.getElementById('statusLine').textContent = 'erro na configuração';
+    document.getElementById('setupBanner').style.display = 'block';
+  }
+}
+
+function listenAlunos(){
+  db.collection('alunos').orderBy('nome').onSnapshot(snap=>{
+    alunosCache = snap.docs.map(d=>({...d.data(), _docId:d.id}));
+    renderLista();
+  }, err=>{
+    document.getElementById('statusLine').textContent = 'erro de sincronização';
+  });
+}
+
+/* ---------- Navegação ---------- */
+function goToScreen(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  document.querySelectorAll('nav.tabbar button').forEach(b=>{
+    b.classList.toggle('active', b.dataset.screen === name);
+  });
+  if(name === 'cadastro' && !editingId){
+    resetForm();
+  }
+}
+document.querySelectorAll('nav.tabbar button').forEach(b=>{
+  b.addEventListener('click', ()=>goToScreen(b.dataset.screen));
+});
+document.getElementById('btnCancelar').addEventListener('click', ()=>{
+  resetForm();
+  goToScreen('lista');
+});
+
+/* ---------- Categoria automática ---------- */
+function calcCategoria(dataNasc){
+  if(!dataNasc) return '';
+  const nascYear = new Date(dataNasc).getFullYear();
+  const anoRef = new Date().getFullYear();
+  const idade = anoRef - nascYear;
+  const brackets = [7,9,11,13,15,17,20];
+  for(const b of brackets){
+    if(idade <= b - 1) return 'Sub-' + b;
+  }
+  return 'Sub-20+';
+}
+document.getElementById('fNascimento').addEventListener('change', e=>{
+  if(!document.getElementById('fCategoriaManualToggle').checked){
+    document.getElementById('fCategoria').value = calcCategoria(e.target.value);
+  }
+});
+document.getElementById('fCategoriaManualToggle').addEventListener('change', e=>{
+  document.getElementById('fCategoria').readOnly = !e.target.checked;
+  if(!e.target.checked){
+    document.getElementById('fCategoria').value = calcCategoria(document.getElementById('fNascimento').value);
+  }
+});
+
+/* ---------- Câmera ---------- */
+document.getElementById('btnOpenCamera').addEventListener('click', async ()=>{
+  const overlay = document.getElementById('cameraOverlay');
+  overlay.classList.add('active');
+  try{
+    currentStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}, audio:false});
+    document.getElementById('cameraVideo').srcObject = currentStream;
+  }catch(err){
+    showToast('Não foi possível acessar a câmera');
+    overlay.classList.remove('active');
+  }
+});
+function closeCamera(){
+  document.getElementById('cameraOverlay').classList.remove('active');
+  if(currentStream){
+    currentStream.getTracks().forEach(t=>t.stop());
+    currentStream = null;
+  }
+}
+document.getElementById('btnCancelCamera').addEventListener('click', closeCamera);
+document.getElementById('btnCapture').addEventListener('click', ()=>{
+  const video = document.getElementById('cameraVideo');
+  const canvas = document.getElementById('cameraCanvas');
+  const size = 480;
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const side = Math.min(vw, vh);
+  const sx = (vw - side)/2, sy = (vh - side)/2;
+  ctx.drawImage(video, sx, sy, side, side, 0, 0, size, size);
+  capturedPhoto = canvas.toDataURL('image/jpeg', 0.7);
+  const preview = document.getElementById('photoPreview');
+  preview.innerHTML = '<img src="'+capturedPhoto+'">';
+  closeCamera();
+});
+
+/* ---------- Formulário ---------- */
+function resetForm(){
+  editingId = null;
+  capturedPhoto = null;
+  document.getElementById('formTitle').textContent = 'Novo aluno';
+  document.getElementById('fNome').value = '';
+  document.getElementById('fNascimento').value = '';
+  document.getElementById('fCategoria').value = '';
+  document.getElementById('fCategoria').readOnly = true;
+  document.getElementById('fCategoriaManualToggle').checked = false;
+  document.getElementById('fUnidade').value = 'Carlos Prates';
+  document.getElementById('fRespNome').value = '';
+  document.getElementById('fRespWhats').value = '';
+  document.getElementById('fStatusMens').value = 'ativo';
+  document.getElementById('fMatricula').value = new Date().toISOString().slice(0,10);
+  document.getElementById('fObs').value = '';
+  document.getElementById('photoPreview').innerHTML = '📷';
+}
+
+async function gerarProximoId(){
+  const ref = db.collection('contadores').doc('alunos');
+  return db.runTransaction(async t=>{
+    const doc = await t.get(ref);
+    let ultimo = doc.exists ? doc.data().ultimo : 0;
+    ultimo += 1;
+    t.set(ref, {ultimo}, {merge:true});
+    return 'BSA' + String(ultimo).padStart(4,'0');
+  });
+}
+
+document.getElementById('btnSalvar').addEventListener('click', async ()=>{
+  if(!db){ showToast('Configure o Firebase primeiro'); return; }
+  const nome = document.getElementById('fNome').value.trim();
+  if(!nome){ showToast('Informe o nome do aluno'); return; }
+  const nascimento = document.getElementById('fNascimento').value;
+  if(!nascimento){ showToast('Informe a data de nascimento'); return; }
+
+  const dados = {
+    nome,
+    dataNascimento: nascimento,
+    categoria: document.getElementById('fCategoria').value || calcCategoria(nascimento),
+    unidade: document.getElementById('fUnidade').value,
+    responsavelNome: document.getElementById('fRespNome').value.trim(),
+    responsavelWhatsapp: document.getElementById('fRespWhats').value.trim(),
+    statusMensalidade: document.getElementById('fStatusMens').value,
+    dataMatricula: document.getElementById('fMatricula').value,
+    observacoes: document.getElementById('fObs').value.trim(),
+    statusGeral: 'ativo',
+    atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  if(capturedPhoto) dados.foto = capturedPhoto;
+
+  try{
+    if(editingId){
+      await db.collection('alunos').doc(editingId).update(dados);
+      showToast('Aluno atualizado');
+    }else{
+      dados.id = await gerarProximoId();
+      dados.criadoEm = firebase.firestore.FieldValue.serverTimestamp();
+      if(!dados.foto) dados.foto = null;
+      const novo = await db.collection('alunos').add(dados);
+      editingId = novo.id;
+      showToast('Aluno cadastrado: ' + dados.id);
+    }
+    resetForm();
+    goToScreen('lista');
+  }catch(err){
+    showToast('Erro ao salvar: ' + err.message);
+  }
+});
+
+/* ---------- Lista ---------- */
+document.getElementById('searchInput').addEventListener('input', renderLista);
+document.querySelectorAll('#unitChips .chip').forEach(c=>{
+  c.addEventListener('click', ()=>{
+    document.querySelectorAll('#unitChips .chip').forEach(x=>x.classList.remove('active'));
+    c.classList.add('active');
+    filterUnit = c.dataset.unit;
+    renderLista();
+  });
+});
+document.querySelectorAll('#statusChips .chip').forEach(c=>{
+  c.addEventListener('click', ()=>{
+    document.querySelectorAll('#statusChips .chip').forEach(x=>x.classList.remove('active'));
+    c.classList.add('active');
+    filterStatus = c.dataset.status;
+    renderLista();
+  });
+});
+
+function renderLista(){
+  const term = document.getElementById('searchInput').value.trim().toLowerCase();
+  let lista = alunosCache.filter(a=>{
+    if(filterUnit !== 'todas' && a.unidade !== filterUnit) return false;
+    if(filterStatus !== 'todos' && a.statusMensalidade !== filterStatus) return false;
+    if(term && !a.nome.toLowerCase().includes(term)) return false;
+    return true;
+  });
+  document.getElementById('countBadge').textContent = alunosCache.length;
+  const container = document.getElementById('listContainer');
+  if(lista.length === 0){
+    container.innerHTML = `<div class="empty"><div class="big">🎽</div><div>Nenhum aluno encontrado.</div></div>`;
+    return;
+  }
+  container.innerHTML = lista.map(a=>{
+    const iniciais = a.nome.split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase();
+    const foto = a.foto ? `<img class="avatar" src="${a.foto}">` : `<div class="avatar placeholder">${iniciais}</div>`;
+    return `
+      <div class="card ${a.statusGeral === 'inativo' ? 'inativo' : ''}" onclick="abrirDetalhe('${a._docId}')">
+        <div class="avatar-wrap">
+          ${foto}
+          <div class="dot ${a.statusMensalidade}"></div>
+        </div>
+        <div class="info">
+          <p class="name">${a.nome}</p>
+          <div class="meta">
+            <span class="pill">${a.id || '—'}</span>
+            <span>${a.categoria || ''}</span>
+            <span>· ${a.unidade}</span>
+          </div>
+        </div>
+        <div class="chevron">›</div>
+      </div>`;
+  }).join('');
+}
+
+/* ---------- Detalhe / edição ---------- */
+function abrirDetalhe(docId){
+  const a = alunosCache.find(x=>x._docId === docId);
+  if(!a) return;
+  const foto = a.foto ? `<img src="${a.foto}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">` : '👤';
+  document.getElementById('detailContent').innerHTML = `
+    <div style="text-align:center; margin-bottom:14px;">
+      <div style="width:96px;height:96px;border-radius:50%;background:var(--pitch-soft);margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:38px;border:3px solid var(--gold); overflow:hidden;">${foto}</div>
+      <h2 class="display" style="margin:4px 0 2px;">${a.nome}</h2>
+      <span class="pill mono">${a.id || '—'}</span>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;">
+      <div class="card" style="display:block;"><div class="hint">Categoria</div><b>${a.categoria || '—'}</b></div>
+      <div class="card" style="display:block;"><div class="hint">Unidade</div><b>${a.unidade}</b></div>
+      <div class="card" style="display:block;"><div class="hint">Mensalidade</div><b>${a.statusMensalidade}</b></div>
+      <div class="card" style="display:block;"><div class="hint">Matrícula</div><b>${a.dataMatricula || '—'}</b></div>
+    </div>
+    <div class="card" style="display:block; margin-bottom:16px;">
+      <div class="hint">Responsável</div>
+      <b>${a.responsavelNome || '—'}</b>
+      <div class="hint" style="margin-top:6px;">WhatsApp</div>
+      <b>${a.responsavelWhatsapp || '—'}</b>
+    </div>
+    ${a.observacoes ? `<div class="card" style="display:block; margin-bottom:16px;"><div class="hint">Observações</div>${a.observacoes}</div>` : ''}
+    <button class="btn btn-primary btn-block" onclick="editarAluno('${docId}')">Editar</button>
+    <button class="btn btn-outline btn-block" onclick="toggleAtivo('${docId}')">${a.statusGeral === 'inativo' ? 'Reativar aluno' : 'Marcar como inativo'}</button>
+    <button class="btn btn-danger btn-block" onclick="excluirAluno('${docId}')">Excluir cadastro</button>
+    <button class="btn btn-outline btn-block" onclick="fecharDetalhe()">Fechar</button>
+  `;
+  document.getElementById('detailModal').classList.add('active');
+}
+function fecharDetalhe(){
+  document.getElementById('detailModal').classList.remove('active');
+}
+document.getElementById('detailModal').addEventListener('click', e=>{
+  if(e.target.id === 'detailModal') fecharDetalhe();
+});
+
+function editarAluno(docId){
+  const a = alunosCache.find(x=>x._docId === docId);
+  if(!a) return;
+  editingId = docId;
+  capturedPhoto = null;
+  fecharDetalhe();
+  goToScreen('cadastro');
+  document.getElementById('formTitle').textContent = 'Editar aluno';
+  document.getElementById('fNome').value = a.nome;
+  document.getElementById('fNascimento').value = a.dataNascimento;
+  document.getElementById('fCategoria').value = a.categoria;
+  document.getElementById('fUnidade').value = a.unidade;
+  document.getElementById('fRespNome').value = a.responsavelNome || '';
+  document.getElementById('fRespWhats').value = a.responsavelWhatsapp || '';
+  document.getElementById('fStatusMens').value = a.statusMensalidade;
+  document.getElementById('fMatricula').value = a.dataMatricula || '';
+  document.getElementById('fObs').value = a.observacoes || '';
+  document.getElementById('photoPreview').innerHTML = a.foto ? `<img src="${a.foto}">` : '📷';
+}
+
+async function toggleAtivo(docId){
+  const a = alunosCache.find(x=>x._docId === docId);
+  if(!a) return;
+  const novoStatus = a.statusGeral === 'inativo' ? 'ativo' : 'inativo';
+  await db.collection('alunos').doc(docId).update({statusGeral: novoStatus});
+  showToast(novoStatus === 'inativo' ? 'Aluno marcado como inativo' : 'Aluno reativado');
+  fecharDetalhe();
+}
+
+async function excluirAluno(docId){
+  if(!confirm('Tem certeza que deseja excluir este cadastro? Essa ação não pode ser desfeita.')) return;
+  await db.collection('alunos').doc(docId).delete();
+  showToast('Cadastro excluído');
+  fecharDetalhe();
+}
+
+/* ---------- Início ---------- */
+document.getElementById('fMatricula').value = new Date().toISOString().slice(0,10);
+initFirebase();
+</script>
+</body>
+</html>
