@@ -191,6 +191,12 @@
   }
   @keyframes slideup{from{transform:translateY(24px); opacity:0.6;} to{transform:translateY(0); opacity:1;}}
   .modal-handle{width:36px; height:4px; background:var(--line); border-radius:3px; margin:10px auto 4px;}
+  .modal-close-row{display:flex; justify-content:flex-end; padding:0 16px;}
+  .modal-close-btn{
+    border:none; background:var(--pitch-soft); color:var(--pitch-dark);
+    width:34px; height:34px; border-radius:50%; font-size:18px; font-weight:700;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
 
   .toast{
     position:fixed; bottom:90px; left:50%; transform:translateX(-50%);
@@ -345,6 +351,7 @@
 <div class="modal-overlay" id="detailModal">
   <div class="modal-sheet" id="detailSheet">
     <div class="modal-handle"></div>
+    <div class="modal-close-row"><button class="modal-close-btn" onclick="fecharDetalhe()">✕</button></div>
     <div id="detailContent" style="padding:10px 20px 0;"></div>
   </div>
 </div>
