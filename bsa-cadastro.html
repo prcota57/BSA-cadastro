@@ -332,9 +332,35 @@
   </div>
 </section>
 
+<!-- IMPORTAR -->
+<section class="screen" id="screen-importar">
+  <div class="formwrap">
+    <h2>Importar planilha</h2>
+    <div class="hint" style="margin-bottom:16px;">Envie um arquivo .xlsx exportado do Google Forms/Excel. Todos os alunos da planilha serão cadastrados na unidade escolhida abaixo. Depois é só completar os dados que faltarem em cada aluno.</div>
+
+    <div class="field">
+      <label>Unidade desta planilha</label>
+      <select id="impUnidade">
+        <option value="Carlos Prates">Carlos Prates</option>
+        <option value="Estoril">Estoril</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Arquivo (.xlsx)</label>
+      <input type="file" id="impFile" accept=".xlsx,.xls">
+    </div>
+
+    <button class="btn btn-gold btn-block" id="btnAnalisar" type="button">Analisar planilha</button>
+
+    <div id="impPreview" style="margin-top:18px;"></div>
+  </div>
+</section>
+
 <nav class="tabbar">
   <button class="active" data-screen="lista"><span class="ic">📋</span>Alunos</button>
   <button data-screen="cadastro"><span class="ic">➕</span>Novo</button>
+  <button data-screen="importar"><span class="ic">📥</span>Importar</button>
 </nav>
 
 <!-- Camera overlay -->
@@ -361,6 +387,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 /* =========================================================
    BSA CADASTRO — configuração do Firebase
@@ -703,6 +730,135 @@ async function excluirAluno(docId){
   await db.collection('alunos').doc(docId).delete();
   showToast('Cadastro excluído');
   fecharDetalhe();
+}
+
+/* ---------- Importação de planilha ---------- */
+let importRows = [];
+
+function normalizeHeader(h){
+  return (h||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+}
+function findColIndex(headersNorm, candidates){
+  for(const c of candidates){
+    const idx = headersNorm.findIndex(h => h.includes(c));
+    if(idx !== -1) return idx;
+  }
+  return -1;
+}
+function cleanPhone(v){
+  if(v === null || v === undefined || v === '') return '';
+  let s = String(v).trim();
+  if(/e\+?\d+/i.test(s)){
+    const num = Number(v);
+    if(!isNaN(num)) s = num.toFixed(0);
+  }
+  return s;
+}
+function parseDateCell(v){
+  if(!v) return '';
+  const s = String(v).trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return m[0].slice(0,10);
+  return '';
+}
+
+document.getElementById('btnAnalisar').addEventListener('click', async ()=>{
+  const fileInput = document.getElementById('impFile');
+  const file = fileInput.files[0];
+  if(!file){ showToast('Selecione um arquivo primeiro'); return; }
+  const preview = document.getElementById('impPreview');
+  preview.innerHTML = '<div class="hint">Lendo planilha...</div>';
+  try{
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, {type:'array', cellDates:true});
+    const sheetName = wb.SheetNames.find(n => normalizeHeader(n).includes('resposta')) || wb.SheetNames[0];
+    const ws = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:false, dateNF:'yyyy-mm-dd', defval:''});
+    if(rows.length < 2){ preview.innerHTML = '<div class="hint">Planilha vazia ou sem dados reconhecíveis.</div>'; return; }
+    const headers = rows[0];
+    const headersNorm = headers.map(normalizeHeader);
+    const col = {
+      nome: findColIndex(headersNorm, ['nome completo do aluno','nome do aluno','nome aluno']),
+      nascimento: findColIndex(headersNorm, ['data de nascimento','nascimento']),
+      responsavel: findColIndex(headersNorm, ['nome completo do responsavel','nome do responsavel','responsavel']),
+      whatsapp: findColIndex(headersNorm, ['whatsapp','numero do whatsapp','telefone'])
+    };
+    if(col.nome === -1){
+      preview.innerHTML = '<div class="hint">Não consegui encontrar a coluna de nome do aluno nessa planilha. Confira se é o arquivo certo.</div>';
+      return;
+    }
+    importRows = [];
+    for(let i=1; i<rows.length; i++){
+      const r = rows[i];
+      const nome = (r[col.nome] || '').toString().trim();
+      if(!nome) continue;
+      importRows.push({
+        nome,
+        dataNascimento: col.nascimento !== -1 ? parseDateCell(r[col.nascimento]) : '',
+        responsavelNome: col.responsavel !== -1 ? (r[col.responsavel]||'').toString().trim() : '',
+        responsavelWhatsapp: col.whatsapp !== -1 ? cleanPhone(r[col.whatsapp]) : ''
+      });
+    }
+    if(importRows.length === 0){
+      preview.innerHTML = '<div class="hint">Nenhum aluno com nome preenchido foi encontrado.</div>';
+      return;
+    }
+    const semNascimento = importRows.filter(r => !r.dataNascimento).length;
+    preview.innerHTML = `
+      <div class="card" style="display:block; margin-bottom:14px;">
+        <b>${importRows.length} alunos encontrados</b>
+        <div class="hint" style="margin-top:6px;">${semNascimento > 0 ? semNascimento + ' sem data de nascimento — você completa depois de importar.' : 'Todos com data de nascimento preenchida.'}</div>
+      </div>
+      <div class="hint" style="margin-bottom:10px;">Prévia dos 5 primeiros:</div>
+      ${importRows.slice(0,5).map(r => `<div class="card" style="display:block; margin-bottom:8px;"><b>${r.nome}</b><div class="hint">${r.dataNascimento || 'sem data nasc.'} · ${r.responsavelNome || 'sem responsável'} · ${r.responsavelWhatsapp || 'sem whatsapp'}</div></div>`).join('')}
+      <button class="btn btn-primary btn-block" id="btnConfirmarImport" type="button">Confirmar importação (${importRows.length} alunos)</button>
+      <div id="impProgress" class="hint" style="margin-top:10px;"></div>
+    `;
+    document.getElementById('btnConfirmarImport').addEventListener('click', confirmarImportacao);
+  }catch(err){
+    preview.innerHTML = '<div class="hint">Erro ao ler o arquivo: ' + err.message + '</div>';
+  }
+});
+
+async function confirmarImportacao(){
+  if(!db){ showToast('Configure o Firebase primeiro'); return; }
+  const unidade = document.getElementById('impUnidade').value;
+  const btn = document.getElementById('btnConfirmarImport');
+  const progress = document.getElementById('impProgress');
+  btn.disabled = true;
+  let sucesso = 0, falha = 0;
+  for(let i=0; i<importRows.length; i++){
+    const r = importRows[i];
+    progress.textContent = `Importando ${i+1}/${importRows.length}...`;
+    try{
+      const id = await gerarProximoId();
+      const dados = {
+        id,
+        nome: r.nome,
+        dataNascimento: r.dataNascimento || '',
+        categoria: r.dataNascimento ? calcCategoria(r.dataNascimento) : '',
+        unidade,
+        foto: null,
+        responsavelNome: r.responsavelNome || '',
+        responsavelWhatsapp: r.responsavelWhatsapp || '',
+        statusMensalidade: 'ativo',
+        dataMatricula: new Date().toISOString().slice(0,10),
+        statusGeral: 'ativo',
+        observacoes: '',
+        criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+        atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      await db.collection('alunos').add(dados);
+      sucesso++;
+    }catch(err){
+      falha++;
+    }
+  }
+  progress.textContent = `Concluído: ${sucesso} alunos importados${falha > 0 ? ', ' + falha + ' falharam' : ''}.`;
+  showToast(`${sucesso} alunos importados`);
+  btn.disabled = false;
+  btn.textContent = 'Importação concluída';
+  document.getElementById('impFile').value = '';
 }
 
 /* ---------- Início ---------- */
