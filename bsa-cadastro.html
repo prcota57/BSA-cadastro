@@ -361,6 +361,17 @@
     <div class="hint" style="margin-bottom:14px;">Se você importou a mesma planilha duas vezes, use isto para encontrar alunos com o mesmo nome e apagar as cópias extras (mantém sempre o cadastro mais antigo).</div>
     <button class="btn btn-outline btn-block" id="btnScanDup" type="button">Buscar duplicados</button>
     <div id="dupPreview" style="margin-top:14px;"></div>
+
+    <div style="height:1px; background:var(--line); margin:28px 0;"></div>
+
+    <h2 style="font-size:17px; color:#B23A20;">Zona de risco — apagar todos os alunos</h2>
+    <div class="hint" style="margin-bottom:14px;">Isso apaga <b>todos</b> os alunos cadastrados, das duas unidades, sem volta. Use apenas se for recomeçar o cadastro do zero a partir de uma planilha limpa. Fotos e descritores faciais também serão perdidos.</div>
+    <div class="field">
+      <label>Digite APAGAR TUDO para habilitar</label>
+      <input type="text" id="confirmApagarTudo" placeholder="APAGAR TUDO">
+    </div>
+    <button class="btn btn-block" id="btnApagarTudo" type="button" disabled style="background:#B23A20; color:#fff;">Apagar todos os alunos</button>
+    <div id="apagarTudoProgress" class="hint" style="margin-top:10px;"></div>
     <div style="height:60px;"></div>
   </div>
 </section>
@@ -957,6 +968,40 @@ async function confirmarRemocaoDuplicados(){
   btn.textContent = 'Remoção concluída';
   duplicatasParaRemover = [];
 }
+
+/* ---------- Apagar todos os alunos (zona de risco) ---------- */
+document.getElementById('confirmApagarTudo').addEventListener('input', (e)=>{
+  document.getElementById('btnApagarTudo').disabled = e.target.value.trim() !== 'APAGAR TUDO';
+});
+
+document.getElementById('btnApagarTudo').addEventListener('click', async ()=>{
+  if(!db){ showToast('Configure o Firebase primeiro'); return; }
+  const btn = document.getElementById('btnApagarTudo');
+  const progress = document.getElementById('apagarTudoProgress');
+  btn.disabled = true;
+  progress.textContent = 'Buscando todos os alunos...';
+  try{
+    const snap = await db.collection('alunos').get();
+    const docs = snap.docs;
+    const total = docs.length;
+    let apagados = 0;
+    const tamanhoLote = 400;
+    for(let i=0; i<docs.length; i += tamanhoLote){
+      const lote = db.batch();
+      const pedaco = docs.slice(i, i + tamanhoLote);
+      pedaco.forEach(d => lote.delete(d.ref));
+      await lote.commit();
+      apagados += pedaco.length;
+      progress.textContent = `Apagando... ${apagados}/${total}`;
+    }
+    progress.textContent = `Concluído: ${apagados} alunos apagados.`;
+    showToast(`${apagados} alunos apagados`);
+    document.getElementById('confirmApagarTudo').value = '';
+  }catch(err){
+    progress.textContent = 'Erro: ' + err.message;
+    btn.disabled = false;
+  }
+});
 
 /* ---------- Início ---------- */
 document.getElementById('fMatricula').value = new Date().toISOString().slice(0,10);
