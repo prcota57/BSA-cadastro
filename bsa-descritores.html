@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<title>BSA Descritores</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F6F8F4;
+    --surface:#FFFFFF;
+    --pitch:#0F5C3D;
+    --pitch-dark:#0B4530;
+    --pitch-soft:#E4EFE8;
+    --gold:#FFC800;
+    --gold-soft:#FFF3CC;
+    --coral:#FF5A36;
+    --coral-soft:#FFE4DC;
+    --ink:#142B20;
+    --ink-soft:#5C7268;
+    --line:#DCE5DD;
+    --radius:18px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif; height:100%;}
+  body{padding-bottom:calc(30px + env(safe-area-inset-bottom)); padding-top:env(safe-area-inset-top);}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  .display{font-family:'Space Grotesk',sans-serif;}
+
+  header.top{
+    position:sticky; top:0; z-index:20;
+    background:var(--pitch); color:#fff;
+    padding:18px 20px 16px; border-radius:0 0 22px 22px;
+    box-shadow:0 6px 18px rgba(15,92,61,0.18);
+  }
+  header.top .row{display:flex; align-items:center; justify-content:space-between;}
+  header.top h1{font-family:'Space Grotesk',sans-serif; font-size:20px; font-weight:700; margin:0;}
+  header.top .sub{font-size:12.5px; opacity:0.85; margin-top:2px;}
+  .badge-count{
+    background:var(--gold); color:var(--pitch-dark); font-family:'Space Grotesk';
+    font-weight:700; font-size:13px; padding:5px 11px; border-radius:20px;
+  }
+
+  main{padding:16px 16px 20px;}
+
+  .panel{
+    background:var(--surface); border-radius:var(--radius); padding:16px;
+    margin-bottom:14px; border:1px solid var(--line); box-shadow:0 2px 8px rgba(20,43,32,0.05);
+  }
+  .panel h2{font-family:'Space Grotesk'; font-size:16px; margin:0 0 10px;}
+
+  .stats-row{display:flex; gap:10px; margin-bottom:4px;}
+  .stat{flex:1; text-align:center; background:var(--pitch-soft); border-radius:14px; padding:12px 6px;}
+  .stat .num{font-family:'Space Grotesk'; font-size:22px; font-weight:700; color:var(--pitch-dark);}
+  .stat .lbl{font-size:11px; color:var(--ink-soft); margin-top:2px;}
+  .stat.ok .num{color:var(--pitch-dark);}
+  .stat.pend .num{color:#8A6D00;}
+  .stat.err .num{color:#B23A20;}
+  .stat.err{background:var(--coral-soft);}
+  .stat.pend{background:var(--gold-soft);}
+
+  .progress-wrap{margin:14px 0 4px; background:var(--pitch-soft); border-radius:20px; height:10px; overflow:hidden;}
+  .progress-bar{height:100%; background:var(--pitch); width:0%; transition:width 0.25s;}
+  .progress-label{font-size:12px; color:var(--ink-soft); margin-top:6px; text-align:center;}
+
+  .btn{
+    border:none; border-radius:14px; padding:14px 18px; font-family:'Space Grotesk';
+    font-weight:600; font-size:15px; cursor:pointer; text-align:center; width:100%;
+  }
+  .btn-primary{background:var(--pitch); color:#fff;}
+  .btn-primary:disabled{background:var(--line); color:var(--ink-soft);}
+  .btn-outline{background:transparent; border:1.5px solid var(--pitch); color:var(--pitch); margin-top:10px;}
+  .btn-gold{background:var(--gold); color:var(--pitch-dark); margin-top:10px;}
+
+  .loadmsg{display:flex; align-items:center; gap:10px; font-size:13.5px; color:var(--ink-soft); margin-bottom:6px;}
+  .spinner{
+    width:16px; height:16px; border:2.5px solid var(--pitch-soft); border-top-color:var(--pitch);
+    border-radius:50%; animation:spin 0.8s linear infinite; flex:0 0 auto;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .list{margin-top:4px;}
+  .row-aluno{
+    display:flex; align-items:center; gap:12px; padding:10px 4px;
+    border-bottom:1px solid var(--line);
+  }
+  .row-aluno:last-child{border-bottom:none;}
+  .avatar{width:42px; height:42px; border-radius:50%; object-fit:cover; border:2px solid var(--gold); background:var(--pitch-soft); flex:0 0 auto;}
+  .avatar.placeholder{display:flex; align-items:center; justify-content:center; font-family:'Space Grotesk'; font-weight:700; color:var(--pitch); font-size:14px;}
+  .row-aluno .info{flex:1; min-width:0;}
+  .row-aluno .name{font-weight:600; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .row-aluno .meta{font-size:11.5px; color:var(--ink-soft);}
+  .status-pill{
+    font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; flex:0 0 auto; font-family:'Space Grotesk';
+  }
+  .status-pill.ok{background:var(--pitch-soft); color:var(--pitch-dark);}
+  .status-pill.pend{background:var(--gold-soft); color:#8A6D00;}
+  .status-pill.err{background:var(--coral-soft); color:#B23A20;}
+  .status-pill.working{background:var(--pitch); color:#fff;}
+
+  .empty{text-align:center; padding:40px 20px; color:var(--ink-soft); font-size:13.5px;}
+
+  .setup-banner{
+    margin:0 0 14px; padding:14px; background:var(--coral-soft); border-radius:14px;
+    color:#8A2E19; font-size:13px; line-height:1.5;
+  }
+  .setup-banner b{display:block; margin-bottom:4px; font-family:'Space Grotesk';}
+
+  .filter-row{display:flex; gap:8px; margin-bottom:10px;}
+  .filter-row button{
+    flex:1; padding:8px 4px; border-radius:12px; border:1px solid var(--line); background:var(--surface);
+    color:var(--ink-soft); font-family:'Inter'; font-weight:600; font-size:12px; cursor:pointer;
+  }
+  .filter-row button.active{background:var(--pitch); color:#fff; border-color:var(--pitch);}
+
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:var(--pitch-dark); color:#fff; padding:11px 20px; border-radius:30px;
+    font-size:13.5px; font-weight:600; z-index:200; opacity:0; transition:opacity 0.25s;
+    box-shadow:0 6px 16px rgba(0,0,0,0.2); pointer-events:none; white-space:nowrap; max-width:90vw;
+    overflow:hidden; text-overflow:ellipsis;
+  }
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="row">
+    <div>
+      <h1>BSA Descritores</h1>
+      <div class="sub" id="statusLine">conectando...</div>
+    </div>
+    <div class="badge-count mono" id="countBadge">0</div>
+  </div>
+</header>
+
+<main>
+
+  <div id="setupBanner" class="setup-banner" style="display:none;">
+    <b>Configuração necessária</b>
+    Preencha o objeto <span class="mono">firebaseConfig</span> no final do código com os dados do seu projeto Firebase.
+  </div>
+
+  <div class="panel" id="modelPanel">
+    <h2>Carregando modelo de reconhecimento facial</h2>
+    <div class="loadmsg"><div class="spinner"></div> <span id="modelStatus">Baixando modelos, aguarde...</span></div>
+  </div>
+
+  <div class="panel" id="statsPanel" style="display:none;">
+    <h2>Status dos alunos</h2>
+    <div class="stats-row">
+      <div class="stat ok"><div class="num" id="statOk">0</div><div class="lbl">prontos</div></div>
+      <div class="stat pend"><div class="num" id="statPend">0</div><div class="lbl">pendentes</div></div>
+      <div class="stat err"><div class="num" id="statErr">0</div><div class="lbl">com erro</div></div>
+    </div>
+
+    <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
+    <div class="progress-label" id="progressLabel">&nbsp;</div>
+
+    <button class="btn btn-primary" id="btnProcessar" style="margin-top:14px;" disabled>Processar alunos pendentes</button>
+    <button class="btn btn-outline" id="btnReprocessarErros" style="display:none;">Tentar novamente os que deram erro</button>
+  </div>
+
+  <div class="panel" id="listPanel" style="display:none;">
+    <h2>Alunos</h2>
+    <div class="filter-row">
+      <button class="active" data-f="todos">Todos</button>
+      <button data-f="pend">Pendentes</button>
+      <button data-f="err">Erros</button>
+      <button data-f="ok">Prontos</button>
+    </div>
+    <div class="list" id="listaAlunos"></div>
+    <div class="empty" id="listaEmpty" style="display:none;">Nenhum aluno nessa categoria.</div>
+  </div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+<!-- face-api.js (build mantido por vladmandic, compatível com TensorFlow.js atual) -->
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+<script>
+const MODEL_URL = "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js/weights/";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDmM2m_QnEeRflAKCyb11TzOrZM7iVgLCA",
+  authDomain: "bsa-app-493c3.firebaseapp.com",
+  projectId: "bsa-app-493c3",
+  storageBucket: "bsa-app-493c3.firebasestorage.app",
+  messagingSenderId: "455452879388",
+  appId: "1:455452879388:web:7135d93c116b2fe7cfcdd9"
+};
+
+let db, auth;
+let alunosCache = [];
+let modelosProntos = false;
+let filtroAtual = 'todos';
+let processando = false;
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+function initFirebase(){
+  if(firebaseConfig.apiKey === "COLE_AQUI"){
+    document.getElementById('setupBanner').style.display = 'block';
+    document.getElementById('statusLine').textContent = 'configuração pendente';
+    return;
+  }
+  try{
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    auth = firebase.auth();
+    auth.signInAnonymously().catch(err=>{
+      document.getElementById('statusLine').textContent = 'erro de login: ' + err.message;
+    });
+    auth.onAuthStateChanged(user=>{
+      if(user){
+        document.getElementById('statusLine').textContent = 'conectado';
+        carregarModelosEAlunos();
+      }
+    });
+  }catch(err){
+    document.getElementById('statusLine').textContent = 'erro: ' + err.message;
+  }
+}
+
+async function carregarModelosEAlunos(){
+  try{
+    document.getElementById('modelStatus').textContent = 'Baixando modelos (tiny face detector)...';
+    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+    document.getElementById('modelStatus').textContent = 'Baixando modelos (landmarks)...';
+    await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+    document.getElementById('modelStatus').textContent = 'Baixando modelos (reconhecimento)...';
+    await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+    modelosProntos = true;
+    document.getElementById('modelPanel').style.display = 'none';
+    document.getElementById('statsPanel').style.display = 'block';
+    document.getElementById('listPanel').style.display = 'block';
+    listenAlunos();
+  }catch(err){
+    document.getElementById('modelStatus').textContent = 'Erro ao carregar modelos: ' + err.message;
+  }
+}
+
+function listenAlunos(){
+  db.collection('alunos').orderBy('nome').onSnapshot(snap=>{
+    alunosCache = [];
+    snap.forEach(doc=>{
+      const d = doc.data();
+      alunosCache.push({
+        id: doc.id,
+        nome: d.nome || '(sem nome)',
+        unidade: d.unidade || '',
+        foto: d.foto || null,
+        faceDescriptor: d.faceDescriptor || null,
+        faceDescriptorErro: d.faceDescriptorErro || null
+      });
+    });
+    document.getElementById('countBadge').textContent = alunosCache.length;
+    atualizarStats();
+    renderLista();
+  }, err=>{
+    document.getElementById('statusLine').textContent = 'erro ao ler alunos: ' + err.message;
+  });
+}
+
+function classificar(a){
+  if(!a.foto) return 'semfoto';
+  if(a.faceDescriptor) return 'ok';
+  if(a.faceDescriptorErro) return 'err';
+  return 'pend';
+}
+
+function atualizarStats(){
+  let ok=0, pend=0, err=0;
+  alunosCache.forEach(a=>{
+    const c = classificar(a);
+    if(c==='ok') ok++;
+    else if(c==='err') err++;
+    else if(c==='pend') pend++;
+    // 'semfoto' não entra nas contagens de processamento
+  });
+  document.getElementById('statOk').textContent = ok;
+  document.getElementById('statPend').textContent = pend;
+  document.getElementById('statErr').textContent = err;
+  document.getElementById('btnProcessar').disabled = (pend===0) || processando;
+  document.getElementById('btnProcessar').textContent = pend>0 ? `Processar ${pend} aluno(s) pendente(s)` : 'Nenhum pendente';
+  document.getElementById('btnReprocessarErros').style.display = err>0 ? 'block' : 'none';
+}
+
+function iniciaisDe(nome){
+  return nome.split(' ').filter(Boolean).slice(0,2).map(p=>p[0].toUpperCase()).join('');
+}
+
+function renderLista(){
+  const cont = document.getElementById('listaAlunos');
+  const vazio = document.getElementById('listaEmpty');
+  let itens = alunosCache;
+  if(filtroAtual !== 'todos'){
+    itens = alunosCache.filter(a=>{
+      const c = classificar(a);
+      if(filtroAtual==='pend') return c==='pend';
+      if(filtroAtual==='err') return c==='err';
+      if(filtroAtual==='ok') return c==='ok';
+      return true;
+    });
+  }
+  if(itens.length===0){
+    cont.innerHTML = '';
+    vazio.style.display = 'block';
+    return;
+  }
+  vazio.style.display = 'none';
+  cont.innerHTML = itens.map(a=>{
+    const c = classificar(a);
+    const foto = a.foto ? `<img class="avatar" src="${a.foto}">` : `<div class="avatar placeholder">${iniciaisDe(a.nome)}</div>`;
+    let pill = '';
+    if(c==='ok') pill = '<span class="status-pill ok">pronto</span>';
+    else if(c==='err') pill = '<span class="status-pill err" title="'+(a.faceDescriptorErro||'')+'">erro</span>';
+    else if(c==='semfoto') pill = '<span class="status-pill err">sem foto</span>';
+    else pill = `<span class="status-pill pend" data-pend-id="${a.id}">pendente</span>`;
+    return `<div class="row-aluno" id="linha-${a.id}">
+      ${foto}
+      <div class="info">
+        <div class="name">${a.nome}</div>
+        <div class="meta">${a.unidade}</div>
+      </div>
+      ${pill}
+    </div>`;
+  }).join('');
+}
+
+function marcarProcessando(id){
+  const linha = document.getElementById('linha-'+id);
+  if(!linha) return;
+  const pillSlot = linha.querySelector('.status-pill');
+  if(pillSlot) pillSlot.outerHTML = '<span class="status-pill working">processando…</span>';
+}
+
+function carregarImagem(dataUri){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = ()=>resolve(img);
+    img.onerror = ()=>reject(new Error('não foi possível carregar a foto'));
+    img.src = dataUri;
+  });
+}
+
+async function processarAluno(aluno){
+  marcarProcessando(aluno.id);
+  try{
+    const img = await carregarImagem(aluno.foto);
+    const opcoes = new faceapi.TinyFaceDetectorOptions({inputSize: 416, scoreThreshold: 0.4});
+    const deteccao = await faceapi
+      .detectSingleFace(img, opcoes)
+      .withFaceLandmarks()
+      .withFaceDescriptor();
+
+    if(!deteccao){
+      await db.collection('alunos').doc(aluno.id).update({
+        faceDescriptorErro: 'nenhum rosto detectado na foto',
+        faceDescriptor: firebase.firestore.FieldValue.delete()
+      });
+      return {ok:false};
+    }
+
+    const descritorArray = Array.from(deteccao.descriptor);
+    await db.collection('alunos').doc(aluno.id).update({
+      faceDescriptor: descritorArray,
+      faceDescriptorErro: firebase.firestore.FieldValue.delete(),
+      faceDescriptorAtualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    return {ok:true};
+  }catch(err){
+    await db.collection('alunos').doc(aluno.id).update({
+      faceDescriptorErro: err.message || 'erro desconhecido'
+    });
+    return {ok:false};
+  }
+}
+
+async function processarLote(lista){
+  if(processando || lista.length===0) return;
+  processando = true;
+  document.getElementById('btnProcessar').disabled = true;
+  document.getElementById('btnReprocessarErros').disabled = true;
+
+  let feitos = 0;
+  const total = lista.length;
+  for(const aluno of lista){
+    document.getElementById('progressLabel').textContent = `Processando ${aluno.nome} (${feitos+1}/${total})`;
+    await processarAluno(aluno);
+    feitos++;
+    const pct = Math.round((feitos/total)*100);
+    document.getElementById('progressBar').style.width = pct + '%';
+  }
+
+  processando = false;
+  document.getElementById('progressLabel').textContent = `Concluído: ${feitos} aluno(s) processado(s).`;
+  setTimeout(()=>{ document.getElementById('progressBar').style.width = '0%'; document.getElementById('progressLabel').innerHTML='&nbsp;'; }, 3000);
+  toast('Processamento concluído');
+  atualizarStats();
+}
+
+document.getElementById('btnProcessar').addEventListener('click', ()=>{
+  const pendentes = alunosCache.filter(a=>classificar(a)==='pend');
+  processarLote(pendentes);
+});
+
+document.getElementById('btnReprocessarErros').addEventListener('click', ()=>{
+  const comErro = alunosCache.filter(a=>classificar(a)==='err');
+  processarLote(comErro);
+});
+
+document.querySelectorAll('.filter-row button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.filter-row button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    filtroAtual = btn.dataset.f;
+    renderLista();
+  });
+});
+
+initFirebase();
+</script>
+</body>
+</html>
