@@ -361,6 +361,7 @@
     <div class="hint" style="margin-bottom:14px;">Se você importou a mesma planilha duas vezes, use isto para encontrar alunos com o mesmo nome e apagar as cópias extras (mantém sempre o cadastro mais antigo).</div>
     <button class="btn btn-outline btn-block" id="btnScanDup" type="button">Buscar duplicados</button>
     <div id="dupPreview" style="margin-top:14px;"></div>
+    <div style="height:60px;"></div>
   </div>
 </section>
 
@@ -885,6 +886,76 @@ async function confirmarImportacao(){
   btn.disabled = false;
   btn.textContent = 'Importação concluída';
   document.getElementById('impFile').value = '';
+}
+
+/* ---------- Remover duplicados ---------- */
+let duplicatasParaRemover = [];
+
+function normalizeNome(n){
+  return (n||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim().replace(/\s+/g,' ');
+}
+function idNumero(id){
+  const m = (id||'').match(/(\d+)/);
+  return m ? parseInt(m[1],10) : 999999;
+}
+
+document.getElementById('btnScanDup').addEventListener('click', ()=>{
+  const grupos = {};
+  alunosCache.forEach(a=>{
+    const key = normalizeNome(a.nome);
+    if(!grupos[key]) grupos[key] = [];
+    grupos[key].push(a);
+  });
+  duplicatasParaRemover = [];
+  const gruposComDuplicata = [];
+  Object.values(grupos).forEach(lista=>{
+    if(lista.length > 1){
+      const ordenada = [...lista].sort((x,y)=> idNumero(x.id) - idNumero(y.id));
+      const manter = ordenada[0];
+      const remover = ordenada.slice(1);
+      duplicatasParaRemover.push(...remover.map(a=>a._docId));
+      gruposComDuplicata.push({manter, remover});
+    }
+  });
+  const dupPreview = document.getElementById('dupPreview');
+  if(gruposComDuplicata.length === 0){
+    dupPreview.innerHTML = '<div class="hint">Nenhum duplicado encontrado. Tudo certo!</div>';
+    return;
+  }
+  dupPreview.innerHTML = `
+    <div class="card" style="display:block; margin-bottom:14px;">
+      <b>${gruposComDuplicata.length} nomes duplicados</b>
+      <div class="hint" style="margin-top:6px;">${duplicatasParaRemover.length} cadastros extras serão apagados. O cadastro mais antigo (menor ID) de cada nome é mantido.</div>
+    </div>
+    ${gruposComDuplicata.slice(0,8).map(g => `
+      <div class="card" style="display:block; margin-bottom:8px;">
+        <b>${g.manter.nome}</b>
+        <div class="hint" style="margin-top:4px;">✅ mantém ${g.manter.id} · ❌ remove ${g.remover.map(r=>r.id).join(', ')}</div>
+      </div>`).join('')}
+    ${gruposComDuplicata.length > 8 ? `<div class="hint">+ ${gruposComDuplicata.length - 8} outros nomes...</div>` : ''}
+    <button class="btn btn-danger btn-block" id="btnConfirmarRemocao" type="button" style="margin-top:14px;">Apagar ${duplicatasParaRemover.length} cadastros duplicados</button>
+    <div id="dupProgress" class="hint" style="margin-top:10px;"></div>
+  `;
+  document.getElementById('btnConfirmarRemocao').addEventListener('click', confirmarRemocaoDuplicados);
+});
+
+async function confirmarRemocaoDuplicados(){
+  if(!db){ showToast('Configure o Firebase primeiro'); return; }
+  const btn = document.getElementById('btnConfirmarRemocao');
+  const progress = document.getElementById('dupProgress');
+  btn.disabled = true;
+  let removidos = 0;
+  for(let i=0;i<duplicatasParaRemover.length;i++){
+    progress.textContent = `Removendo ${i+1}/${duplicatasParaRemover.length}...`;
+    try{
+      await db.collection('alunos').doc(duplicatasParaRemover[i]).delete();
+      removidos++;
+    }catch(err){}
+  }
+  progress.textContent = `Concluído: ${removidos} cadastros duplicados removidos.`;
+  showToast(`${removidos} duplicados removidos`);
+  btn.textContent = 'Remoção concluída';
+  duplicatasParaRemover = [];
 }
 
 /* ---------- Início ---------- */
