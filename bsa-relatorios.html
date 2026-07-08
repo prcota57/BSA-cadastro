@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<title>BSA Relatórios</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F6F8F4; --surface:#FFFFFF; --pitch:#0F5C3D; --pitch-dark:#0B4530;
+    --pitch-soft:#E4EFE8; --gold:#FFC800; --gold-soft:#FFF3CC;
+    --coral:#FF5A36; --coral-soft:#FFE4DC; --ink:#142B20; --ink-soft:#5C7268;
+    --line:#DCE5DD; --radius:18px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif;}
+  body{padding-bottom:calc(30px + env(safe-area-inset-bottom)); padding-top:env(safe-area-inset-top);}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+
+  header.top{
+    position:sticky; top:0; z-index:20; background:var(--pitch); color:#fff;
+    padding:18px 20px 16px; border-radius:0 0 22px 22px; box-shadow:0 6px 18px rgba(15,92,61,0.18);
+  }
+  header.top h1{font-family:'Space Grotesk',sans-serif; font-size:20px; font-weight:700; margin:0;}
+  header.top .sub{font-size:12.5px; opacity:0.85; margin-top:2px;}
+
+  main{padding:16px 16px 20px;}
+
+  .panel{background:var(--surface); border-radius:var(--radius); padding:16px; margin-bottom:14px; border:1px solid var(--line); box-shadow:0 2px 8px rgba(20,43,32,0.05);}
+
+  .unit-row{display:flex; gap:8px; margin-bottom:12px;}
+  .unit-btn{flex:1; padding:10px 4px; border-radius:12px; border:1.5px solid var(--line); background:var(--surface); color:var(--ink-soft); font-family:'Space Grotesk'; font-weight:600; font-size:13px; cursor:pointer; text-align:center;}
+  .unit-btn.active{background:var(--pitch); color:#fff; border-color:var(--pitch);}
+
+  .date-row{display:flex; gap:10px; align-items:flex-end;}
+  .date-field{flex:1;}
+  .date-field label{display:block; font-size:11.5px; color:var(--ink-soft); margin-bottom:4px; font-weight:600;}
+  .date-field input{width:100%; padding:10px; border-radius:10px; border:1.5px solid var(--line); font-family:'Inter'; font-size:14px; background:var(--bg);}
+
+  .quick-row{display:flex; gap:8px; margin-top:10px;}
+  .quick-btn{flex:1; padding:8px 4px; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--ink-soft); font-size:11.5px; font-weight:600; cursor:pointer;}
+
+  .tabs{display:flex; gap:8px; margin-bottom:14px;}
+  .tab-btn{flex:1; padding:12px 4px; border-radius:14px; border:1.5px solid var(--line); background:var(--surface); color:var(--ink-soft); font-family:'Space Grotesk'; font-weight:700; font-size:14px; cursor:pointer; text-align:center;}
+  .tab-btn.active{background:var(--pitch); color:#fff; border-color:var(--pitch);}
+
+  .sort-row{display:flex; gap:8px; margin-bottom:12px;}
+  .sort-btn{flex:1; padding:8px 4px; border-radius:10px; border:1px solid var(--line); background:var(--surface); color:var(--ink-soft); font-size:12px; font-weight:600; cursor:pointer;}
+  .sort-btn.active{background:var(--pitch-soft); color:var(--pitch-dark); border-color:var(--pitch);}
+
+  .aluno-card{border-radius:14px; border:1px solid var(--line); margin-bottom:10px; overflow:hidden;}
+  .aluno-head{display:flex; align-items:center; gap:12px; padding:12px; cursor:pointer;}
+  .avatar{width:42px; height:42px; border-radius:50%; object-fit:cover; border:2px solid var(--gold); background:var(--pitch-soft); flex:0 0 auto;}
+  .avatar.ph{display:flex; align-items:center; justify-content:center; font-family:'Space Grotesk'; font-weight:700; color:var(--pitch); font-size:13px;}
+  .aluno-head .info{flex:1; min-width:0;}
+  .aluno-head .name{font-weight:600; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .aluno-head .meta{font-size:11px; color:var(--ink-soft);}
+  .pct-badge{font-family:'Space Grotesk'; font-weight:700; font-size:15px; padding:6px 10px; border-radius:12px; flex:0 0 auto; text-align:center; min-width:52px;}
+  .pct-good{background:var(--pitch-soft); color:var(--pitch-dark);}
+  .pct-mid{background:var(--gold-soft); color:#8A6D00;}
+  .pct-low{background:var(--coral-soft); color:#B23A20;}
+  .aluno-detail{display:none; padding:0 12px 12px; border-top:1px solid var(--line);}
+  .aluno-detail.show{display:block;}
+  .detail-row{display:flex; justify-content:space-between; font-size:12.5px; padding:6px 0; color:var(--ink-soft); border-bottom:1px dashed var(--line);}
+  .detail-row:last-child{border-bottom:none;}
+
+  .day-card{border-radius:14px; border:1px solid var(--line); margin-bottom:10px; overflow:hidden;}
+  .day-head{display:flex; align-items:center; justify-content:space-between; padding:12px 14px; cursor:pointer;}
+  .day-head .date{font-family:'Space Grotesk'; font-weight:700; font-size:14.5px;}
+  .day-head .count{font-size:12px; color:var(--ink-soft);}
+  .day-detail{display:none; padding:0 14px 14px; border-top:1px solid var(--line);}
+  .day-detail.show{display:block;}
+  .col-title{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; margin:10px 0 6px; color:var(--ink-soft);}
+  .name-chip{display:inline-flex; align-items:center; gap:6px; background:var(--pitch-soft); color:var(--pitch-dark); border-radius:20px; padding:5px 10px; font-size:12px; margin:3px 4px 0 0;}
+  .name-chip.falta{background:var(--coral-soft); color:#B23A20;}
+
+  .empty{text-align:center; padding:36px 20px; color:var(--ink-soft); font-size:13.5px;}
+  .loadmsg{display:flex; align-items:center; gap:10px; font-size:13.5px; color:var(--ink-soft);}
+  .spinner{width:16px; height:16px; border:2.5px solid var(--pitch-soft); border-top-color:var(--pitch); border-radius:50%; animation:spin 0.8s linear infinite; flex:0 0 auto;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .summary-row{display:flex; gap:10px; margin-bottom:14px;}
+  .summary-stat{flex:1; text-align:center; background:var(--pitch-soft); border-radius:14px; padding:10px 6px;}
+  .summary-stat .num{font-family:'Space Grotesk'; font-size:19px; font-weight:700; color:var(--pitch-dark);}
+  .summary-stat .lbl{font-size:10.5px; color:var(--ink-soft); margin-top:2px;}
+
+  .setup-banner{margin:0 0 14px; padding:14px; background:var(--coral-soft); border-radius:14px; color:#8A2E19; font-size:13px; line-height:1.5;}
+  .setup-banner b{display:block; margin-bottom:4px; font-family:'Space Grotesk';}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <h1>BSA Relatórios</h1>
+  <div class="sub" id="statusLine">conectando...</div>
+</header>
+
+<main>
+
+  <div id="setupBanner" class="setup-banner" style="display:none;">
+    <b>Configuração necessária</b>
+    Preencha o objeto <span class="mono">firebaseConfig</span> no final do código.
+  </div>
+
+  <div class="panel">
+    <div class="unit-row">
+      <button class="unit-btn active" data-u="Todos">Todos</button>
+      <button class="unit-btn" data-u="Carlos Prates">Carlos Prates</button>
+      <button class="unit-btn" data-u="Estoril">Estoril</button>
+    </div>
+    <div class="date-row">
+      <div class="date-field">
+        <label>De</label>
+        <input type="date" id="dataDe">
+      </div>
+      <div class="date-field">
+        <label>Até</label>
+        <input type="date" id="dataAte">
+      </div>
+    </div>
+    <div class="quick-row">
+      <button class="quick-btn" data-q="7">Últimos 7 dias</button>
+      <button class="quick-btn" data-q="30">Últimos 30 dias</button>
+      <button class="quick-btn" data-q="mes">Este mês</button>
+    </div>
+  </div>
+
+  <div class="panel" id="loadingPanel">
+    <div class="loadmsg"><div class="spinner"></div> <span>Carregando presenças...</span></div>
+  </div>
+
+  <div id="conteudo" style="display:none;">
+
+    <div class="summary-row">
+      <div class="summary-stat"><div class="num" id="sumDias">0</div><div class="lbl">dias de treino</div></div>
+      <div class="summary-stat"><div class="num" id="sumPresencas">0</div><div class="lbl">presenças</div></div>
+      <div class="summary-stat"><div class="num" id="sumAlunos">0</div><div class="lbl">alunos ativos</div></div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="aluno">Por Aluno</button>
+      <button class="tab-btn" data-tab="dia">Por Dia</button>
+    </div>
+
+    <div id="tabAluno">
+      <div class="sort-row">
+        <button class="sort-btn active" data-sort="nome">Nome A-Z</button>
+        <button class="sort-btn" data-sort="pior">Menor assiduidade</button>
+      </div>
+      <div id="listaAlunos"></div>
+      <div class="empty" id="emptyAlunos" style="display:none;">Nenhum aluno nesse filtro.</div>
+    </div>
+
+    <div id="tabDia" style="display:none;">
+      <div id="listaDias"></div>
+      <div class="empty" id="emptyDias" style="display:none;">Nenhum dia de treino nesse período.</div>
+    </div>
+
+  </div>
+
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDmM2m_QnEeRflAKCyb11TzOrZM7iVgLCA",
+  authDomain: "bsa-app-493c3.firebaseapp.com",
+  projectId: "bsa-app-493c3",
+  storageBucket: "bsa-app-493c3.firebasestorage.app",
+  messagingSenderId: "455452879388",
+  appId: "1:455452879388:web:7135d93c116b2fe7cfcdd9"
+};
+
+let db, auth;
+let alunosCache = [];
+let presencasCache = [];
+let unidadeFiltro = 'Todos';
+let abaAtual = 'aluno';
+let ordemAluno = 'nome';
+
+function pad(n){ return String(n).padStart(2,'0'); }
+function isoDate(d){ return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()); }
+
+function definirPeriodoPadrao(){
+  const hoje = new Date();
+  const trintaDiasAtras = new Date(hoje); trintaDiasAtras.setDate(hoje.getDate() - 30);
+  document.getElementById('dataAte').value = isoDate(hoje);
+  document.getElementById('dataDe').value = isoDate(trintaDiasAtras);
+}
+
+function initFirebase(){
+  if(firebaseConfig.apiKey === "COLE_AQUI"){
+    document.getElementById('setupBanner').style.display = 'block';
+    document.getElementById('statusLine').textContent = 'configuração pendente';
+    return;
+  }
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  auth = firebase.auth();
+  auth.signInAnonymously().catch(err=>{
+    document.getElementById('statusLine').textContent = 'erro de login: ' + err.message;
+  });
+  auth.onAuthStateChanged(user=>{
+    if(user){
+      document.getElementById('statusLine').textContent = 'conectado';
+      carregarDados();
+    }
+  });
+}
+
+async function carregarDados(){
+  try{
+    const [alunosSnap, presencasSnap] = await Promise.all([
+      db.collection('alunos').get(),
+      db.collection('presencas').get()
+    ]);
+    alunosCache = [];
+    alunosSnap.forEach(doc=>{
+      const d = doc.data();
+      alunosCache.push({ id: doc.id, nome: d.nome || '(sem nome)', unidade: d.unidade || '', foto: d.foto || null });
+    });
+    presencasCache = [];
+    presencasSnap.forEach(doc=> presencasCache.push(doc.data()));
+
+    document.getElementById('loadingPanel').style.display = 'none';
+    document.getElementById('conteudo').style.display = 'block';
+    renderTudo();
+  }catch(err){
+    document.getElementById('loadingPanel').innerHTML = '<div class="loadmsg">Erro ao carregar: ' + err.message + '</div>';
+  }
+}
+
+document.querySelectorAll('.unit-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.unit-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    unidadeFiltro = btn.dataset.u;
+    renderTudo();
+  });
+});
+
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    abaAtual = btn.dataset.tab;
+    document.getElementById('tabAluno').style.display = abaAtual==='aluno' ? 'block' : 'none';
+    document.getElementById('tabDia').style.display = abaAtual==='dia' ? 'block' : 'none';
+  });
+});
+
+document.querySelectorAll('.sort-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    ordemAluno = btn.dataset.sort;
+    renderPorAluno();
+  });
+});
+
+document.getElementById('dataDe').addEventListener('change', renderTudo);
+document.getElementById('dataAte').addEventListener('change', renderTudo);
+
+document.querySelectorAll('.quick-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const hoje = new Date();
+    if(btn.dataset.q === 'mes'){
+      const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      document.getElementById('dataDe').value = isoDate(primeiroDia);
+      document.getElementById('dataAte').value = isoDate(hoje);
+    } else {
+      const dias = parseInt(btn.dataset.q, 10);
+      const inicio = new Date(hoje); inicio.setDate(hoje.getDate() - dias);
+      document.getElementById('dataDe').value = isoDate(inicio);
+      document.getElementById('dataAte').value = isoDate(hoje);
+    }
+    renderTudo();
+  });
+});
+
+function periodoAtual(){
+  return { de: document.getElementById('dataDe').value, ate: document.getElementById('dataAte').value };
+}
+
+function presencasFiltradas(){
+  const { de, ate } = periodoAtual();
+  return presencasCache.filter(p=>{
+    if(p.data < de || p.data > ate) return false;
+    if(unidadeFiltro !== 'Todos' && p.unidade !== unidadeFiltro) return false;
+    return true;
+  });
+}
+
+function alunosFiltrados(){
+  if(unidadeFiltro === 'Todos') return alunosCache;
+  return alunosCache.filter(a=> a.unidade === unidadeFiltro);
+}
+
+function diasTreinoPorUnidade(presencas){
+  const mapa = {}; // unidade -> Set(datas)
+  presencas.forEach(p=>{
+    if(!mapa[p.unidade]) mapa[p.unidade] = new Set();
+    mapa[p.unidade].add(p.data);
+  });
+  return mapa;
+}
+
+function renderTudo(){
+  const presFiltradas = presencasFiltradas();
+  const alunosF = alunosFiltrados();
+  const diasPorUnidade = diasTreinoPorUnidade(presFiltradas);
+
+  const totalDiasUnico = new Set(presFiltradas.map(p=>p.data)).size;
+  document.getElementById('sumDias').textContent = totalDiasUnico;
+  document.getElementById('sumPresencas').textContent = presFiltradas.length;
+  document.getElementById('sumAlunos').textContent = alunosF.length;
+
+  window._diasPorUnidade = diasPorUnidade;
+  window._presFiltradas = presFiltradas;
+  window._alunosF = alunosF;
+
+  renderPorAluno();
+  renderPorDia();
+}
+
+function classePct(pct){
+  if(pct >= 75) return 'pct-good';
+  if(pct >= 50) return 'pct-mid';
+  return 'pct-low';
+}
+
+function iniciaisDe(nome){
+  return nome.split(' ').filter(Boolean).slice(0,2).map(p=>p[0].toUpperCase()).join('');
+}
+
+function renderPorAluno(){
+  const diasPorUnidade = window._diasPorUnidade || {};
+  const presFiltradas = window._presFiltradas || [];
+  const alunosF = window._alunosF || [];
+
+  let linhas = alunosF.map(aluno=>{
+    const totalDias = (diasPorUnidade[aluno.unidade] ? diasPorUnidade[aluno.unidade].size : 0);
+    const presencasAluno = presFiltradas.filter(p=>p.alunoId === aluno.id).sort((a,b)=> b.data.localeCompare(a.data));
+    const pct = totalDias > 0 ? Math.round((presencasAluno.length / totalDias) * 100) : 0;
+    return { aluno, totalDias, presencasAluno, pct };
+  });
+
+  if(ordemAluno === 'nome'){
+    linhas.sort((a,b)=> a.aluno.nome.localeCompare(b.aluno.nome));
+  } else {
+    linhas.sort((a,b)=> a.pct - b.pct);
+  }
+
+  const cont = document.getElementById('listaAlunos');
+  const vazio = document.getElementById('emptyAlunos');
+  if(linhas.length === 0){
+    cont.innerHTML = '';
+    vazio.style.display = 'block';
+    return;
+  }
+  vazio.style.display = 'none';
+
+  cont.innerHTML = linhas.map((l, idx)=>{
+    const foto = l.aluno.foto ? `<img class="avatar" src="${l.aluno.foto}">` : `<div class="avatar ph">${iniciaisDe(l.aluno.nome)}</div>`;
+    const detalhes = l.presencasAluno.length > 0
+      ? l.presencasAluno.map(p=>`<div class="detail-row"><span>${formatarDataBR(p.data)}</span><span>${p.hora}</span></div>`).join('')
+      : '<div class="detail-row"><span>Nenhuma presença no período</span><span></span></div>';
+    return `
+      <div class="aluno-card">
+        <div class="aluno-head" onclick="toggleAluno(${idx})">
+          ${foto}
+          <div class="info">
+            <div class="name">${l.aluno.nome}</div>
+            <div class="meta">${l.aluno.unidade} · ${l.presencasAluno.length}/${l.totalDias} treinos</div>
+          </div>
+          <div class="pct-badge ${classePct(l.pct)}">${l.pct}%</div>
+        </div>
+        <div class="aluno-detail" id="detalheAluno${idx}">${detalhes}</div>
+      </div>`;
+  }).join('');
+}
+
+function toggleAluno(idx){
+  const el = document.getElementById('detalheAluno' + idx);
+  el.classList.toggle('show');
+}
+
+function formatarDataBR(iso){
+  const [y,m,d] = iso.split('-');
+  return d + '/' + m;
+}
+
+function renderPorDia(){
+  const presFiltradas = window._presFiltradas || [];
+  const alunosF = window._alunosF || [];
+
+  const porDia = {}; // data -> [presencas]
+  presFiltradas.forEach(p=>{
+    if(!porDia[p.data]) porDia[p.data] = [];
+    porDia[p.data].push(p);
+  });
+
+  const datas = Object.keys(porDia).sort((a,b)=> b.localeCompare(a));
+  const cont = document.getElementById('listaDias');
+  const vazio = document.getElementById('emptyDias');
+
+  if(datas.length === 0){
+    cont.innerHTML = '';
+    vazio.style.display = 'block';
+    return;
+  }
+  vazio.style.display = 'none';
+
+  cont.innerHTML = datas.map((data, idx)=>{
+    const presentesNoDia = porDia[data];
+    const unidadesNoDia = [...new Set(presentesNoDia.map(p=>p.unidade))];
+    // roster relevante: se filtro é uma unidade só, usa alunosF; se Todos, usa alunos das unidades que treinaram nesse dia
+    const roster = unidadeFiltro !== 'Todos' ? alunosF : alunosCache.filter(a=> unidadesNoDia.includes(a.unidade));
+    const idsPresentes = new Set(presentesNoDia.map(p=>p.alunoId));
+    const faltantes = roster.filter(a=> !idsPresentes.has(a.id));
+
+    const chipsPresentes = presentesNoDia
+      .sort((a,b)=> a.hora.localeCompare(b.hora))
+      .map(p=>`<span class="name-chip">${p.nome} · ${p.hora}</span>`).join('');
+    const chipsFaltantes = faltantes.map(a=>`<span class="name-chip falta">${a.nome}</span>`).join('');
+
+    return `
+      <div class="day-card">
+        <div class="day-head" onclick="toggleDia(${idx})">
+          <div class="date">${formatarDataBR(data)}</div>
+          <div class="count">${presentesNoDia.length}/${roster.length} presentes</div>
+        </div>
+        <div class="day-detail" id="detalheDia${idx}">
+          <div class="col-title">Presentes</div>
+          <div>${chipsPresentes || '<span class="hint">Ninguém</span>'}</div>
+          <div class="col-title">Faltantes</div>
+          <div>${chipsFaltantes || '<span class="hint">Ninguém faltou</span>'}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function toggleDia(idx){
+  const el = document.getElementById('detalheDia' + idx);
+  el.classList.toggle('show');
+}
+
+definirPeriodoPadrao();
+initFirebase();
+</script>
+</body>
+</html>
