@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>BSA Captação — Aulas Experimentais</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;700&display=swap" rel="stylesheet">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<style>
+  :root{
+    --pitch-900:#0B4530;--pitch-800:#0F5C3D;--pitch-700:#14724F;
+    --chalk-100:#F6F8F4;--chalk-200:#E4EFE8;--chalk-300:#DCE5DD;
+    --lime-500:#FFC800;--lime-600:#E6B400;--amber-500:#E8A33D;--amber-700:#8A5A1E;
+    --clay-500:#FF5A36;--clay-700:#B23A20;--whats-500:#25D366;
+    --ink-700:#142B20;--line:#DCE5DD;
+    --font-display:'Space Grotesk',sans-serif;--font-body:'Inter',sans-serif;--font-mono:'IBM Plex Mono',monospace;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;}
+  input,textarea{user-select:text;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--pitch-900);color:var(--ink-700);font-family:var(--font-body);line-height:1.5;min-height:100vh;}
+  .shell{max-width:440px;margin:0 auto;background:var(--chalk-100);min-height:100vh;display:flex;flex-direction:column;}
+  header.bar{background:var(--pitch-800);color:var(--chalk-100);padding:16px 18px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5;}
+  header.bar .back{background:none;border:none;color:var(--chalk-100);font-size:22px;line-height:1;cursor:pointer;padding:4px 6px 4px 0;display:none;}
+  header.bar .back.show{display:block;}
+  header.bar .htext{flex:1;min-width:0;}
+  header.bar h1{font-family:var(--font-display);font-weight:600;font-size:17px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  header.bar p{font-size:11px;color:var(--chalk-300);margin:1px 0 0;}
+  main{flex:1;padding:20px 18px 100px;}
+  .btn{display:block;width:100%;font-family:var(--font-display);font-weight:600;font-size:15px;border-radius:10px;border:none;cursor:pointer;padding:15px;text-align:center;}
+  .btn-primary{background:var(--lime-500);color:var(--pitch-900);}
+  .btn-primary:active{background:var(--lime-600);}
+  .btn-secondary{background:#fff;color:var(--pitch-800);border:1px solid var(--line);}
+  .btn-danger-ghost{background:none;color:var(--clay-700);border:1px solid #E9C79A;}
+  .btn-whats{background:var(--whats-500);color:#fff;}
+  .btn-row{display:flex;gap:8px;}
+  .btn-row .btn{flex:1;font-size:13px;padding:12px 8px;}
+
+  .section-label{font-family:var(--font-mono);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#8a8a80;margin:22px 0 10px;}
+  .section-label:first-child{margin-top:0;}
+
+  .shortcuts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:6px;}
+  .shortcut{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 6px;text-align:center;cursor:pointer;position:relative;}
+  .shortcut .ic{font-size:20px;display:block;margin-bottom:4px;}
+  .shortcut .lb{font-family:var(--font-display);font-weight:600;font-size:11px;color:var(--pitch-800);line-height:1.2;}
+  .shortcut .badge{position:absolute;top:6px;right:8px;background:var(--clay-500);color:#fff;font-size:9.5px;font-family:var(--font-mono);padding:1px 6px;border-radius:100px;}
+
+  .funnel-mini{display:flex;gap:8px;margin-bottom:4px;}
+  .funnel-mini .f{flex:1;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 8px;text-align:center;}
+  .funnel-mini .f .n{font-family:var(--font-mono);font-weight:700;font-size:20px;color:var(--pitch-800);}
+  .funnel-mini .f .l{font-size:10px;color:#8a8a80;font-family:var(--font-mono);}
+
+  .alert-card{background:#fff;border:1px solid var(--line);border-left:4px solid var(--amber-500);border-radius:10px;padding:13px 14px;margin-bottom:9px;cursor:pointer;}
+  .alert-card.urgent{border-left-color:var(--clay-500);}
+  .alert-card .a-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .alert-card .a-name{font-family:var(--font-display);font-weight:600;font-size:14.5px;color:var(--ink-700);margin:0;}
+  .alert-card .a-tag{font-family:var(--font-mono);font-size:10px;padding:3px 9px;border-radius:100px;white-space:nowrap;flex-shrink:0;}
+  .alert-card .a-tag.today{background:#FBEFE4;color:var(--clay-700);}
+  .alert-card .a-tag.soon{background:var(--chalk-200);color:#6c6c62;}
+  .alert-card .a-sub{font-size:12px;color:#8a8a80;margin:3px 0 0;}
+
+  .empty-state{text-align:center;padding:40px 10px;color:#8a8a80;font-size:13.5px;}
+
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:12.5px;color:#6c6c62;font-family:var(--font-mono);margin-bottom:6px;}
+  .field input[type=text],.field input[type=tel],.field input[type=number],.field input[type=date],.field textarea,.field select{
+    width:100%;font-family:var(--font-body);font-size:15.5px;padding:13px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink-700);
+  }
+  .field textarea{resize:vertical;min-height:70px;}
+  .field input:focus,.field textarea:focus,.field select:focus{outline:2px solid var(--lime-600);border-color:transparent;}
+  .field-hint{font-size:11px;color:#a0a096;margin-top:5px;}
+
+  .seg-row{display:flex;gap:8px;}
+  .seg-btn{flex:1;background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:13px 8px;text-align:center;font-family:var(--font-display);font-weight:600;font-size:13.5px;color:var(--ink-700);cursor:pointer;}
+  .seg-btn.selected{background:var(--pitch-800);border-color:var(--pitch-800);color:var(--lime-500);}
+
+  .chip-row{display:flex;gap:6px;flex-wrap:wrap;}
+  .chip-btn{background:#fff;border:1.5px solid var(--line);border-radius:100px;padding:9px 14px;font-family:var(--font-mono);font-size:12.5px;color:var(--ink-700);cursor:pointer;}
+  .chip-btn.selected{background:var(--pitch-800);border-color:var(--pitch-800);color:var(--lime-500);}
+
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:10px;}
+  .toggle-row span{font-size:13.5px;color:var(--ink-700);}
+  .switch{width:44px;height:26px;border-radius:100px;background:var(--chalk-300);position:relative;cursor:pointer;flex-shrink:0;}
+  .switch.on{background:var(--lime-500);}
+  .switch .knob{width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:3px;left:3px;transition:left 0.15s;}
+  .switch.on .knob{left:21px;}
+
+  .more-toggle{font-family:var(--font-mono);font-size:12px;color:var(--pitch-700);text-align:center;padding:10px;cursor:pointer;text-decoration:underline;}
+
+  .status-tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:16px;padding-bottom:2px;}
+  .status-tab{flex-shrink:0;font-family:var(--font-mono);font-size:11.5px;padding:8px 13px;border-radius:100px;background:#fff;border:1px solid var(--line);color:#6c6c62;cursor:pointer;white-space:nowrap;}
+  .status-tab.active{background:var(--pitch-800);border-color:var(--pitch-800);color:var(--lime-500);}
+
+  .lead-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:9px;cursor:pointer;}
+  .lead-card .l-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .lead-card .l-name{font-family:var(--font-display);font-weight:600;font-size:15px;color:var(--ink-700);margin:0;}
+  .lead-card .l-sub{font-size:12px;color:#8a8a80;margin:3px 0 0;}
+  .status-pill{font-family:var(--font-mono);font-size:10px;padding:4px 10px;border-radius:100px;white-space:nowrap;flex-shrink:0;}
+
+  .detail-header{text-align:center;margin-bottom:20px;}
+  .detail-header h2{font-family:var(--font-display);font-weight:700;font-size:22px;color:var(--pitch-800);margin:0 0 6px;}
+  .info-grid{background:#fff;border:1px solid var(--line);border-radius:12px;padding:4px 16px;margin-bottom:16px;}
+  .info-row{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid var(--chalk-200);font-size:13.5px;}
+  .info-row:first-child{border-top:none;}
+  .info-row .k{color:#8a8a80;flex-shrink:0;}
+  .info-row .v{color:var(--ink-700);text-align:right;font-weight:500;}
+  .needs-box{background:#FBEFE4;border:1px solid #E9C79A;border-left:4px solid var(--amber-500);border-radius:6px;padding:12px 14px;margin-bottom:16px;font-size:13px;color:#4a2f22;}
+  .needs-box strong{color:var(--amber-700);}
+
+  .funnel-bars{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 16px;margin-bottom:16px;}
+  .funnel-step{margin-bottom:14px;}
+  .funnel-step:last-child{margin-bottom:0;}
+  .funnel-step .fs-top{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px;}
+  .funnel-step .fs-label{color:#6c6c62;font-family:var(--font-mono);}
+  .funnel-step .fs-num{font-family:var(--font-mono);font-weight:700;color:var(--pitch-800);}
+  .funnel-track{background:var(--chalk-200);border-radius:6px;height:14px;overflow:hidden;}
+  .funnel-fill{background:var(--pitch-800);height:100%;border-radius:6px;transition:width 0.4s;}
+  .funnel-fill.lime{background:var(--lime-500);}
+
+  .stat-list{background:#fff;border:1px solid var(--line);border-radius:12px;padding:4px 16px;margin-bottom:16px;}
+  .stat-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-top:1px solid var(--chalk-200);font-size:13.5px;}
+  .stat-row:first-child{border-top:none;}
+  .stat-row .bar-mini{flex:1;margin:0 12px;background:var(--chalk-200);border-radius:4px;height:8px;overflow:hidden;}
+  .stat-row .bar-mini-fill{background:var(--pitch-700);height:100%;}
+  .stat-row .k{color:var(--ink-700);flex-shrink:0;min-width:80px;}
+  .stat-row .v{font-family:var(--font-mono);font-weight:700;color:var(--pitch-800);flex-shrink:0;}
+
+  .celebrate-overlay{position:fixed;inset:0;background:rgba(18,38,31,0.88);z-index:60;display:flex;align-items:center;justify-content:center;flex-direction:column;color:var(--chalk-100);text-align:center;padding:24px;}
+  .celebrate-overlay .emoji{font-size:56px;margin-bottom:14px;}
+  .celebrate-overlay h2{font-family:var(--font-display);font-weight:700;font-size:24px;margin:0 0 8px;color:var(--lime-500);}
+  .celebrate-overlay p{font-size:14px;color:var(--chalk-300);margin:0 0 24px;}
+
+  .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--pitch-800);color:var(--chalk-100);font-size:13px;padding:12px 20px;border-radius:100px;z-index:50;font-family:var(--font-body);opacity:0;transition:opacity 0.25s;pointer-events:none;max-width:88%;text-align:center;}
+  .toast.show{opacity:1;}
+  .fab{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);width:calc(100% - 36px);max-width:404px;z-index:6;}
+  .spinner{width:28px;height:28px;border-radius:50%;border:3px solid var(--chalk-300);border-top-color:var(--pitch-800);animation:spin 0.8s linear infinite;margin:60px auto;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="bar">
+    <button class="back" id="backBtn" aria-label="Voltar">&#8592;</button>
+    <div class="htext">
+      <h1 id="headerTitle">BSA Captação</h1>
+      <p id="headerSub">Aulas experimentais</p>
+    </div>
+  </header>
+  <main id="app"><div class="spinner"></div></main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+<script>
+(function(){
+
+var firebaseConfig = {
+  apiKey: "AIzaSyDmM2m_QnEeRflAKCyb11TzOrZM7iVgLCA",
+  authDomain: "bsa-app-493c3.firebaseapp.com",
+  projectId: "bsa-app-493c3",
+  storageBucket: "bsa-app-493c3.firebasestorage.app",
+  messagingSenderId: "455452879388",
+  appId: "1:455452879388:web:7135d93c116b2fe7cfcdd9"
+};
+var db = null;
+function initFirebase(){
+  try{
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    var auth = firebase.auth();
+    auth.signInAnonymously().catch(function(){});
+    auth.onAuthStateChanged(function(user){
+      if(user) loadLeads().then(boot).catch(boot);
+    });
+  }catch(e){ boot(); }
+}
+
+var WEEKDAYS = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
+var HOW_FOUND = ['Instagram','Indicação de amigo','Google','Panfleto / anúncio local','Outro'];
+var STATUS_META = {
+  agendado:{label:'Agendado', bg:'#E4EFE8', fg:'#0B4530'},
+  realizada:{label:'Aguardando decisão', bg:'#FFF3CC', fg:'#8A6D00'},
+  nao_compareceu:{label:'Não compareceu', bg:'#DCE5DD', fg:'#5C7268'},
+  matriculado:{label:'Matriculado', bg:'#FFC800', fg:'#0B4530'},
+  desistencia:{label:'Não converteu', bg:'#FF5A36', fg:'#fff'}
+};
+var FOLLOWUP_DAYS = 2;
+
+var state = {screen:'loading', leads:[], currentId:null, form:{}, filterStatus:'todos'};
+
+function uid(){ return 'l' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function fmtDate(iso){ if(!iso) return '—'; var d=new Date(iso+'T00:00:00'); return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear(); }
+function daysBetween(a,b){ return Math.round((new Date(b+'T00:00:00') - new Date(a+'T00:00:00'))/86400000); }
+function clampNum(v,mn,mx){ return Math.max(mn,Math.min(mx,v)); }
+function showToast(msg){
+  var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(function(){t.classList.remove('show');},2400);
+}
+function escapeHtml(str){ return (str||'').replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function onlyDigits(s){ return (s||'').replace(/\D/g,''); }
+
+async function loadLeads(){
+  try{
+    if(!db){ state.leads=[]; return; }
+    var doc = await db.collection('appdata').doc('captacao_leads').get();
+    state.leads = (doc.exists && doc.data().leads) ? doc.data().leads : [];
+  }catch(e){ state.leads=[]; }
+}
+async function saveLeads(){
+  try{
+    if(!db){ showToast('Sem conexão — não foi possível salvar agora.'); return; }
+    await db.collection('appdata').doc('captacao_leads').set({
+      leads: state.leads,
+      atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }catch(e){ showToast('Não foi possível salvar agora.'); }
+}
+function getLead(id){ for(var i=0;i<state.leads.length;i++){ if(state.leads[i].id===id) return state.leads[i]; } return null; }
+
+function setHeader(title,sub,showBack){
+  document.getElementById('headerTitle').textContent=title;
+  document.getElementById('headerSub').textContent=sub;
+  var b=document.getElementById('backBtn');
+  if(showBack) b.classList.add('show'); else b.classList.remove('show');
+}
+
+/* ---------- alert computation ---------- */
+function isAttentionNeeded(l){
+  var t = todayStr();
+  if(l.status==='agendado' && l.trialDate<=t) return {type:'presenca', urgent:true};
+  if(l.status==='agendado' && daysBetween(t,l.trialDate)===1) return {type:'amanha', urgent:false};
+  if(l.status==='agendado' && l.trialDate===t) return {type:'hoje', urgent:false};
+  if(l.status==='realizada' && daysBetween(l.trialDate,t)>=FOLLOWUP_DAYS) return {type:'followup', urgent:true};
+  return null;
+}
+function getAlerts(){
+  return state.leads.map(function(l){ return {lead:l, info:isAttentionNeeded(l)}; }).filter(function(x){ return x.info; })
+    .sort(function(a,b){ return (b.info.urgent?1:0)-(a.info.urgent?1:0); });
+}
+
+/* ---------- router ---------- */
+function render(){
+  var app=document.getElementById('app');
+  if(state.screen==='loading'){ app.innerHTML='<div class="spinner"></div>'; return; }
+  if(state.screen==='home') return renderHome(app);
+  if(state.screen==='newLead') return renderNewLead(app);
+  if(state.screen==='pipeline') return renderPipeline(app);
+  if(state.screen==='leadDetail') return renderLeadDetail(app);
+  if(state.screen==='reports') return renderReports(app);
+}
+
+function renderHome(app){
+  setHeader('BSA Captação','Central de aulas experimentais',false);
+  var alerts = getAlerts();
+  var counts = {agendado:0,realizada:0,matriculado:0,desistencia:0,nao_compareceu:0};
+  state.leads.forEach(function(l){ counts[l.status] = (counts[l.status]||0)+1; });
+
+  var html = '<div class="shortcuts">'
+    + '<div class="shortcut" data-action="showNewLead"><span class="ic">&#10133;</span><span class="lb">Nova aula<br>experimental</span></div>'
+    + '<div class="shortcut" data-action="showPipeline"><span class="ic">&#128203;</span><span class="lb">Pipeline</span>'+(alerts.length?'<div class="badge">'+alerts.length+'</div>':'')+'</div>'
+    + '<div class="shortcut" data-action="showReports"><span class="ic">&#128202;</span><span class="lb">Relatórios</span></div>'
+    + '</div>';
+
+  html += '<div class="funnel-mini">'
+    + '<div class="f"><div class="n">'+counts.agendado+'</div><div class="l">AGENDADAS</div></div>'
+    + '<div class="f"><div class="n">'+counts.realizada+'</div><div class="l">DECIDIR</div></div>'
+    + '<div class="f"><div class="n">'+counts.matriculado+'</div><div class="l">MATRICULADOS</div></div>'
+    + '</div>';
+
+  html += '<p class="section-label">Precisa da sua atenção</p>';
+  if(alerts.length===0){
+    html += '<div class="empty-state">Tudo em dia — nenhum alerta pendente agora.</div>';
+  } else {
+    alerts.forEach(function(x){
+      var l=x.lead, info=x.info;
+      var tagText = info.type==='presenca' ? 'Confirmar presença' : info.type==='hoje' ? 'Aula é hoje' : info.type==='amanha' ? 'Aula é amanhã' : 'Follow-up — '+daysBetween(l.trialDate,todayStr())+'d sem decisão';
+      html += '<div class="alert-card'+(info.urgent?' urgent':'')+'" data-action="openLead" data-id="'+l.id+'">'
+        + '<div class="a-top"><p class="a-name">'+escapeHtml(l.studentName)+'</p><span class="a-tag '+(info.urgent?'today':'soon')+'">'+tagText+'</span></div>'
+        + '<p class="a-sub">'+escapeHtml(l.unit)+' · '+fmtDate(l.trialDate)+' · resp.: '+escapeHtml(l.parentName)+'</p>'
+        + '</div>';
+    });
+  }
+  html += '<div style="height:70px"></div>';
+  html += '<div class="fab"><button class="btn btn-primary" data-action="showNewLead">+ Nova aula experimental</button></div>';
+  app.innerHTML = html;
+}
+
+function renderNewLead(app){
+  setHeader('Nova aula experimental','Preencha os dados do interessado',true);
+  var f = state.form;
+  var expSel = function(v){ return f.experience===v?' selected':''; };
+  var weekdayChips = WEEKDAYS.map(function(d){ return '<button class="chip-btn'+((f.weekdays||[]).indexOf(d)>-1?' selected':'')+'" data-action="toggleWeekday" data-day="'+d+'">'+d.slice(0,3)+'</button>'; }).join('');
+  var howFoundChips = HOW_FOUND.map(function(h){ return '<button class="chip-btn'+(f.howFound===h?' selected':'')+'" data-action="setHowFound" data-val="'+h+'">'+h+'</button>'; }).join('');
+
+  var html = ''
+    + '<div class="field"><label>Dia da aula experimental</label><input type="date" id="f_trialDate" value="'+(f.trialDate||todayStr())+'"></div>'
+    + '<div class="field"><label>Unidade escolhida</label><input type="text" id="f_unit" list="unitList" placeholder="ex: BSA Savassi" value="'+escapeHtml(f.unit||'')+'"><datalist id="unitList">'+unitDatalistOptions()+'</datalist></div>'
+    + '<div class="field"><label>Nome do aluno</label><input type="text" id="f_studentName" placeholder="ex: Davi Souza" value="'+escapeHtml(f.studentName||'')+'"></div>'
+    + '<div class="field"><label>Nome do pai/responsável</label><input type="text" id="f_parentName" placeholder="ex: Carla Souza" value="'+escapeHtml(f.parentName||'')+'"></div>'
+    + '<div class="field"><label>Telefone do responsável</label><input type="tel" id="f_parentPhone" placeholder="(31) 90000-0000" value="'+escapeHtml(f.parentPhone||'')+'"></div>'
+    + '<div class="field"><label>Idade do aluno</label><input type="number" id="f_age" min="3" max="18" placeholder="ex: 8" value="'+(f.age||'')+'"></div>'
+    + '<div class="field"><label>O aluno já treina ou está começando agora?</label>'
+    + '<div class="seg-row"><button class="seg-btn'+expSel('iniciante')+'" data-action="setExperience" data-val="iniciante">Começando agora</button>'
+    + '<button class="seg-btn'+expSel('ja_treina')+'" data-action="setExperience" data-val="ja_treina">Já treina</button></div></div>'
+    + '<div class="field"><label>Dia(s) da semana de interesse</label><div class="chip-row">'+weekdayChips+'</div></div>'
+    + '<div class="toggle-row"><span>Possui necessidade específica ou condição de neurodesenvolvimento? (ex: TDAH, TEA)</span>'
+    + '<div class="switch'+(f.hasNeeds?' on':'')+'" data-action="toggleNeeds"><div class="knob"></div></div></div>'
+    + (f.hasNeeds ? '<div class="field"><label>Conte um pouco, para adaptarmos a aula</label><textarea id="f_needsDetails" placeholder="ex: TEA nível 1, sensível a barulho alto">'+escapeHtml(f.needsDetails||'')+'</textarea></div>' : '')
+    + (state.showMore ? (
+        '<div class="field"><label>Como conheceu a BSA?</label><div class="chip-row">'+howFoundChips+'</div></div>'
+        + '<div class="field"><label>Observações</label><textarea id="f_notes" placeholder="qualquer outra informação útil">'+escapeHtml(f.notes||'')+'</textarea></div>'
+      ) : '<p class="more-toggle" data-action="toggleMore">+ Adicionar mais detalhes (opcional)</p>')
+    + '<button class="btn btn-primary" data-action="saveLead">Cadastrar</button>';
+  app.innerHTML = html;
+}
+function unitDatalistOptions(){
+  var units = {};
+  state.leads.forEach(function(l){ if(l.unit) units[l.unit]=true; });
+  return Object.keys(units).map(function(u){ return '<option value="'+escapeHtml(u)+'">'; }).join('');
+}
+
+function renderPipeline(app){
+  setHeader('Pipeline','Todas as aulas experimentais',true);
+  var tabs = [['todos','Todos'],['agendado','Agendados'],['realizada','Decidir'],['matriculado','Matriculados'],['desistencia','Não convertidos'],['nao_compareceu','Faltaram']];
+  var tabHtml = tabs.map(function(t){ return '<button class="status-tab'+(state.filterStatus===t[0]?' active':'')+'" data-action="setFilter" data-status="'+t[0]+'">'+t[1]+'</button>'; }).join('');
+  var list = state.leads.filter(function(l){ return state.filterStatus==='todos' || l.status===state.filterStatus; })
+    .sort(function(a,b){ return b.trialDate.localeCompare(a.trialDate); });
+  var html = '<div class="status-tabs">'+tabHtml+'</div>';
+  if(list.length===0){
+    html += '<div class="empty-state">Nenhuma aula experimental nesta categoria.</div>';
+  } else {
+    list.forEach(function(l){
+      var meta = STATUS_META[l.status];
+      html += '<div class="lead-card" data-action="openLead" data-id="'+l.id+'">'
+        + '<div class="l-top"><p class="l-name">'+escapeHtml(l.studentName)+'</p><span class="status-pill" style="background:'+meta.bg+';color:'+meta.fg+';">'+meta.label+'</span></div>'
+        + '<p class="l-sub">'+escapeHtml(l.unit)+' · '+fmtDate(l.trialDate)+' · '+escapeHtml(l.parentName)+'</p>'
+        + '</div>';
+    });
+  }
+  app.innerHTML = html;
+}
+
+function renderLeadDetail(app){
+  var l = getLead(state.currentId);
+  if(!l){ state.screen='pipeline'; return render(); }
+  setHeader(l.studentName, STATUS_META[l.status].label, true);
+  var phoneDigits = onlyDigits(l.parentPhone);
+  var html = '<div class="detail-header"><h2>'+escapeHtml(l.studentName)+'</h2>'
+    + '<span class="status-pill" style="background:'+STATUS_META[l.status].bg+';color:'+STATUS_META[l.status].fg+';padding:6px 14px;font-size:12px;">'+STATUS_META[l.status].label+'</span></div>';
+
+  if(l.hasNeeds){
+    html += '<div class="needs-box"><strong>Atenção — necessidade específica:</strong> '+escapeHtml(l.needsDetails||'sinalizado pelo responsável')+'</div>';
+  }
+
+  html += '<div class="info-grid">'
+    + infoRow('Aula experimental', fmtDate(l.trialDate))
+    + infoRow('Unidade', escapeHtml(l.unit))
+    + infoRow('Idade', l.age+' anos')
+    + infoRow('Nível', l.experience==='ja_treina'?'Já treina':'Começando agora')
+    + infoRow('Responsável', escapeHtml(l.parentName))
+    + infoRow('Telefone', escapeHtml(l.parentPhone))
+    + infoRow('Dias de interesse', (l.weekdays||[]).join(', ') || '—')
+    + (l.howFound ? infoRow('Como conheceu', escapeHtml(l.howFound)) : '')
+    + (l.notes ? infoRow('Observações', escapeHtml(l.notes)) : '')
+    + '</div>';
+
+  html += '<div class="btn-row" style="margin-bottom:16px;">'
+    + '<button class="btn btn-secondary" data-action="callParent" data-phone="'+phoneDigits+'">Ligar</button>'
+    + '<button class="btn btn-whats" data-action="whatsParent" data-id="'+l.id+'">WhatsApp</button>'
+    + '</div>';
+
+  if(l.status==='agendado'){
+    html += '<button class="btn btn-primary" style="margin-bottom:10px;" data-action="markAttended" data-id="'+l.id+'">Confirmar presença</button>'
+      + '<button class="btn btn-secondary" style="margin-bottom:10px;" data-action="markNoShow" data-id="'+l.id+'">Não compareceu</button>';
+  } else if(l.status==='nao_compareceu'){
+    html += '<button class="btn btn-primary" style="margin-bottom:10px;" data-action="reschedule" data-id="'+l.id+'">Reagendar</button>'
+      + '<button class="btn btn-secondary" style="margin-bottom:10px;" data-action="markDropped" data-id="'+l.id+'">Marcar não convertido</button>';
+  } else if(l.status==='realizada'){
+    html += '<button class="btn btn-primary" style="margin-bottom:10px;" data-action="markEnrolled" data-id="'+l.id+'">Matricular</button>'
+      + '<button class="btn btn-secondary" style="margin-bottom:10px;" data-action="markDropped" data-id="'+l.id+'">Marcar não convertido</button>';
+  } else {
+    html += '<button class="btn btn-secondary" style="margin-bottom:10px;" data-action="reopenLead" data-id="'+l.id+'">Reabrir avaliação</button>';
+  }
+  html += '<button class="btn btn-danger-ghost" data-action="deleteLead" data-id="'+l.id+'">Excluir cadastro</button>';
+  app.innerHTML = html;
+}
+function infoRow(k,v){ return '<div class="info-row"><span class="k">'+k+'</span><span class="v">'+v+'</span></div>'; }
+
+function renderReports(app){
+  setHeader('Relatórios','Visão geral da captação',true);
+  var total = state.leads.length;
+  var decided = state.leads.filter(function(l){ return l.status!=='agendado'; }).length;
+  var attended = state.leads.filter(function(l){ return ['realizada','matriculado','desistencia'].indexOf(l.status)>-1; }).length;
+  var noShow = state.leads.filter(function(l){ return l.status==='nao_compareceu'; }).length;
+  var enrolled = state.leads.filter(function(l){ return l.status==='matriculado'; }).length;
+  var dropped = state.leads.filter(function(l){ return l.status==='desistencia'; }).length;
+  var attendancePct = (attended+noShow)>0 ? Math.round(attended/(attended+noShow)*100) : 0;
+  var conversionPct = attended>0 ? Math.round(enrolled/attended*100) : 0;
+
+  var html = '<div class="funnel-bars">'
+    + funnelStep('Agendaram aula experimental', total, total, false)
+    + funnelStep('Compareceram', attended, total||1, false)
+    + funnelStep('Matricularam', enrolled, total||1, true)
+    + '</div>';
+
+  html += '<div class="stat-list">'
+    + statRow('Taxa de comparecimento', attendancePct)
+    + statRow('Taxa de conversão (de quem compareceu)', conversionPct)
+    + '</div>';
+
+  html += '<p class="section-label">Por unidade</p><div class="stat-list">'+breakdownList(groupCount('unit'))+'</div>';
+  html += '<p class="section-label">Dias da semana mais procurados</p><div class="stat-list">'+breakdownWeekdays()+'</div>';
+
+  var ages = state.leads.map(function(l){return parseFloat(l.age);}).filter(function(a){return !isNaN(a);});
+  var avgAge = ages.length ? Math.round(ages.reduce(function(a,b){return a+b;},0)/ages.length*10)/10 : 0;
+  var needsCount = state.leads.filter(function(l){return l.hasNeeds;}).length;
+  html += '<p class="section-label">Outros números</p><div class="stat-list">'
+    + '<div class="stat-row"><span class="k">Idade média</span><span class="v">'+avgAge+' anos</span></div>'
+    + '<div class="stat-row"><span class="k">Sinalizaram necessidade específica</span><span class="v">'+needsCount+'</span></div>'
+    + '<div class="stat-row"><span class="k">Total de cadastros</span><span class="v">'+total+'</span></div>'
+    + '</div>';
+  app.innerHTML = html;
+}
+function funnelStep(label,val,base,lime){
+  var pct = base>0 ? Math.round(val/base*100) : 0;
+  return '<div class="funnel-step"><div class="fs-top"><span class="fs-label">'+label+'</span><span class="fs-num">'+val+'</span></div>'
+    + '<div class="funnel-track"><div class="funnel-fill'+(lime?' lime':'')+'" style="width:'+pct+'%"></div></div></div>';
+}
+function statRow(label,pct){
+  return '<div class="stat-row"><span class="k">'+label+'</span><div class="bar-mini"><div class="bar-mini-fill" style="width:'+pct+'%"></div></div><span class="v">'+pct+'%</span></div>';
+}
+function groupCount(field){
+  var m={};
+  state.leads.forEach(function(l){ var k=l[field]||'—'; m[k]=(m[k]||0)+1; });
+  return m;
+}
+function breakdownList(m){
+  var keys = Object.keys(m).sort(function(a,b){return m[b]-m[a];});
+  if(keys.length===0) return '<div class="empty-state">Sem dados ainda.</div>';
+  var max = Math.max.apply(null, keys.map(function(k){return m[k];}));
+  return keys.map(function(k){
+    var pct = Math.round(m[k]/max*100);
+    return '<div class="stat-row"><span class="k">'+escapeHtml(k)+'</span><div class="bar-mini"><div class="bar-mini-fill" style="width:'+pct+'%"></div></div><span class="v">'+m[k]+'</span></div>';
+  }).join('');
+}
+function breakdownWeekdays(){
+  var m={};
+  WEEKDAYS.forEach(function(d){m[d]=0;});
+  state.leads.forEach(function(l){ (l.weekdays||[]).forEach(function(d){ m[d]=(m[d]||0)+1; }); });
+  return breakdownList(m);
+}
+
+/* ---------- actions ---------- */
+var Actions = {
+  showNewLead:function(){ state.form={}; state.showMore=false; state.screen='newLead'; render(); },
+  showPipeline:function(){ state.screen='pipeline'; render(); },
+  showReports:function(){ state.screen='reports'; render(); },
+  openLead:function(el){ state.currentId=el.dataset.id; state.screen='leadDetail'; render(); },
+  toggleWeekday:function(el){
+    var d=el.dataset.day;
+    state.form.weekdays = state.form.weekdays||[];
+    var idx=state.form.weekdays.indexOf(d);
+    if(idx>-1) state.form.weekdays.splice(idx,1); else state.form.weekdays.push(d);
+    render();
+  },
+  setExperience:function(el){ state.form.experience=el.dataset.val; render(); },
+  setHowFound:function(el){ state.form.howFound = state.form.howFound===el.dataset.val ? null : el.dataset.val; render(); },
+  toggleNeeds:function(){ state.form.hasNeeds = !state.form.hasNeeds; render(); },
+  toggleMore:function(){ state.showMore=true; render(); },
+  setFilter:function(el){ state.filterStatus=el.dataset.status; render(); },
+  saveLead:function(){
+    syncFormInputs();
+    var f=state.form;
+    if(!f.studentName || !f.studentName.trim()){ showToast('Digite o nome do aluno.'); return; }
+    if(!f.parentName || !f.parentName.trim()){ showToast('Digite o nome do responsável.'); return; }
+    if(!f.parentPhone || !f.parentPhone.trim()){ showToast('Digite o telefone do responsável.'); return; }
+    if(!f.trialDate){ showToast('Escolha a data da aula experimental.'); return; }
+    var lead = {
+      id:uid(), studentName:f.studentName.trim(), parentName:f.parentName.trim(), parentPhone:f.parentPhone.trim(),
+      unit:(f.unit||'').trim(), trialDate:f.trialDate, age:f.age||'', experience:f.experience||'iniciante',
+      weekdays:f.weekdays||[], hasNeeds:!!f.hasNeeds, needsDetails:f.needsDetails||'', howFound:f.howFound||'', notes:f.notes||'',
+      status:'agendado', createdAt:new Date().toISOString()
+    };
+    state.leads.push(lead);
+    saveLeads();
+    state.currentId = lead.id;
+    state.screen='leadDetail';
+    render();
+    showToast('Aula experimental cadastrada!');
+  },
+  callParent:function(el){ window.location.href = 'tel:'+el.dataset.phone; },
+  whatsParent:function(el){
+    var l = getLead(el.dataset.id);
+    var digits = onlyDigits(l.parentPhone);
+    var msg = 'Olá, '+l.parentName+'! Aqui é da BSA falando sobre a aula experimental de '+l.studentName+'.';
+    window.open('https://wa.me/55'+digits+'?text='+encodeURIComponent(msg), '_blank');
+  },
+  markAttended:function(el){ var l=getLead(el.dataset.id); l.status='realizada'; l.attendedAt=new Date().toISOString(); saveLeads(); render(); showToast('Presença confirmada.'); },
+  markNoShow:function(el){ var l=getLead(el.dataset.id); l.status='nao_compareceu'; saveLeads(); render(); showToast('Marcado como não compareceu.'); },
+  reschedule:function(el){
+    var l=getLead(el.dataset.id);
+    var newDate = prompt('Nova data da aula experimental (AAAA-MM-DD):', todayStr());
+    if(!newDate) return;
+    l.trialDate = newDate; l.status='agendado'; saveLeads(); render(); showToast('Aula reagendada.');
+  },
+  markEnrolled:function(el){
+    var l=getLead(el.dataset.id); l.status='matriculado'; l.outcomeDate=new Date().toISOString(); saveLeads();
+    showCelebration(l);
+  },
+  markDropped:function(el){ var l=getLead(el.dataset.id); l.status='desistencia'; l.outcomeDate=new Date().toISOString(); saveLeads(); render(); showToast('Marcado como não convertido.'); },
+  reopenLead:function(el){ var l=getLead(el.dataset.id); l.status='realizada'; saveLeads(); render(); showToast('Reaberto para nova decisão.'); },
+  deleteLead:function(el){
+    if(!confirm('Excluir este cadastro definitivamente?')) return;
+    state.leads = state.leads.filter(function(l){return l.id!==el.dataset.id;});
+    saveLeads(); state.screen='pipeline'; render();
+  },
+  closeCelebration:function(){
+    var ov = document.getElementById('celebrateOverlay'); if(ov) ov.remove();
+    state.screen='leadDetail'; render();
+  }
+};
+
+function syncFormInputs(){
+  var f = state.form;
+  ['trialDate','unit','studentName','parentName','parentPhone','age'].forEach(function(id){
+    var el = document.getElementById('f_'+id);
+    if(el) f[id] = el.value;
+  });
+  var needsEl = document.getElementById('f_needsDetails'); if(needsEl) f.needsDetails = needsEl.value;
+  var notesEl = document.getElementById('f_notes'); if(notesEl) f.notes = notesEl.value;
+}
+function showCelebration(lead){
+  var ov = document.createElement('div');
+  ov.id='celebrateOverlay'; ov.className='celebrate-overlay';
+  ov.innerHTML = '<div class="emoji">&#127881;</div><h2>Matrícula fechada!</h2>'
+    + '<p>'+escapeHtml(lead.studentName)+' agora faz parte da BSA.</p>'
+    + '<button class="btn btn-primary" style="max-width:220px;" data-action="closeCelebration">Continuar</button>';
+  document.body.appendChild(ov);
+  if(navigator.vibrate) navigator.vibrate([120,60,120,60,200]);
+}
+
+document.addEventListener('click', function(e){
+  var el = e.target.closest('[data-action]');
+  if(el && Actions[el.dataset.action]) Actions[el.dataset.action](el);
+});
+document.addEventListener('input', function(e){
+  if(e.target.id && e.target.id.indexOf('f_')===0){
+    var key = e.target.id.slice(2);
+    state.form[key] = e.target.value;
+  }
+});
+
+document.getElementById('backBtn').addEventListener('click', function(){
+  syncFormInputs();
+  if(state.screen==='newLead'){ state.screen='home'; }
+  else if(state.screen==='pipeline'){ state.screen='home'; }
+  else if(state.screen==='reports'){ state.screen='home'; }
+  else if(state.screen==='leadDetail'){ state.screen='pipeline'; }
+  render();
+});
+
+try{
+  var bootDone=false;
+  function boot(){ if(bootDone) return; bootDone=true; state.screen='home'; render(); }
+  initFirebase();
+  setTimeout(boot, 4000);
+}catch(fatalErr){
+  document.getElementById('app').innerHTML = '<div class="empty-state"><b>Não foi possível iniciar o app.</b><br>Abra este arquivo direto no navegador (Safari/Chrome), não em uma pré-visualização de e-mail.</div>';
+}
+
+})();
+</script>
+</body>
+</html>
