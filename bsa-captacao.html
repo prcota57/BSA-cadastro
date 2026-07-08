@@ -294,7 +294,8 @@ function renderHome(app){
 }
 
 function renderNewLead(app){
-  setHeader('Nova aula experimental','Preencha os dados do interessado',true);
+  var editando = !!state.editingId;
+  setHeader(editando ? 'Editar cadastro' : 'Nova aula experimental', editando ? 'Atualize os dados do interessado' : 'Preencha os dados do interessado', true);
   var f = state.form;
   var expSel = function(v){ return f.experience===v?' selected':''; };
   var weekdayChips = WEEKDAYS.map(function(d){ return '<button class="chip-btn'+((f.weekdays||[]).indexOf(d)>-1?' selected':'')+'" data-action="toggleWeekday" data-day="'+d+'">'+d.slice(0,3)+'</button>'; }).join('');
@@ -302,7 +303,10 @@ function renderNewLead(app){
 
   var html = ''
     + '<div class="field"><label>Dia da aula experimental</label><input type="date" id="f_trialDate" value="'+(f.trialDate||todayStr())+'"></div>'
-    + '<div class="field"><label>Unidade escolhida</label><input type="text" id="f_unit" list="unitList" placeholder="ex: BSA Savassi" value="'+escapeHtml(f.unit||'')+'"><datalist id="unitList">'+unitDatalistOptions()+'</datalist></div>'
+    + '<div class="field"><label>Unidade</label><div class="seg-row">'
+    + '<button class="seg-btn'+(f.unit==='Carlos Prates'?' selected':'')+'" data-action="setUnit" data-val="Carlos Prates">Carlos Prates</button>'
+    + '<button class="seg-btn'+(f.unit==='Estoril'?' selected':'')+'" data-action="setUnit" data-val="Estoril">Estoril</button>'
+    + '</div></div>'
     + '<div class="field"><label>Nome do aluno</label><input type="text" id="f_studentName" placeholder="ex: Davi Souza" value="'+escapeHtml(f.studentName||'')+'"></div>'
     + '<div class="field"><label>Nome do pai/responsável</label><input type="text" id="f_parentName" placeholder="ex: Carla Souza" value="'+escapeHtml(f.parentName||'')+'"></div>'
     + '<div class="field"><label>Telefone do responsável</label><input type="tel" id="f_parentPhone" placeholder="(31) 90000-0000" value="'+escapeHtml(f.parentPhone||'')+'"></div>'
@@ -318,13 +322,8 @@ function renderNewLead(app){
         '<div class="field"><label>Como conheceu a BSA?</label><div class="chip-row">'+howFoundChips+'</div></div>'
         + '<div class="field"><label>Observações</label><textarea id="f_notes" placeholder="qualquer outra informação útil">'+escapeHtml(f.notes||'')+'</textarea></div>'
       ) : '<p class="more-toggle" data-action="toggleMore">+ Adicionar mais detalhes (opcional)</p>')
-    + '<button class="btn btn-primary" data-action="saveLead">Cadastrar</button>';
+    + '<button class="btn btn-primary" data-action="saveLead">'+(editando ? 'Salvar alterações' : 'Cadastrar')+'</button>';
   app.innerHTML = html;
-}
-function unitDatalistOptions(){
-  var units = {};
-  state.leads.forEach(function(l){ if(l.unit) units[l.unit]=true; });
-  return Object.keys(units).map(function(u){ return '<option value="'+escapeHtml(u)+'">'; }).join('');
 }
 
 function renderPipeline(app){
@@ -359,6 +358,9 @@ function renderLeadDetail(app){
   if(l.hasNeeds){
     html += '<div class="needs-box"><strong>Atenção — necessidade específica:</strong> '+escapeHtml(l.needsDetails||'sinalizado pelo responsável')+'</div>';
   }
+  if(l.alunoId){
+    html += '<div class="needs-box" style="border-left-color:var(--lime-500); background:#FFF3CC; color:#0B4530;"><strong>✓ Já cadastrado</strong> no BSA Cadastro automaticamente.</div>';
+  }
 
   html += '<div class="info-grid">'
     + infoRow('Aula experimental', fmtDate(l.trialDate))
@@ -389,6 +391,7 @@ function renderLeadDetail(app){
   } else {
     html += '<button class="btn btn-secondary" style="margin-bottom:10px;" data-action="reopenLead" data-id="'+l.id+'">Reabrir avaliação</button>';
   }
+  html += '<button class="btn btn-secondary" style="margin-bottom:10px;" data-action="editLead" data-id="'+l.id+'">Editar cadastro</button>';
   html += '<button class="btn btn-danger-ghost" data-action="deleteLead" data-id="'+l.id+'">Excluir cadastro</button>';
   app.innerHTML = html;
 }
@@ -460,7 +463,16 @@ function breakdownWeekdays(){
 
 /* ---------- actions ---------- */
 var Actions = {
-  showNewLead:function(){ state.form={}; state.showMore=false; state.screen='newLead'; render(); },
+  showNewLead:function(){ state.form={}; state.showMore=false; state.editingId=null; state.screen='newLead'; render(); },
+  editLead:function(el){
+    var l = getLead(el.dataset.id);
+    if(!l) return;
+    state.form = Object.assign({}, l);
+    state.showMore = true;
+    state.editingId = l.id;
+    state.screen = 'newLead';
+    render();
+  },
   showPipeline:function(){ state.screen='pipeline'; render(); },
   showReports:function(){ state.screen='reports'; render(); },
   openLead:function(el){ state.currentId=el.dataset.id; state.screen='leadDetail'; render(); },
@@ -472,6 +484,7 @@ var Actions = {
     render();
   },
   setExperience:function(el){ state.form.experience=el.dataset.val; render(); },
+  setUnit:function(el){ state.form.unit=el.dataset.val; render(); },
   setHowFound:function(el){ state.form.howFound = state.form.howFound===el.dataset.val ? null : el.dataset.val; render(); },
   toggleNeeds:function(){ state.form.hasNeeds = !state.form.hasNeeds; render(); },
   toggleMore:function(){ state.showMore=true; render(); },
@@ -480,9 +493,34 @@ var Actions = {
     syncFormInputs();
     var f=state.form;
     if(!f.studentName || !f.studentName.trim()){ showToast('Digite o nome do aluno.'); return; }
+    if(!f.unit){ showToast('Escolha a unidade.'); return; }
     if(!f.parentName || !f.parentName.trim()){ showToast('Digite o nome do responsável.'); return; }
     if(!f.parentPhone || !f.parentPhone.trim()){ showToast('Digite o telefone do responsável.'); return; }
     if(!f.trialDate){ showToast('Escolha a data da aula experimental.'); return; }
+
+    if(state.editingId){
+      var existing = getLead(state.editingId);
+      if(!existing){ state.editingId=null; state.screen='pipeline'; render(); return; }
+      existing.studentName = f.studentName.trim();
+      existing.parentName = f.parentName.trim();
+      existing.parentPhone = f.parentPhone.trim();
+      existing.unit = f.unit;
+      existing.trialDate = f.trialDate;
+      existing.age = f.age || '';
+      existing.experience = f.experience || 'iniciante';
+      existing.weekdays = f.weekdays || [];
+      existing.hasNeeds = !!f.hasNeeds;
+      existing.needsDetails = f.needsDetails || '';
+      existing.howFound = f.howFound || '';
+      existing.notes = f.notes || '';
+      saveLeads();
+      state.currentId = existing.id;
+      state.editingId = null;
+      state.screen = 'leadDetail';
+      render();
+      showToast('Cadastro atualizado!');
+      return;
+    }
     var lead = {
       id:uid(), studentName:f.studentName.trim(), parentName:f.parentName.trim(), parentPhone:f.parentPhone.trim(),
       unit:(f.unit||'').trim(), trialDate:f.trialDate, age:f.age||'', experience:f.experience||'iniciante',
@@ -512,8 +550,12 @@ var Actions = {
     l.trialDate = newDate; l.status='agendado'; saveLeads(); render(); showToast('Aula reagendada.');
   },
   markEnrolled:function(el){
-    var l=getLead(el.dataset.id); l.status='matriculado'; l.outcomeDate=new Date().toISOString(); saveLeads();
-    showCelebration(l);
+    var l=getLead(el.dataset.id);
+    l.status='matriculado'; l.outcomeDate=new Date().toISOString();
+    criarAlunoSeNecessario(l).then(function(){
+      saveLeads();
+      showCelebration(l);
+    });
   },
   markDropped:function(el){ var l=getLead(el.dataset.id); l.status='desistencia'; l.outcomeDate=new Date().toISOString(); saveLeads(); render(); showToast('Marcado como não convertido.'); },
   reopenLead:function(el){ var l=getLead(el.dataset.id); l.status='realizada'; saveLeads(); render(); showToast('Reaberto para nova decisão.'); },
@@ -528,9 +570,31 @@ var Actions = {
   }
 };
 
+async function criarAlunoSeNecessario(l){
+  if(l.alunoId || !db) return;
+  try{
+    var ref = await db.collection('alunos').add({
+      nome: l.studentName,
+      dataNascimento: '',
+      categoria: '',
+      unidade: l.unit,
+      foto: null,
+      responsavelNome: l.parentName,
+      responsavelWhatsapp: onlyDigits(l.parentPhone),
+      statusMensalidade: 'ativo',
+      statusGeral: 'ativo',
+      dataMatricula: todayStr(),
+      observacoes: 'Origem: BSA Captação (aula experimental em ' + fmtDate(l.trialDate) + ')'
+    });
+    l.alunoId = ref.id;
+  }catch(e){
+    showToast('Matriculado, mas o cadastro automático falhou — cadastre manualmente no BSA Cadastro.');
+  }
+}
+
 function syncFormInputs(){
   var f = state.form;
-  ['trialDate','unit','studentName','parentName','parentPhone','age'].forEach(function(id){
+  ['trialDate','studentName','parentName','parentPhone','age'].forEach(function(id){
     var el = document.getElementById('f_'+id);
     if(el) f[id] = el.value;
   });
@@ -560,7 +624,11 @@ document.addEventListener('input', function(e){
 
 document.getElementById('backBtn').addEventListener('click', function(){
   syncFormInputs();
-  if(state.screen==='newLead'){ state.screen='home'; }
+  if(state.screen==='newLead'){
+    var destino = state.editingId ? 'leadDetail' : 'home';
+    state.editingId = null;
+    state.screen = destino;
+  }
   else if(state.screen==='pipeline'){ state.screen='home'; }
   else if(state.screen==='reports'){ state.screen='home'; }
   else if(state.screen==='leadDetail'){ state.screen='pipeline'; }
