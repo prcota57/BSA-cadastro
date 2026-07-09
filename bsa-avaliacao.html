@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>BSA Avaliação — App do Professor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;700&display=swap" rel="stylesheet">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
+<style>
+  :root{
+    --pitch-900:#0B4530;--pitch-800:#0F5C3D;--pitch-700:#14724F;
+    --chalk-100:#F6F8F4;--chalk-200:#E4EFE8;--chalk-300:#DCE5DD;
+    --lime-500:#FFC800;--lime-600:#E6B400;--amber-500:#E8A33D;--amber-700:#8A5A1E;
+    --clay-500:#FF5A36;--clay-700:#B23A20;--whats-500:#25D366;--whats-700:#1AA050;
+    --ink-700:#142B20;--line:#DCE5DD;
+    --font-display:'Space Grotesk',sans-serif;--font-body:'Inter',sans-serif;--font-mono:'IBM Plex Mono',monospace;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;}
+  input{user-select:text;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--pitch-900);color:var(--ink-700);font-family:var(--font-body);line-height:1.5;min-height:100vh;}
+  .shell{max-width:440px;margin:0 auto;background:var(--chalk-100);min-height:100vh;display:flex;flex-direction:column;}
+  header.bar{background:var(--pitch-800);color:var(--chalk-100);padding:16px 18px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5;}
+  header.bar .back{background:none;border:none;color:var(--chalk-100);font-size:22px;line-height:1;cursor:pointer;padding:4px 6px 4px 0;display:none;}
+  header.bar .back.show{display:block;}
+  header.bar .logo-wrap{flex-shrink:0;}
+  header.bar .htext{flex:1;min-width:0;}
+  header.bar h1{font-family:var(--font-display);font-weight:600;font-size:18px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  header.bar p{font-size:11.5px;color:var(--chalk-300);margin:1px 0 0;}
+  header.bar .guide-btn{background:none;border:1px solid rgba(245,242,232,0.3);color:var(--chalk-100);font-family:var(--font-mono);font-size:11px;border-radius:100px;padding:6px 12px;cursor:pointer;flex-shrink:0;}
+  main{flex:1;padding:20px 18px 100px;}
+  .btn{display:block;width:100%;font-family:var(--font-display);font-weight:600;font-size:15.5px;border-radius:10px;border:none;cursor:pointer;padding:16px;text-align:center;}
+  .btn-primary{background:var(--lime-500);color:var(--pitch-900);}
+  .btn-primary:active{background:var(--lime-600);}
+  .btn-whatsapp{background:var(--whats-500);color:#fff;display:flex;align-items:center;justify-content:center;gap:8px;}
+  .btn-whatsapp:active{background:var(--whats-700);}
+  .btn-secondary{background:#fff;color:var(--pitch-800);border:1px solid var(--line);}
+  .btn-danger-ghost{background:none;color:var(--clay-700);border:1px solid #FFC2B0;}
+
+  /* shortcuts */
+  .shortcuts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px;}
+  .shortcut{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 6px;text-align:center;cursor:pointer;}
+  .shortcut .ic{font-size:20px;display:block;margin-bottom:4px;}
+  .shortcut .lb{font-family:var(--font-display);font-weight:600;font-size:11px;color:var(--pitch-800);line-height:1.2;}
+  .shortcut .badge{display:inline-block;margin-top:3px;background:var(--clay-500);color:#fff;font-size:9.5px;font-family:var(--font-mono);padding:1px 6px;border-radius:100px;}
+
+  .section-label{font-family:var(--font-mono);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#8a8a80;margin:0 0 10px;}
+
+  .empty-state{text-align:center;padding:50px 10px;color:#8a8a80;}
+  .student-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;margin-bottom:10px;cursor:pointer;}
+  .avatar{width:42px;height:42px;border-radius:50%;background:var(--pitch-800);color:var(--lime-500);font-family:var(--font-display);font-weight:600;font-size:15px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;}
+  .avatar img{width:100%;height:100%;object-fit:cover;}
+  .avatar.lg{width:76px;height:76px;font-size:26px;margin:0 auto 14px;}
+  .avatar.report{width:64px;height:64px;font-size:22px;border:3px solid var(--lime-500);}
+  .student-info{flex:1;min-width:0;}
+  .student-name{font-family:var(--font-display);font-weight:600;font-size:15.5px;margin:0;color:var(--ink-700);}
+  .student-sub{font-size:11.5px;color:#8a8a80;margin:2px 0 0;}
+  .student-score{font-family:var(--font-mono);font-weight:700;font-size:18px;color:var(--pitch-800);}
+  .due-tag{display:inline-block;font-family:var(--font-mono);font-size:10px;padding:2px 8px;border-radius:100px;margin-top:3px;}
+  .due-tag.overdue{background:#FFE4DC;color:var(--clay-700);border:1px solid #FFC2B0;}
+  .due-tag.ok{background:var(--chalk-200);color:#6c6c62;}
+  .fab{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);width:calc(100% - 36px);max-width:404px;z-index:6;}
+
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-size:12.5px;color:#6c6c62;font-family:var(--font-mono);margin-bottom:6px;}
+  .field input[type=text]{width:100%;font-family:var(--font-body);font-size:16px;padding:14px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink-700);}
+  .field input:focus{outline:2px solid var(--lime-600);border-color:transparent;}
+
+  .photo-picker{display:flex;align-items:center;gap:14px;margin-bottom:20px;}
+  .photo-label{width:auto;flex:1;display:inline-block;padding:12px 14px;font-size:13.5px;}
+  input[type=file]{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;}
+
+  .progress-dots{display:flex;gap:6px;justify-content:center;margin-bottom:16px;}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--chalk-300);}
+  .dot.done{background:var(--lime-600);}
+  .dot.current{background:var(--pitch-800);width:20px;border-radius:4px;}
+
+  .eval-student-pill{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:18px;}
+  .eval-student-pill .avatar{width:30px;height:30px;font-size:12px;}
+  .eval-student-pill span{font-family:var(--font-mono);font-size:12.5px;color:#6c6c62;}
+
+  .station-title-wrap{text-align:center;margin-bottom:20px;}
+  .station-eyebrow{font-family:var(--font-mono);font-size:11.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--amber-700);margin:0 0 6px;}
+  .station-title{font-family:var(--font-display);font-weight:700;font-size:24px;color:var(--pitch-800);margin:0;}
+  .station-sub{font-size:13.5px;color:#6c6c62;margin:6px 0 0;}
+
+  .timer-card{background:var(--pitch-800);border-radius:14px;padding:16px;text-align:center;margin-bottom:16px;transition:background 0.3s;}
+  .timer-card.done{background:var(--clay-500);}
+  .timer-display{font-family:var(--font-mono);font-weight:700;font-size:44px;color:var(--lime-500);line-height:1;}
+  .timer-card.done .timer-display{color:#fff;}
+  .timer-controls{display:flex;gap:8px;margin-top:10px;}
+  .timer-btn{flex:1;font-family:var(--font-display);font-weight:600;font-size:13px;border:none;border-radius:8px;padding:10px;cursor:pointer;background:var(--lime-500);color:var(--pitch-900);}
+  .timer-btn.ghost{background:rgba(245,242,232,0.14);color:var(--chalk-100);}
+
+  .lr-wrap{display:flex;gap:12px;margin-bottom:8px;}
+  .lr-col{flex:1;background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 12px;text-align:center;}
+  .lr-tag{font-family:var(--font-mono);font-size:11px;color:#8a8a80;margin-bottom:10px;display:block;}
+  .single-wrap{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px 16px;text-align:center;margin-bottom:8px;}
+  .stepper-row{display:flex;align-items:center;justify-content:center;gap:14px;}
+  .step-btn{width:52px;height:52px;border-radius:50%;border:none;background:var(--chalk-200);color:var(--pitch-800);font-size:24px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;touch-action:none;}
+  .step-btn:active{background:var(--chalk-300);}
+  .step-value{font-family:var(--font-mono);font-weight:700;font-size:34px;color:var(--pitch-800);min-width:78px;text-align:center;}
+  .step-unit{font-size:11.5px;color:#8a8a80;margin-top:8px;font-family:var(--font-mono);}
+  .direct-input-wrap{margin-top:12px;}
+  .direct-input{width:100%;text-align:center;font-family:var(--font-mono);font-weight:700;font-size:20px;padding:12px;border:1.5px dashed var(--chalk-300);border-radius:10px;background:var(--chalk-100);color:var(--pitch-800);}
+  .direct-input:focus{outline:2px solid var(--lime-600);border-style:solid;border-color:transparent;}
+  .direct-label{font-size:10.5px;color:#8a8a80;font-family:var(--font-mono);margin:8px 0 4px;text-transform:uppercase;letter-spacing:0.05em;}
+
+  .chip-block{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 14px;margin-bottom:12px;}
+  .chip-block .chip-label{font-family:var(--font-display);font-weight:600;font-size:14px;color:var(--pitch-800);margin:0 0 12px;text-align:center;}
+  .chip-row{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;}
+  .chip-btn{width:34px;height:34px;border-radius:8px;border:1.5px solid var(--chalk-300);background:var(--chalk-100);color:var(--ink-700);font-family:var(--font-mono);font-weight:700;font-size:14px;cursor:pointer;}
+  .chip-btn.selected{background:var(--pitch-800);border-color:var(--pitch-800);color:var(--lime-500);}
+
+  .wizard-nav{display:flex;gap:10px;margin-top:20px;}
+  .wizard-nav .btn{flex:1;}
+
+  .level-btn{display:block;width:100%;border:none;border-radius:12px;padding:20px;margin-bottom:12px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:14px;}
+  .level-btn .lvl-name{font-family:var(--font-display);font-weight:700;font-size:17px;}
+  .level-btn .lvl-desc{font-size:12px;opacity:0.85;margin-top:2px;}
+  .level-iniciante{background:#FFE4DC;color:var(--clay-700);}
+  .level-intermediario{background:var(--chalk-200);color:var(--pitch-800);}
+  .level-avancado{background:var(--pitch-800);color:var(--lime-500);}
+
+  /* report card */
+  .report-card{background:var(--pitch-800);border-radius:18px;padding:24px 20px;color:var(--chalk-100);margin-bottom:18px;}
+  .report-top{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+  .report-top .brand{flex:1;}
+  .report-top .brand .bname{font-family:var(--font-display);font-weight:700;font-size:14px;color:var(--lime-500);letter-spacing:0.03em;}
+  .report-top .brand .btag{font-family:var(--font-mono);font-size:9.5px;color:var(--chalk-300);letter-spacing:0.06em;text-transform:uppercase;}
+  .report-student{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+  .report-student .n{font-family:var(--font-display);font-weight:600;font-size:18px;}
+  .report-student .d{font-family:var(--font-mono);font-size:11.5px;color:var(--chalk-300);}
+  .report-score{text-align:center;margin-bottom:18px;}
+  .report-score .num{font-family:var(--font-display);font-weight:700;font-size:58px;line-height:1;color:var(--lime-500);}
+  .report-score .lbl{font-family:var(--font-mono);font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--chalk-300);}
+  .medal-pill{display:inline-block;margin-top:10px;font-family:var(--font-mono);font-weight:700;font-size:12px;padding:7px 16px;border-radius:100px;text-transform:uppercase;letter-spacing:0.04em;}
+  .level-pill{display:inline-block;margin-top:8px;margin-left:6px;font-family:var(--font-mono);font-weight:700;font-size:11px;padding:6px 14px;border-radius:100px;background:rgba(245,242,232,0.15);color:var(--chalk-100);}
+  .star-grid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+  .star-grid .star-card{width:calc(50% - 4px);}
+  .star-card{background:rgba(245,242,232,0.08);border-radius:10px;padding:10px 12px;}
+  .star-card .lbl{font-size:10.5px;color:var(--chalk-300);font-family:var(--font-mono);margin-bottom:3px;}
+  .star-card .stars{font-size:14px;letter-spacing:1.5px;color:var(--amber-500);}
+  .star-card .tag{font-size:10.5px;color:var(--chalk-300);margin-top:2px;}
+  .report-footer{border-top:1px solid rgba(245,242,232,0.15);padding-top:12px;margin-top:6px;display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;color:var(--chalk-300);}
+
+  .history-item{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;cursor:pointer;}
+  .history-item .d{font-size:12.5px;color:#6c6c62;}
+  .history-item .s{font-family:var(--font-mono);font-weight:700;color:var(--pitch-800);}
+
+  .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--pitch-800);color:var(--chalk-100);font-size:13px;padding:12px 20px;border-radius:100px;z-index:50;font-family:var(--font-body);opacity:0;transition:opacity 0.25s;pointer-events:none;max-width:88%;text-align:center;}
+  .toast.show{opacity:1;}
+  .caution-box{background:#FFE4DC;border:1px solid #FFC2B0;border-left:4px solid var(--clay-500);border-radius:6px;padding:14px 16px;margin-bottom:18px;font-size:13px;color:#8A2E19;}
+  .caution-box strong{color:var(--clay-700);}
+  .guide-overlay{position:fixed;inset:0;background:rgba(18,38,31,0.55);z-index:40;display:flex;align-items:flex-end;justify-content:center;}
+  .guide-sheet{background:var(--chalk-100);width:100%;max-width:440px;max-height:86vh;overflow-y:auto;border-radius:18px 18px 0 0;padding:22px 18px 30px;}
+  .guide-sheet h2{font-family:var(--font-display);font-size:19px;color:var(--pitch-800);margin:0 0 14px;}
+  .guide-card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px;}
+  .guide-card .t{font-family:var(--font-display);font-weight:600;font-size:14.5px;color:var(--pitch-800);margin:0 0 4px;}
+  .guide-card .m{font-size:12.5px;color:#6c6c62;margin:0;}
+  .spinner{width:28px;height:28px;border-radius:50%;border:3px solid var(--chalk-300);border-top-color:var(--pitch-800);animation:spin 0.8s linear infinite;margin:60px auto;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="bar">
+    <button class="back" id="backBtn" aria-label="Voltar">&#8592;</button>
+    <div class="logo-wrap" id="headerLogo"></div>
+    <div class="htext">
+      <h1 id="headerTitle">BSA Avaliação</h1>
+      <p id="headerSub">Manual do professor</p>
+    </div>
+    <button class="guide-btn" id="guideBtn">Guia</button>
+  </header>
+  <main id="app">
+    <div class="spinner"></div>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+<script>
+(function(){
+
+var firebaseConfig = {
+  apiKey: "AIzaSyDmM2m_QnEeRflAKCyb11TzOrZM7iVgLCA",
+  authDomain: "bsa-app-493c3.firebaseapp.com",
+  projectId: "bsa-app-493c3",
+  storageBucket: "bsa-app-493c3.firebasestorage.app",
+  messagingSenderId: "455452879388",
+  appId: "1:455452879388:web:7135d93c116b2fe7cfcdd9"
+};
+var db = null;
+function initFirebase(){
+  try{
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    var auth = firebase.auth();
+    auth.signInAnonymously().catch(function(){});
+    auth.onAuthStateChanged(function(user){
+      if(user) loadStudents().then(boot).catch(boot);
+    });
+  }catch(e){ boot(); }
+}
+
+var BSA_LOGO_SVG = '<svg width="34" height="34" viewBox="0 0 40 40"><circle cx="20" cy="20" r="19" fill="#0B4530" stroke="#FFC800" stroke-width="2"/><text x="20" y="25" text-anchor="middle" font-family="Space Grotesk,sans-serif" font-weight="700" font-size="13" fill="#FFC800">BSA</text></svg>';
+
+var STATIONS = [
+  {key:'rebounder', title:'Rebounder circular', eyebrow:'Estação 1 de 6', sub:'Conte quantas trocas direita-esquerda limpas o aluno faz durante o cronômetro.', type:'single', target:30, unit:'trocas em 30s', step:1, max:80, timed:true},
+  {key:'reflexo', title:'Lâmpadas de reflexo', eyebrow:'Estação 2 de 6', sub:'Conte quantos acertos o aluno faz nas luzes durante o cronômetro.', type:'single', target:20, unit:'acertos em 30s', step:1, max:80, timed:true},
+  {key:'controle', title:'Controle de bola', eyebrow:'Estação 3 de 6', sub:'Conte os toques durante o cronômetro, uma perna de cada vez.', type:'lr', target:30, unit:'toques em 30s', step:1, max:80, timed:true, band:'controle'},
+  {key:'dominio', title:'Domínio no peito', eyebrow:'Estação 4 de 6', sub:'O aluno tem 3 tentativas. Toque a nota de 1 a 9 para a qualidade de cada uma.', type:'triple', target:9, unit:'nota (1 a 9)'},
+  {key:'corrida', title:'Corrida de 10 metros', eyebrow:'Estação 5 de 6', sub:'O aluno faz 3 tentativas. Digite a velocidade máxima marcada pelo radar em cada uma — vale a melhor marca das três.', type:'triple-max', target:20, unit:'km/h', band:'corrida'},
+  {key:'chute', title:'Chute de potência', eyebrow:'Estação 6 de 6', sub:'Digite a velocidade do chute, uma perna de cada vez.', type:'lr', target:60, unit:'km/h', step:1, max:150, direct:true, band:'chute'}
+];
+var LABELS = {rebounder:'Coordenação', reflexo:'Reflexo', controle:'Embaixadinhas', dominio:'Domínio', corrida:'Velocidade', chute:'Potência'};
+var LEVELS = {iniciante:{name:'Iniciante', desc:'Ainda construindo a base técnica'}, intermediario:{name:'Intermediário', desc:'Já domina o básico com consistência'}, avancado:{name:'Avançado', desc:'Alto controle e desempenho técnico'}};
+
+var state = {screen:'loading', students:[], currentStudentId:null, evalStep:0, evalValues:{}, lastEvalIndex:null, newPhoto:null};
+var timer = {remaining:30, running:false, intervalId:null};
+
+function uid(){ return 's' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function initials(name){
+  var parts = name.trim().split(/\s+/);
+  var a = parts[0] ? parts[0][0] : '';
+  var b = parts.length>1 ? parts[parts.length-1][0] : '';
+  return (a+b).toUpperCase();
+}
+function fmtDate(iso){
+  var d = new Date(iso);
+  var dd = String(d.getDate()).padStart(2,'0');
+  var mm = String(d.getMonth()+1).padStart(2,'0');
+  return dd+'/'+mm+'/'+d.getFullYear();
+}
+function clampNum(v,min,max){ return Math.max(min, Math.min(max, v)); }
+function showToast(msg){
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 2400);
+}
+function avatarHtml(student, extraClass){
+  var cls = 'avatar' + (extraClass ? ' '+extraClass : '');
+  if(student && student.photo) return '<div class="'+cls+'"><img src="'+student.photo+'" alt=""></div>';
+  return '<div class="'+cls+'">'+(student?initials(student.name):'?')+'</div>';
+}
+
+async function loadStudents(){
+  try{
+    if(!db){ state.students = []; return; }
+    var alunosSnap = await db.collection('alunos').get();
+    var avaliacoesSnap = await db.collection('avaliacoesFisicas').get();
+    var porAluno = {};
+    avaliacoesSnap.forEach(function(doc){
+      var d = doc.data();
+      if(!porAluno[d.alunoId]) porAluno[d.alunoId] = [];
+      porAluno[d.alunoId].push(d);
+    });
+    var lista = [];
+    alunosSnap.forEach(function(doc){
+      var d = doc.data();
+      if(d.statusGeral === 'inativo') return;
+      var evals = (porAluno[doc.id] || []).slice().sort(function(a,b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+      var last = evals.length ? evals[evals.length-1] : null;
+      lista.push({
+        id: doc.id,
+        name: d.nome || '(sem nome)',
+        photo: d.foto || null,
+        unidade: d.unidade || '',
+        evaluations: evals,
+        nextDue: last ? last.nextDue : null
+      });
+    });
+    state.students = lista;
+  }catch(e){ state.students = []; }
+}
+async function salvarAvaliacao(s, ev){
+  try{
+    if(!db) throw new Error('sem conexão');
+    await db.collection('avaliacoesFisicas').add(Object.assign(
+      {alunoId: s.id, nome: s.name, unidade: s.unidade||''},
+      ev,
+      {criadoEm: firebase.firestore.FieldValue.serverTimestamp()}
+    ));
+  }catch(e){
+    showToast('Avaliação ficou só nesta tela — não foi possível gravar no servidor.');
+  }
+}
+function getStudent(id){
+  for(var i=0;i<state.students.length;i++){ if(state.students[i].id===id) return state.students[i]; }
+  return null;
+}
+function isOverdue(s){ return s.nextDue && new Date(s.nextDue) <= new Date(); }
+function setHeader(title, sub, showBack){
+  document.getElementById('headerTitle').textContent = title;
+  document.getElementById('headerSub').textContent = sub;
+  var back = document.getElementById('backBtn');
+  if(showBack){ back.classList.add('show'); } else { back.classList.remove('show'); }
+}
+function escapeHtml(str){
+  return str.replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; });
+}
+
+/* ---------- performance bands ---------- */
+function classifyCorrida(v){
+  if(v<15) return {label:'Muito baixa', pct:20};
+  if(v<=20) return {label:'Baixa', pct:40};
+  if(v<=30) return {label:'Média', pct:65};
+  return {label:'Ótima', pct:100};
+}
+function classifyChute(v){
+  if(v<40) return {label:'Muito fraco', pct:20};
+  if(v<50) return {label:'Fraco', pct:35};
+  if(v<60) return {label:'Médio', pct:55};
+  if(v<80) return {label:'Bom', pct:78};
+  if(v<90) return {label:'Ótimo', pct:95};
+  return {label:'Excelente', pct:100};
+}
+function classifyControle(v){
+  if(v<10) return {label:'Fraco', pct:25};
+  if(v<=14) return {label:'Médio', pct:55};
+  if(v<=19) return {label:'Bom', pct:80};
+  return {label:'Ótimo', pct:100};
+}
+
+/* ---------- router ---------- */
+function render(){
+  document.getElementById('headerLogo').innerHTML = BSA_LOGO_SVG;
+  var app = document.getElementById('app');
+  if(state.screen==='loading'){ app.innerHTML = '<div class="spinner"></div>'; return; }
+  if(state.screen==='home') return renderHome(app);
+  if(state.screen==='studentHome') return renderStudentHome(app);
+  if(state.screen==='evalStep') return renderEvalStep(app);
+  if(state.screen==='classify') return renderClassify(app);
+  if(state.screen==='result') return renderResult(app);
+  if(state.screen==='history') return renderHistory(app);
+  if(state.screen==='pending') return renderPending(app);
+}
+
+function renderHome(app){
+  setHeader('BSA Avaliação', 'Alunos cadastrados', false);
+  var pendingCount = state.students.filter(isOverdue).length;
+  var html = '<div class="shortcuts">'
+    + '<div class="shortcut" data-action="showNewStudent"><span class="ic">&#128100;</span><span class="lb">Cadastro</span></div>'
+    + '<div class="shortcut" data-action="showPending"><span class="ic">&#9203;</span><span class="lb">Pendentes</span>'+(pendingCount?'<div class="badge">'+pendingCount+'</div>':'')+'</div>'
+    + '<div class="shortcut" data-action="openGuide"><span class="ic">&#128220;</span><span class="lb">Guia rápido</span></div>'
+    + '</div>';
+  html += '<p class="section-label">Todos os alunos</p>';
+  if(state.students.length===0){
+    html += '<div class="empty-state"><p>Nenhum aluno encontrado.<br>Cadastre pelo BSA Cadastro — os alunos aparecem aqui automaticamente.</p></div>';
+  } else {
+    state.students.slice().sort(function(a,b){return a.name.localeCompare(b.name);}).forEach(function(s){
+      var last = s.evaluations.length ? s.evaluations[s.evaluations.length-1] : null;
+      html += '<div class="student-card" data-action="openStudent" data-id="'+s.id+'">'
+        + avatarHtml(s)
+        + '<div class="student-info"><p class="student-name">'+escapeHtml(s.name)+'</p>'
+        + '<p class="student-sub">'+(last ? (s.evaluations.length+' avaliação(ões) — última em '+fmtDate(last.date)) : (s.unidade||'sem avaliações ainda'))+'</p>'
+        + (last ? '<span class="due-tag '+(isOverdue(s)?'overdue':'ok')+'">'+(isOverdue(s)?'Avaliação vencida':'Próxima: '+fmtDate(s.nextDue))+'</span>' : '')
+        + '</div>'
+        + (last ? '<div class="student-score">'+last.score+'</div>' : '')
+        + '</div>';
+    });
+  }
+  html += '<div style="height:70px"></div>';
+  html += '<div class="fab"><button class="btn btn-primary" data-action="showNewStudent">Ir para o Cadastro</button></div>';
+  app.innerHTML = html;
+}
+
+function renderPending(app){
+  setHeader('Avaliações pendentes', 'Alunos com trimestre vencido', true);
+  var list = state.students.filter(isOverdue);
+  var html = '';
+  if(list.length===0){
+    html = '<div class="empty-state"><p>Nenhuma avaliação pendente no momento. Tudo em dia!</p></div>';
+  } else {
+    list.forEach(function(s){
+      html += '<div class="student-card" data-action="openStudent" data-id="'+s.id+'">'
+        + avatarHtml(s)
+        + '<div class="student-info"><p class="student-name">'+escapeHtml(s.name)+'</p>'
+        + '<span class="due-tag overdue">Venceu em '+fmtDate(s.nextDue)+'</span></div>'
+        + '</div>';
+    });
+  }
+  app.innerHTML = html;
+}
+
+
+function renderStudentHome(app){
+  var s = getStudent(state.currentStudentId);
+  if(!s){ state.screen='home'; return render(); }
+  setHeader(s.name, (s.unidade ? s.unidade+' · ' : '')+s.evaluations.length + ' avaliação(ões)', true);
+  var last = s.evaluations.length ? s.evaluations[s.evaluations.length-1] : null;
+  var html = '<div style="text-align:center;">'+avatarHtml(s,'lg')+'</div>';
+  if(last){
+    html += '<div class="report-card" style="padding:18px;margin-bottom:18px;"><div class="report-score" style="margin-bottom:0;">'
+      + '<p class="lbl">Última avaliação — '+fmtDate(last.date)+'</p>'
+      + '<div class="num" style="font-size:44px;">'+last.score+'</div>'
+      + '<p class="lbl">BSA SCORE / 100</p>'
+      + '<span class="due-tag '+(isOverdue(s)?'overdue':'ok')+'" style="margin-top:8px;">'+(isOverdue(s)?'Avaliação vencida':'Próxima avaliação: '+fmtDate(s.nextDue))+'</span>'
+      + '</div></div>';
+  }
+  html += '<button class="btn btn-primary" style="margin-bottom:10px;" data-action="startEval">Iniciar nova avaliação</button>';
+  if(s.evaluations.length){
+    html += '<button class="btn btn-secondary" style="margin-bottom:10px;" data-action="showHistory">Ver histórico</button>';
+  }
+  html += '<p style="text-align:center;font-size:12px;color:var(--ink-700);opacity:0.6;margin-top:6px;">Para trocar foto ou dados do aluno, use o BSA Cadastro.</p>';
+  app.innerHTML = html;
+}
+
+function clearTimerInterval(){
+  clearInterval(timer.intervalId);
+  timer.intervalId = null;
+}
+
+function renderEvalStep(app){
+  clearTimerInterval();
+  var st = STATIONS[state.evalStep];
+  var student = getStudent(state.currentStudentId);
+  setHeader('Avaliação', student.name, true);
+  if(st.timed){ timer = {remaining:30, running:false, intervalId:null}; }
+
+  var dots = '';
+  STATIONS.forEach(function(_, i){
+    var cls = 'dot' + (i<state.evalStep?' done':'') + (i===state.evalStep?' current':'');
+    dots += '<div class="'+cls+'"></div>';
+  });
+
+  var body = '';
+  if(st.timed){
+    body += '<div class="timer-card" id="timerCard"><div class="timer-display" id="timerDisplay">30</div>'
+      + '<div class="timer-controls"><button class="timer-btn" data-action="timerToggle" id="timerToggleBtn">Iniciar</button>'
+      + '<button class="timer-btn ghost" data-action="timerReset">Reiniciar</button></div></div>';
+  }
+
+  if(st.type==='single'){
+    var v = state.evalValues[st.key] !== undefined ? state.evalValues[st.key] : 0;
+    body += '<div class="single-wrap">' + stepperHtml(st.key, null, v, st) + '<div class="step-unit">'+st.unit+'</div>'
+      + (st.direct ? directInputHtml(st.key, null, v) : '')
+      + '</div>';
+  } else if(st.type==='lr'){
+    var vd = (state.evalValues[st.key] && state.evalValues[st.key].d!==undefined) ? state.evalValues[st.key].d : 0;
+    var ve = (state.evalValues[st.key] && state.evalValues[st.key].e!==undefined) ? state.evalValues[st.key].e : 0;
+    body += '<div class="lr-wrap">'
+      + '<div class="lr-col"><span class="lr-tag">PERNA DIREITA</span>'+stepperHtml(st.key,'d',vd,st)+'<div class="step-unit">'+st.unit+'</div>'+(st.direct?directInputHtml(st.key,'d',vd):'')+'</div>'
+      + '<div class="lr-col"><span class="lr-tag">PERNA ESQUERDA</span>'+stepperHtml(st.key,'e',ve,st)+'<div class="step-unit">'+st.unit+'</div>'+(st.direct?directInputHtml(st.key,'e',ve):'')+'</div>'
+      + '</div>';
+  } else if(st.type==='triple'){
+    var vals = state.evalValues[st.key] || {t1:1,t2:1,t3:1};
+    body += ['t1','t2','t3'].map(function(tk, idx){ return chipBlockHtml(st.key, tk, vals[tk], 'Tentativa '+(idx+1)); }).join('');
+  } else if(st.type==='triple-max'){
+    var mvals = state.evalValues[st.key] || {t1:0,t2:0,t3:0};
+    body += tripleMaxHtml(st.key, mvals);
+  }
+
+  var html = '<div class="progress-dots">'+dots+'</div>'
+    + '<div class="eval-student-pill">'+avatarHtml(student)+'<span>'+escapeHtml(student.name)+'</span></div>'
+    + '<div class="station-title-wrap"><p class="station-eyebrow">'+st.eyebrow+'</p><h2 class="station-title">'+st.title+'</h2><p class="station-sub">'+st.sub+'</p></div>'
+    + body
+    + '<div class="wizard-nav">'
+    + (state.evalStep>0 ? '<button class="btn btn-secondary" data-action="prevStep">Voltar</button>' : '<button class="btn btn-secondary" data-action="cancelEval">Cancelar</button>')
+    + '<button class="btn btn-primary" data-action="nextStep">'+(state.evalStep===STATIONS.length-1?'Concluir':'Próximo')+'</button>'
+    + '</div>';
+  app.innerHTML = html;
+}
+
+function stepperHtml(key, side, value, st){
+  var idPart = side ? key+'_'+side : key;
+  var displayVal = Math.round(value);
+  return '<div class="stepper-row">'
+    + '<button class="step-btn" data-hold="1" data-key="'+key+'" data-side="'+(side||'')+'" data-delta="-'+st.step+'" data-max="'+st.max+'">&#8722;</button>'
+    + '<div class="step-value" id="val_'+idPart+'">'+displayVal+'</div>'
+    + '<button class="step-btn" data-hold="1" data-key="'+key+'" data-side="'+(side||'')+'" data-delta="'+st.step+'" data-max="'+st.max+'">&#43;</button>'
+    + '</div>';
+}
+function directInputHtml(key, side, value){
+  var idPart = side ? key+'_'+side : key;
+  return '<div class="direct-input-wrap"><p class="direct-label">ou digite direto</p>'
+    + '<input type="number" inputmode="numeric" class="direct-input" id="direct_'+idPart+'" data-key="'+key+'" data-side="'+(side||'')+'" value="'+Math.round(value)+'"></div>';
+}
+function chipBlockHtml(key, attemptKey, value, label){
+  var chips = '';
+  for(var n=1;n<=9;n++){
+    chips += '<button class="chip-btn'+(value===n?' selected':'')+'" data-action="selectChip" data-key="'+key+'" data-attempt="'+attemptKey+'" data-value="'+n+'">'+n+'</button>';
+  }
+  return '<div class="chip-block"><p class="chip-label">'+label+'</p><div class="chip-row">'+chips+'</div></div>';
+}
+function tripleMaxHtml(key, vals){
+  var out = '<div class="lr-wrap" style="flex-wrap:wrap;">';
+  ['t1','t2','t3'].forEach(function(tk, idx){
+    var v = vals[tk] || 0;
+    out += '<div class="lr-col" style="min-width:104px;"><span class="lr-tag">TENTATIVA '+(idx+1)+'</span>'
+      + '<input type="number" inputmode="numeric" class="direct-input" data-tripleinput="1" data-key="'+key+'" data-attempt="'+tk+'" value="'+(v||'')+'" placeholder="km/h" style="font-size:22px;padding:10px;">'
+      + '</div>';
+  });
+  out += '</div><p class="step-unit" style="text-align:center;margin-top:10px;" id="bestMarkDisplay">Melhor marca: <b style="color:var(--pitch-800);font-size:15px;">'+Math.max(vals.t1||0,vals.t2||0,vals.t3||0)+' km/h</b></p>';
+  return out;
+}
+
+function renderClassify(app){
+  clearTimerInterval();
+  var student = getStudent(state.currentStudentId);
+  setHeader('Classificação', student.name, true);
+  app.innerHTML =
+    '<div class="station-title-wrap"><p class="station-eyebrow">Etapa final</p><h2 class="station-title" style="font-size:20px;">Como você classifica este aluno?</h2>'
+    + '<p class="station-sub">Sua avaliação profissional do nível geral, com base no que você observou hoje.</p></div>'
+    + '<button class="level-btn level-iniciante" data-action="finalizeEval" data-level="iniciante"><div><div class="lvl-name">Iniciante</div><div class="lvl-desc">'+LEVELS.iniciante.desc+'</div></div></button>'
+    + '<button class="level-btn level-intermediario" data-action="finalizeEval" data-level="intermediario"><div><div class="lvl-name">Intermediário</div><div class="lvl-desc">'+LEVELS.intermediario.desc+'</div></div></button>'
+    + '<button class="level-btn level-avancado" data-action="finalizeEval" data-level="avancado"><div><div class="lvl-name">Avançado</div><div class="lvl-desc">'+LEVELS.avancado.desc+'</div></div></button>';
+}
+
+function renderResult(app){
+  var s = getStudent(state.currentStudentId);
+  var ev = state.lastEvalIndex !== null ? s.evaluations[state.lastEvalIndex] : s.evaluations[s.evaluations.length-1];
+  setHeader('Resultado', s.name, true);
+  var medalColors = {'Diamante':'#5DCAA5','Ouro':'#FFC800','Prata':'#B4B2A9','Bronze':'#D85A30'};
+  var starsHtml = '';
+  Object.keys(ev.categoryPct).forEach(function(k){
+    var pct = ev.categoryPct[k];
+    var stars = clampNum(Math.round(pct/20),1,5);
+    var full = '\u2605'.repeat(stars), empty = '\u2606'.repeat(5-stars);
+    var tag = ev.categoryLabel && ev.categoryLabel[k] ? ev.categoryLabel[k] : Math.round(pct)+'% da meta';
+    starsHtml += '<div class="star-card"><div class="lbl">'+LABELS[k]+'</div><div class="stars">'+full+empty+'</div><div class="tag">'+tag+'</div></div>';
+  });
+  var levelInfo = ev.level ? LEVELS[ev.level] : null;
+
+  var html = '<div class="report-card" id="reportCard">'
+    + '<div class="report-top">'+BSA_LOGO_SVG.replace('width="34" height="34"','width="40" height="40"')
+    + '<div class="brand"><div class="bname">BRAZILIAN SKILLS ACADEMY</div><div class="btag">Sistema oficial de avaliação técnica</div></div></div>'
+    + '<div class="report-student">'+avatarHtml(s,'report')+'<div><div class="n">'+escapeHtml(s.name)+'</div><div class="d">Avaliação de '+fmtDate(ev.date)+'</div></div></div>'
+    + '<div class="report-score"><div class="num">'+ev.score+'</div><div class="lbl">BSA SCORE / 100</div>'
+    + '<div><span class="medal-pill" style="background:'+medalColors[ev.medal]+';color:#0B4530;">'+ev.medal+'</span>'
+    + (levelInfo ? '<span class="level-pill">'+levelInfo.name+'</span>' : '')
+    + '</div></div>'
+    + '<div class="star-grid">'+starsHtml+'</div>'
+    + '<div class="report-footer"><span>Próxima avaliação</span><span>'+fmtDate(ev.nextDue)+'</span></div>'
+    + '</div>';
+
+  html += '<button class="btn btn-whatsapp" style="margin-bottom:10px;" data-action="shareReportImage">'
+    + '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.38 5.07L2 22l5.05-1.32A9.94 9.94 0 0012 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18c-1.64 0-3.17-.46-4.47-1.25l-.32-.19-3 .78.8-2.93-.21-.3A7.94 7.94 0 014 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8zm4.36-5.96c-.24-.12-1.42-.7-1.64-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.02-.38-1.94-1.2-.72-.64-1.2-1.42-1.34-1.66-.14-.24-.02-.37.1-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.78-.2-.47-.4-.4-.54-.41h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.7 2.6 4.12 3.64.58.25 1.03.4 1.38.51.58.18 1.11.16 1.53.1.47-.07 1.42-.58 1.62-1.14.2-.56.2-1.04.14-1.14-.06-.1-.22-.16-.46-.28z"/></svg>'
+    + 'Compartilhar imagem do relatório</button>'
+    + '<button class="btn btn-secondary" style="margin-bottom:10px;" data-action="shareTextOnly">Enviar resumo em texto</button>'
+    + '<button class="btn btn-secondary" data-action="goStudentHome">Concluir</button>';
+  app.innerHTML = html;
+}
+
+function renderHistory(app){
+  var s = getStudent(state.currentStudentId);
+  setHeader('Histórico', s.name, true);
+  var html = '';
+  s.evaluations.slice().reverse().forEach(function(ev, revIdx){
+    var idx = s.evaluations.length - 1 - revIdx;
+    html += '<div class="history-item" data-action="viewEval" data-idx="'+idx+'">'
+      + '<div><div class="d">'+fmtDate(ev.date)+'</div><div style="font-size:11.5px;color:#8a8a80;">'+ev.medal+(ev.level?' · '+LEVELS[ev.level].name:'')+'</div></div>'
+      + '<div class="s">'+ev.score+'</div></div>';
+  });
+  app.innerHTML = html;
+}
+
+function computeEvaluation(values, level){
+  var categoryPct = {}, categoryLabel = {};
+  var total = 0;
+  STATIONS.forEach(function(st){
+    var pct, label=null;
+    if(st.band==='corrida'){ var cv=values[st.key]||{t1:0,t2:0,t3:0}; var best=Math.max(cv.t1||0,cv.t2||0,cv.t3||0); var c=classifyCorrida(best); pct=c.pct; label=c.label; }
+    else if(st.band==='chute'){ var vd=(values[st.key]&&values[st.key].d)||0, ve=(values[st.key]&&values[st.key].e)||0; var c=classifyChute((vd+ve)/2); pct=c.pct; label=c.label; }
+    else if(st.band==='controle'){ var vd2=(values[st.key]&&values[st.key].d)||0, ve2=(values[st.key]&&values[st.key].e)||0; var c=classifyControle((vd2+ve2)/2); pct=c.pct; label=c.label; }
+    else if(st.type==='single'){ pct = ((values[st.key]||0)/st.target)*100; }
+    else if(st.type==='lr'){ var vd3=(values[st.key]&&values[st.key].d)||0, ve3=(values[st.key]&&values[st.key].e)||0; pct = ((vd3+ve3)/2/st.target)*100; }
+    else if(st.type==='triple'){ var vv=values[st.key]||{t1:1,t2:1,t3:1}; pct = (((vv.t1+vv.t2+vv.t3)/3)/st.target)*100; }
+    pct = clampNum(pct,0,100);
+    categoryPct[st.key]=pct;
+    if(label) categoryLabel[st.key]=label;
+    total += pct;
+  });
+  var score = Math.round(total/STATIONS.length);
+  var medal = score>=85?'Diamante':score>=65?'Ouro':score>=45?'Prata':'Bronze';
+  var date = new Date();
+  var nextDue = new Date(date); nextDue.setMonth(nextDue.getMonth()+3);
+  return {date:date.toISOString(), nextDue:nextDue.toISOString(), values:values, categoryPct:categoryPct, categoryLabel:categoryLabel, score:score, medal:medal, level:level};
+}
+
+var Actions = {
+  openStudent:function(el){ state.currentStudentId = el.dataset.id; state.screen='studentHome'; render(); },
+  showNewStudent:function(){ window.location.href = 'bsa-cadastro.html'; },
+  showPending:function(){ state.screen='pending'; render(); },
+  openGuide:function(){ document.getElementById('guideBtn').click(); },
+  goStudentHome:function(){ state.screen='studentHome'; render(); },
+  startEval:function(){ state.evalStep=0; state.evalValues={}; state.screen='evalStep'; render(); },
+  cancelEval:function(){ clearTimerInterval(); state.screen='studentHome'; render(); },
+  nextStep:function(){
+    if(state.evalStep < STATIONS.length-1){ state.evalStep++; render(); }
+    else { state.screen='classify'; render(); }
+  },
+  prevStep:function(){ state.evalStep--; render(); },
+  showHistory:function(){ state.screen='history'; render(); },
+  viewEval:function(el){ state.lastEvalIndex = parseInt(el.dataset.idx,10); state.screen='result'; render(); },
+  selectChip:function(el){
+    var key = el.dataset.key, attempt = el.dataset.attempt, val = parseInt(el.dataset.value,10);
+    if(!state.evalValues[key]) state.evalValues[key] = {t1:1,t2:1,t3:1};
+    state.evalValues[key][attempt] = val;
+    render();
+  },
+  finalizeEval:function(el){
+    var level = el.dataset.level;
+    var ev = computeEvaluation(state.evalValues, level);
+    var s = getStudent(state.currentStudentId);
+    s.evaluations.push(ev);
+    s.nextDue = ev.nextDue;
+    state.lastEvalIndex = s.evaluations.length-1;
+    state.screen='result';
+    render();
+    salvarAvaliacao(s, ev);
+  },
+  timerToggle:function(){
+    var btn = document.getElementById('timerToggleBtn');
+    if(timer.running){
+      clearTimerInterval();
+      timer.running = false;
+      btn.textContent = 'Continuar';
+    } else {
+      timer.running = true;
+      btn.textContent = 'Pausar';
+      timer.intervalId = setInterval(function(){
+        timer.remaining--;
+        var disp = document.getElementById('timerDisplay');
+        if(disp) disp.textContent = timer.remaining;
+        if(timer.remaining<=0){
+          clearTimerInterval();
+          timer.running = false;
+          var card = document.getElementById('timerCard');
+          if(card) card.classList.add('done');
+          var b = document.getElementById('timerToggleBtn');
+          if(b) b.textContent = 'Concluído';
+          if(navigator.vibrate) navigator.vibrate([250,100,250]);
+          try{
+            var ctx = new (window.AudioContext||window.webkitAudioContext)();
+            var osc = ctx.createOscillator(), gain = ctx.createGain();
+            osc.frequency.value = 880; osc.connect(gain); gain.connect(ctx.destination);
+            gain.gain.setValueAtTime(0.2, ctx.currentTime);
+            osc.start(); osc.stop(ctx.currentTime+0.3);
+          }catch(e){}
+        }
+      }, 1000);
+    }
+  },
+  timerReset:function(){
+    clearTimerInterval();
+    timer = {remaining:30, running:false, intervalId:null};
+    var disp = document.getElementById('timerDisplay'); if(disp) disp.textContent = '30';
+    var card = document.getElementById('timerCard'); if(card) card.classList.remove('done');
+    var btn = document.getElementById('timerToggleBtn'); if(btn) btn.textContent = 'Iniciar';
+  },
+  shareReportImage:function(){
+    var node = document.getElementById('reportCard');
+    if(!window.html2canvas){ showToast('Ainda carregando o gerador de imagem — aguarde alguns segundos e toque de novo.'); return; }
+    showToast('Gerando imagem do relatório...');
+    window.html2canvas(node, {backgroundColor:'#0F5C3D', scale:2, useCORS:true}).then(function(canvas){
+      canvas.toBlob(function(blob){
+        if(!blob){ showToast('Não foi possível gerar a imagem. Tente novamente.'); return; }
+        var file;
+        try{ file = new File([blob], 'bsa-relatorio.png', {type:'image/png'}); }catch(e){ file = null; }
+        var didTryShare = false;
+        if(file && navigator.canShare && navigator.canShare({files:[file]})){
+          didTryShare = true;
+          navigator.share({files:[file], title:'BSA Avaliação', text:'Relatório BSA Avaliação'}).catch(function(err){
+            if(err && err.name === 'AbortError') return;
+            downloadBlob(blob, 'bsa-relatorio.png');
+          });
+        }
+        if(!didTryShare){ downloadBlob(blob, 'bsa-relatorio.png'); }
+      }, 'image/png');
+    }).catch(function(){ showToast('Erro ao gerar a imagem. Tente novamente.'); });
+  },
+  shareTextOnly:function(){
+    var s = getStudent(state.currentStudentId);
+    var ev = state.lastEvalIndex !== null ? s.evaluations[state.lastEvalIndex] : s.evaluations[s.evaluations.length-1];
+    var text = 'BSA Avaliação de '+s.name+' — '+fmtDate(ev.date)+'\n'
+      + 'Pontuação geral: '+ev.score+'/100 ('+ev.medal+')\n'
+      + Object.keys(ev.categoryPct).map(function(k){ return '- '+LABELS[k]+': '+(ev.categoryLabel[k]||Math.round(ev.categoryPct[k])+'%'); }).join('\n')
+      + '\nPróxima avaliação: '+fmtDate(ev.nextDue);
+    window.open('https://wa.me/?text='+encodeURIComponent(text), '_blank');
+  }
+};
+
+function downloadBlob(blob, filename){
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url);}, 4000);
+  showToast('Imagem salva. Abra o WhatsApp, escolha a conversa e anexe essa imagem.');
+}
+function resizePhoto(file, callback){
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var img = new Image();
+    img.onload = function(){
+      var maxDim = 320;
+      var scale = Math.min(1, maxDim/Math.max(img.width,img.height));
+      var w = Math.round(img.width*scale), h = Math.round(img.height*scale);
+      var canvas = document.createElement('canvas');
+      canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      callback(canvas.toDataURL('image/jpeg',0.78));
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+document.addEventListener('click', function(e){
+  var el = e.target.closest('[data-action]');
+  if(el && Actions[el.dataset.action]) Actions[el.dataset.action](el);
+});
+document.addEventListener('input', function(e){
+  if(e.target.classList.contains('direct-input') && e.target.dataset.tripleinput==='1'){
+    var key=e.target.dataset.key, attempt=e.target.dataset.attempt, value=clampNum(parseFloat(e.target.value)||0,0,150);
+    if(!state.evalValues[key]) state.evalValues[key] = {t1:0,t2:0,t3:0};
+    state.evalValues[key][attempt] = value;
+    var best = Math.max(state.evalValues[key].t1||0, state.evalValues[key].t2||0, state.evalValues[key].t3||0);
+    var disp = document.getElementById('bestMarkDisplay');
+    if(disp) disp.innerHTML = 'Melhor marca: <b style="color:var(--pitch-800);font-size:15px;">'+best+' km/h</b>';
+    return;
+  }
+  if(e.target.classList.contains('direct-input')){
+    var key2=e.target.dataset.key, side=e.target.dataset.side, value2=clampNum(parseFloat(e.target.value)||0,0,150);
+    if(side){ if(!state.evalValues[key2]) state.evalValues[key2]={d:0,e:0}; state.evalValues[key2][side]=value2;
+      var el2=document.getElementById('val_'+key2+'_'+side); if(el2) el2.textContent=Math.round(value2);
+    } else { state.evalValues[key2]=value2; var el3=document.getElementById('val_'+key2); if(el3) el3.textContent=Math.round(value2); }
+  }
+});
+
+
+var holdTimer=null, holdInterval=null;
+function applyDelta(key, side, delta, max){
+  delta = parseFloat(delta); max = parseFloat(max);
+  if(side){
+    if(!state.evalValues[key]) state.evalValues[key] = {d:0,e:0};
+    state.evalValues[key][side] = clampNum(state.evalValues[key][side]+delta,0,max);
+    var el = document.getElementById('val_'+key+'_'+side);
+    if(el) el.textContent = Math.round(state.evalValues[key][side]);
+    var dInp = document.getElementById('direct_'+key+'_'+side);
+    if(dInp) dInp.value = Math.round(state.evalValues[key][side]);
+  } else {
+    var current = state.evalValues[key] !== undefined ? state.evalValues[key] : 0;
+    state.evalValues[key] = clampNum(current+delta,0,max);
+    var el2 = document.getElementById('val_'+key);
+    if(el2) el2.textContent = Math.round(state.evalValues[key]);
+    var dInp2 = document.getElementById('direct_'+key);
+    if(dInp2) dInp2.value = Math.round(state.evalValues[key]);
+  }
+}
+function startHold(btn){
+  var key=btn.dataset.key, side=btn.dataset.side, delta=btn.dataset.delta, max=btn.dataset.max;
+  applyDelta(key, side, delta, max);
+  clearTimeout(holdTimer); clearInterval(holdInterval);
+  holdTimer = setTimeout(function(){
+    holdInterval = setInterval(function(){ applyDelta(key, side, delta, max); }, 90);
+  }, 420);
+}
+function stopHold(){ clearTimeout(holdTimer); clearInterval(holdInterval); }
+document.addEventListener('pointerdown', function(e){ var btn = e.target.closest('.step-btn'); if(btn) startHold(btn); });
+['pointerup','pointerleave','pointercancel'].forEach(function(evt){ document.addEventListener(evt, stopHold); });
+
+document.getElementById('backBtn').addEventListener('click', function(){
+  if(state.screen==='studentHome'){ state.screen='home'; }
+  else if(state.screen==='pending'){ state.screen='home'; }
+  else if(state.screen==='evalStep'){ Actions.cancelEval(); return; }
+  else if(state.screen==='classify'){ state.evalStep = STATIONS.length-1; state.screen='evalStep'; }
+  else if(state.screen==='result'){ state.screen='studentHome'; }
+  else if(state.screen==='history'){ state.screen='studentHome'; }
+  render();
+});
+
+document.getElementById('guideBtn').addEventListener('click', function(){
+  var overlay = document.createElement('div');
+  overlay.className = 'guide-overlay';
+  overlay.onclick = function(e){ if(e.target===overlay) overlay.remove(); };
+  var html = '<div class="guide-sheet"><h2>Guia rápido das estações</h2>'
+    + '<div class="caution-box"><strong>Cabeceio fora da bateria</strong> para menores de 12 anos — recomendação da CBF desde 2020, seguindo EUA e Escócia, pelo risco cumulativo em sistema nervoso ainda em maturação.</div>'
+    + '<div class="guide-card"><p class="t">Rebounder circular</p><p class="m">Cronômetro de 30s embutido. Meta de referência: 30 trocas.</p></div>'
+    + '<div class="guide-card"><p class="t">Lâmpadas de reflexo</p><p class="m">Cronômetro de 30s embutido. Meta de referência: 20 acertos.</p></div>'
+    + '<div class="guide-card"><p class="t">Controle de bola (embaixadinhas)</p><p class="m">Cronômetro de 30s embutido, uma perna por vez. Abaixo de 10 = fraco, 10–14 = médio, 15–19 = bom, 20+ = ótimo.</p></div>'
+    + '<div class="guide-card"><p class="t">Domínio no peito</p><p class="m">3 tentativas, nota de 1 a 9 cada, tocando direto no número.</p></div>'
+    + '<div class="guide-card"><p class="t">Corrida de 10m (km/h)</p><p class="m">3 tentativas — vale a melhor marca. Abaixo de 15 = muito baixa, até 20 = baixa, até 30 = média, acima de 30 = ótima.</p></div>'
+    + '<div class="guide-card"><p class="t">Chute de potência (km/h)</p><p class="m">Abaixo de 40 = muito fraco, até 50 = fraco, até 60 = médio, até 80 = bom, até 90 = ótimo, acima = excelente.</p></div>'
+    + '<button class="btn btn-secondary" style="margin-top:6px;" onclick="this.closest(\'.guide-overlay\').remove()">Fechar</button></div>';
+  overlay.innerHTML = html;
+  document.body.appendChild(overlay);
+});
+
+try{
+  var bootDone = false;
+  function boot(){
+    if(bootDone) return;
+    bootDone = true;
+    state.screen = 'home';
+    render();
+  }
+  initFirebase();
+  setTimeout(boot, 4000);
+}catch(fatalErr){
+  document.getElementById('app').innerHTML = '<div class="empty-state"><p><b>Não foi possível iniciar o app.</b><br>Abra este arquivo direto no navegador (Safari/Chrome), não em uma pré-visualização de e-mail ou do app Arquivos.</p></div>';
+}
+
+})();
+</script>
+<noscript>
+  <div style="max-width:440px;margin:60px auto;padding:24px;font-family:sans-serif;text-align:center;color:#333;">
+    Este app precisa de JavaScript ativado para funcionar. Se estiver vendo esta mensagem dentro do e-mail, do WhatsApp ou do app Arquivos, abra o arquivo diretamente no Safari ou Chrome.
+  </div>
+</noscript>
+</body>
+</html>
