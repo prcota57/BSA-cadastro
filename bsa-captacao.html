@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>BSA Captação — Aulas Experimentais</title>
+<title>BSA Experimental — Aulas Experimentais</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -146,7 +146,7 @@
   <header class="bar">
     <button class="back" id="backBtn" aria-label="Voltar">&#8592;</button>
     <div class="htext">
-      <h1 id="headerTitle">BSA Captação</h1>
+      <h1 id="headerTitle">BSA Experimental</h1>
       <p id="headerSub">Aulas experimentais</p>
     </div>
   </header>
@@ -258,7 +258,7 @@ function render(){
 }
 
 function renderHome(app){
-  setHeader('BSA Captação','Central de aulas experimentais',false);
+  setHeader('BSA Experimental','Central de aulas experimentais',false);
   var alerts = getAlerts();
   var counts = {agendado:0,realizada:0,matriculado:0,desistencia:0,nao_compareceu:0};
   state.leads.forEach(function(l){ counts[l.status] = (counts[l.status]||0)+1; });

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<!-- BUILD: 2026-07-04-v6 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BSA Colchão">
+<title>BSA Colchão</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, sans-serif; -webkit-user-select: none; user-select: none; }
+body { display: flex; flex-direction: column; background: #111; transition: background 0.2s ease; }
+#topbar {
+  flex-shrink: 0; display: flex; align-items: center; gap: 10px;
+  padding-top: max(16px, env(safe-area-inset-top));
+  padding-bottom: 14px; padding-left: 18px; padding-right: 18px;
+  background: rgba(0,0,0,0.45);
+  -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); z-index: 100;
+}
+.lbl { font-size: 13px; font-weight: 800; color: rgba(255,255,255,0.6); min-width: 22px; text-align: center; }
+#slider { flex: 1; height: 7px; border-radius: 10px; -webkit-appearance: none; appearance: none; background: rgba(255,255,255,0.25); outline: none; }
+#slider::-webkit-slider-thumb { -webkit-appearance: none; width: 34px; height: 34px; border-radius: 50%; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+#speed-display { font-size: 20px; font-weight: 900; color: #fff; min-width: 40px; text-align: center; }
+#btn-parar { width: 46px; height: 46px; border-radius: 50%; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.4); display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
+#arena { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 16px; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+#idle { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+#idle-emoji { font-size: 72px; line-height: 1; }
+#idle-title { font-size: 28px; font-weight: 900; color: rgba(255,255,255,0.9); }
+#idle-sub { font-size: 15px; color: rgba(255,255,255,0.4); font-weight: 500; }
+#btn-iniciar { margin-top: 8px; width: 200px; height: 64px; border-radius: 32px; background: #fff; border: none; outline: none; font-size: 22px; font-weight: 900; color: #111; cursor: pointer; -webkit-appearance: none; appearance: none; }
+#btn-iniciar:active { transform: scale(0.96); }
+#equip-card { display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; width: 100%; height: 100%; }
+#equip-card.visible { display: flex; }
+#equip-svg-wrap { width: min(90vw, 420px); height: min(90vw, 420px); display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 16px 48px rgba(0,0,0,0.55)); }
+#equip-svg-wrap svg { width: 100%; height: 100%; }
+#equip-label { font-size: min(10vw, 48px); font-weight: 900; color: rgba(255,255,255,0.95); letter-spacing: 2px; text-transform: uppercase; text-align: center; text-shadow: 0 2px 16px rgba(0,0,0,0.4); }
+#equip-acao { font-size: 19px; font-weight: 700; color: rgba(255,255,255,0.5); text-align: center; }
+</style>
+</head>
+<body>
+<div id="topbar">
+  <span class="lbl">1s</span>
+  <input type="range" id="slider" min="1" max="10" value="3" step="1">
+  <span id="speed-display">3s</span>
+  <div id="btn-parar">
+    <svg width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" rx="2.5" fill="white"/></svg>
+  </div>
+</div>
+<div id="arena">
+  <div id="idle">
+    <div id="idle-emoji">⚽</div>
+    <div id="idle-title">BSA Colchão</div>
+    <div id="idle-sub">Toque para começar</div>
+    <button id="btn-iniciar" type="button">INICIAR</button>
+  </div>
+  <div id="equip-card">
+    <div id="equip-svg-wrap"></div>
+    <div id="equip-label"></div>
+    <div id="equip-acao"></div>
+  </div>
+</div>
+
+<script>
+var SVGS = {
+
+// ── COLCHÃO AMARELO em perspectiva, fiel à foto ──────────────────────────
+colchao: `<svg viewBox="0 0 440 360" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="cTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFF176"/>
+      <stop offset="100%" stop-color="#FDD835"/>
+    </linearGradient>
+    <linearGradient id="cSide" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F9A825"/>
+      <stop offset="100%" stop-color="#E65100"/>
+    </linearGradient>
+    <linearGradient id="cFront" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFEE58"/>
+      <stop offset="100%" stop-color="#FBC02D"/>
+    </linearGradient>
+  </defs>
+  <!-- sombra no chão -->
+  <ellipse cx="240" cy="348" rx="175" ry="14" fill="rgba(0,0,0,0.35)"/>
+
+  <!-- FACE SUPERIOR (paralelogramo) -->
+  <polygon points="60,80 380,40 420,180 100,220" fill="url(#cTop)"/>
+  <!-- brilho na face superior -->
+  <polygon points="80,90 340,55 370,120 110,155" fill="rgba(255,255,255,0.22)"/>
+
+  <!-- FACE FRONTAL (trapézio) -->
+  <polygon points="100,220 420,180 420,290 100,330" fill="url(#cFront)"/>
+  <!-- linha de costura horizontal na frente -->
+  <line x1="110" y1="255" x2="415" y2="235" stroke="rgba(0,0,0,0.12)" stroke-width="2.5" stroke-dasharray="14,9"/>
+
+  <!-- FACE LATERAL ESQUERDA -->
+  <polygon points="60,80 100,220 100,330 60,190" fill="url(#cSide)"/>
+
+  <!-- bordas/arestas -->
+  <line x1="60" y1="80" x2="380" y2="40" stroke="rgba(0,0,0,0.15)" stroke-width="2"/>
+  <line x1="380" y1="40" x2="420" y2="180" stroke="rgba(0,0,0,0.15)" stroke-width="2"/>
+  <line x1="420" y1="180" x2="420" y2="290" stroke="rgba(0,0,0,0.2)" stroke-width="2"/>
+  <line x1="100" y1="220" x2="100" y2="330" stroke="rgba(0,0,0,0.2)" stroke-width="2"/>
+  <line x1="60" y1="80" x2="60" y2="190" stroke="rgba(0,0,0,0.18)" stroke-width="2"/>
+  <line x1="60" y1="190" x2="100" y2="330" stroke="rgba(0,0,0,0.18)" stroke-width="2"/>
+  <line x1="100" y1="330" x2="420" y2="290" stroke="rgba(0,0,0,0.18)" stroke-width="2"/>
+
+  <!-- arredondamento dos cantos com pequenos arcos brancos -->
+  <circle cx="60" cy="80" r="10" fill="#FFF176" opacity="0.6"/>
+  <circle cx="380" cy="40" r="10" fill="#FFF176" opacity="0.6"/>
+  <circle cx="420" cy="290" r="10" fill="#FBC02D" opacity="0.5"/>
+  <circle cx="100" cy="330" r="10" fill="#FBC02D" opacity="0.5"/>
+</svg>`,
+
+// ── BOLA AZUL LISA — fiel à foto: azul royal sólido, reflexo grande ──────
+bolaazul: `<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="gBall" cx="34%" cy="28%" r="70%">
+      <stop offset="0%"   stop-color="#6699FF"/>
+      <stop offset="25%"  stop-color="#1133CC"/>
+      <stop offset="60%"  stop-color="#0022AA"/>
+      <stop offset="100%" stop-color="#000E5A"/>
+    </radialGradient>
+  </defs>
+  <!-- sombra -->
+  <ellipse cx="200" cy="392" rx="148" ry="13" fill="rgba(0,0,0,0.4)"/>
+  <!-- bola azul lisa -->
+  <circle cx="200" cy="196" r="182" fill="url(#gBall)"/>
+  <!-- reflexo principal grande (como na foto) -->
+  <ellipse cx="148" cy="108" rx="78" ry="44" fill="rgba(255,255,255,0.28)" transform="rotate(-30,148,108)"/>
+  <!-- reflexo secundário menor -->
+  <ellipse cx="110" cy="78" rx="34" ry="18" fill="rgba(255,255,255,0.22)" transform="rotate(-30,110,78)"/>
+  <!-- ponto de luz central pequeno -->
+  <circle cx="128" cy="92" r="10" fill="rgba(255,255,255,0.35)"/>
+</svg>`,
+
+// ── BOLA BRANCA COM GOMOS PRETOS — exata como a foto ────────────────────
+// Técnica: círculo branco + gomos pretos com stroke branco entre eles
+bolabranca: `<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="gW2" cx="35%" cy="28%" r="72%">
+      <stop offset="0%"   stop-color="#FFFFFF"/>
+      <stop offset="50%"  stop-color="#F0F0F0"/>
+      <stop offset="100%" stop-color="#C8C8C8"/>
+    </radialGradient>
+    <clipPath id="circ">
+      <circle cx="200" cy="200" r="182"/>
+    </clipPath>
+  </defs>
+  <!-- sombra -->
+  <ellipse cx="200" cy="392" rx="148" ry="13" fill="rgba(0,0,0,0.35)"/>
+  <!-- base branca -->
+  <circle cx="200" cy="200" r="182" fill="url(#gW2)"/>
+
+  <!-- GOMOS PRETOS dentro do clip -->
+  <g clip-path="url(#circ)">
+    <!-- pentágono TOPO -->
+    <polygon points="200,28 248,72 228,130 172,130 152,72"
+      fill="#111" stroke="white" stroke-width="6" stroke-linejoin="round"/>
+    <!-- pentágono CENTRO -->
+    <polygon points="200,172 248,208 230,266 170,266 152,208"
+      fill="#111" stroke="white" stroke-width="6" stroke-linejoin="round"/>
+    <!-- pentágono ESQUERDA SUPERIOR -->
+    <polygon points="50,110 108,90 130,148 88,188 38,162"
+      fill="#111" stroke="white" stroke-width="6" stroke-linejoin="round"/>
+    <!-- pentágono DIREITA SUPERIOR -->
+    <polygon points="350,110 362,162 312,188 270,148 292,90"
+      fill="#111" stroke="white" stroke-width="6" stroke-linejoin="round"/>
+    <!-- pentágono ESQUERDA INFERIOR -->
+    <polygon points="30,238 80,218 118,268 96,326 36,314"
+      fill="#111" stroke="white" stroke-width="6" stroke-linejoin="round"/>
+    <!-- pentágono DIREITA INFERIOR -->
+    <polygon points="370,238 364,314 304,326 282,268 320,218"
+      fill="#111" stroke="white" stroke-width="6" stroke-linejoin="round"/>
+    <!-- pentágono BASE -->
+    <polygon points="200,344 156,314 162,268 238,268 244,314"
+      fill="#111" stroke="white" stroke-width="6" stroke-linejoin="round"/>
+  </g>
+
+  <!-- borda da bola -->
+  <circle cx="200" cy="200" r="182" fill="none" stroke="#CCCCCC" stroke-width="3"/>
+  <!-- reflexo -->
+  <ellipse cx="148" cy="130" rx="54" ry="30" fill="rgba(255,255,255,0.55)" transform="rotate(-25,148,130)"/>
+  <ellipse cx="122" cy="108" rx="22" ry="12" fill="rgba(255,255,255,0.4)" transform="rotate(-25,122,108)"/>
+</svg>`
+};
+
+var EQUIPS = [
+  { id:'colchao',    label:'COLCHÃO',     acao:'Role no colchão!',  bg:'#1A1200', freq:300, tipo:'triangle', dur:0.45 },
+  { id:'bolaazul',   label:'BOLA AZUL',   acao:'Pedale na bola!',   bg:'#000D2A', freq:180, tipo:'sine',     dur:0.55 },
+  { id:'bolabranca', label:'BOLA BRANCA', acao:'Cabeceie a bola!',  bg:'#1A1A2A', freq:700, tipo:'square',   dur:0.28 }
+];
+
+var atual = -1, timer = null, rodando = false, audioCtx = null;
+function getAC() {
+  if (!audioCtx || audioCtx.state === 'closed') audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function tocar(eq) {
+  try {
+    var ac = getAC(), now = ac.currentTime;
+    var o = ac.createOscillator(), g = ac.createGain();
+    o.type = eq.tipo; o.frequency.value = eq.freq;
+    g.gain.setValueAtTime(0.0, now);
+    g.gain.linearRampToValueAtTime(0.3, now + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, now + eq.dur);
+    o.connect(g); g.connect(ac.destination);
+    o.start(now); o.stop(now + eq.dur);
+  } catch(e) {}
+}
+var elBody=document.body, elSlider=document.getElementById('slider'),
+    elSpeed=document.getElementById('speed-display'), elParar=document.getElementById('btn-parar'),
+    elIniciar=document.getElementById('btn-iniciar'), elIdle=document.getElementById('idle'),
+    elCard=document.getElementById('equip-card'), elSVG=document.getElementById('equip-svg-wrap'),
+    elLabel=document.getElementById('equip-label'), elAcao=document.getElementById('equip-acao');
+
+elSlider.addEventListener('input', function() {
+  elSpeed.textContent = elSlider.value + 's';
+  if (rodando) { clearInterval(timer); timer = setInterval(trocar, elSlider.value * 1000); }
+});
+function trocar() {
+  var prox; do { prox = Math.floor(Math.random() * EQUIPS.length); } while (prox === atual);
+  atual = prox; var eq = EQUIPS[atual];
+  elBody.style.background = eq.bg;
+  elSVG.innerHTML = SVGS[eq.id];
+  elLabel.textContent = eq.label;
+  elAcao.textContent = eq.acao;
+  tocar(eq);
+}
+function iniciar() {
+  getAC(); rodando = true;
+  elIdle.style.display = 'none'; elCard.classList.add('visible');
+  trocar(); timer = setInterval(trocar, elSlider.value * 1000);
+}
+function parar() {
+  rodando = false; clearInterval(timer); atual = -1;
+  elBody.style.background = '#111';
+  elIdle.style.display = 'flex'; elCard.classList.remove('visible');
+}
+function addTap(el, fn) {
+  el.addEventListener('touchend', function(e) { e.preventDefault(); fn(); });
+  el.addEventListener('click', function(e) { e.preventDefault(); fn(); });
+}
+addTap(elIniciar, function() { if (!rodando) iniciar(); });
+addTap(elParar,   function() { if (rodando)  parar();  });
+document.addEventListener('visibilitychange', function() {
+  if (!document.hidden && audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+});
+</script>
+</body>
+</html>
