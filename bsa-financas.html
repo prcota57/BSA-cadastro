@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<title>BSA Finanças</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --wine:#6B1E2F; --wine-dark:#4A1420; --wine-soft:#F3E3E6;
+    --blue:#1B3A6B; --blue-soft:#E8EDF5;
+    --gold:#D4A017; --gold-soft:#FBF0D6;
+    --danger:#C1443C; --danger-soft:#FBE4E2;
+    --bg:#F7F7F9; --surface:#FFFFFF; --ink:#1F1F24; --ink-soft:#6B6B75; --line:#E5E5EA;
+    --radius:18px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif;}
+  body{padding-bottom:calc(80px + env(safe-area-inset-bottom)); padding-top:env(safe-area-inset-top);}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+
+  header.top{
+    position:sticky; top:0; z-index:20; background:var(--wine); color:#fff;
+    padding:18px 20px 16px; border-radius:0 0 22px 22px; box-shadow:0 6px 18px rgba(107,30,47,0.22);
+  }
+  header.top h1{font-family:'Space Grotesk',sans-serif; font-size:20px; font-weight:700; margin:0;}
+  header.top .sub{font-size:12.5px; opacity:0.85; margin-top:2px;}
+
+  main{padding:16px 16px 20px; max-width:600px; margin:0 auto;}
+
+  .panel{background:var(--surface); border-radius:var(--radius); padding:16px; margin-bottom:14px; border:1px solid var(--line); box-shadow:0 2px 8px rgba(31,31,36,0.04);}
+  .panel h2{font-family:'Space Grotesk'; font-size:15.5px; margin:0 0 12px;}
+
+  .stat-row{display:flex; gap:10px; margin-bottom:14px;}
+  .stat{flex:1; background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:12px 10px;}
+  .stat .lbl{font-size:10.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.03em; font-weight:600;}
+  .stat .num{font-family:'Space Grotesk'; font-size:19px; font-weight:700; margin-top:4px;}
+  .stat.recebido .num{color:var(--blue);}
+  .stat.areceber .num{color:var(--gold);}
+  .stat.inadimplencia .num{color:var(--danger);}
+
+  .pie-wrap{display:flex; align-items:center; gap:20px; padding:6px 4px;}
+  .pie{width:120px; height:120px; border-radius:50%; flex:0 0 auto;}
+  .legend{flex:1;}
+  .legend-row{display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:8px;}
+  .legend-dot{width:11px; height:11px; border-radius:50%; flex:0 0 auto;}
+  .legend-row .n{font-weight:700; margin-left:auto; font-family:'Space Grotesk';}
+
+  .tabs{display:flex; gap:8px; margin-bottom:14px; position:sticky; top:80px; z-index:10; background:var(--bg); padding:4px 0;}
+  .tab-btn{flex:1; padding:11px 4px; border-radius:14px; border:1.5px solid var(--line); background:var(--surface); color:var(--ink-soft); font-family:'Space Grotesk'; font-weight:700; font-size:13.5px; cursor:pointer; text-align:center;}
+  .tab-btn.active{background:var(--wine); color:#fff; border-color:var(--wine);}
+
+  .search-box{width:100%; padding:12px 14px; border-radius:14px; border:1.5px solid var(--line); font-size:14px; margin-bottom:12px; background:var(--surface);}
+
+  .row-card{display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:14px; border:1px solid var(--line); background:var(--surface); margin-bottom:10px;}
+  .avatar{width:40px; height:40px; border-radius:50%; object-fit:cover; background:var(--wine-soft); flex:0 0 auto; display:flex; align-items:center; justify-content:center; font-family:'Space Grotesk'; font-weight:700; color:var(--wine); font-size:13px;}
+  .row-card .info{flex:1; min-width:0;}
+  .row-card .name{font-weight:600; font-size:14px;}
+  .row-card .meta{font-size:11.5px; color:var(--ink-soft); margin-top:1px;}
+  .pill{font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; font-family:'Space Grotesk'; flex:0 0 auto; white-space:nowrap;}
+  .pill.pago{background:var(--blue-soft); color:var(--blue);}
+  .pill.pendente{background:var(--gold-soft); color:#8A6D00;}
+  .pill.atrasado{background:var(--danger-soft); color:var(--danger);}
+  .pill.semconfig{background:var(--line); color:var(--ink-soft);}
+
+  .btn{border:none; border-radius:12px; padding:11px 14px; font-family:'Space Grotesk'; font-weight:600; font-size:13.5px; cursor:pointer; text-align:center;}
+  .btn-primary{background:var(--wine); color:#fff; width:100%;}
+  .btn-gold{background:var(--gold); color:#4A1420;}
+  .btn-blue{background:var(--blue); color:#fff;}
+  .btn-outline{background:none; border:1.5px solid var(--line); color:var(--ink);}
+  .btn-row{display:flex; gap:8px; margin-top:8px;}
+  .btn-row .btn{flex:1;}
+
+  .empty{text-align:center; padding:34px 20px; color:var(--ink-soft); font-size:13.5px;}
+
+  .field{margin-bottom:14px;}
+  .field label{display:block; font-size:12px; font-weight:600; color:var(--ink-soft); margin-bottom:5px;}
+  .field input,.field select{width:100%; padding:11px; border-radius:10px; border:1.5px solid var(--line); font-size:14px; background:var(--surface); font-family:'Inter';}
+
+  .back-btn{background:none; border:none; color:#fff; font-size:15px; font-family:'Space Grotesk'; font-weight:600; display:flex; align-items:center; gap:4px; margin-bottom:6px; padding:0;}
+
+  .history-row{display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:1px dashed var(--line); font-size:13px;}
+  .history-row:last-child{border-bottom:none;}
+
+  .banner{background:var(--gold-soft); border-radius:14px; padding:13px 14px; font-size:12.5px; color:#7A5A00; margin-bottom:14px;}
+
+  .toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--wine-dark); color:#fff; padding:11px 20px; border-radius:30px; font-size:13.5px; font-weight:600; z-index:200; opacity:0; transition:opacity 0.25s; box-shadow:0 6px 16px rgba(0,0,0,0.2); pointer-events:none; max-width:90vw;}
+  .toast.show{opacity:1;}
+  .setup-banner{margin:0 0 14px; padding:14px; background:var(--danger-soft); border-radius:14px; color:#8A2E19; font-size:13px; line-height:1.5;}
+  .setup-banner b{display:block; margin-bottom:4px; font-family:'Space Grotesk';}
+  .spinner{width:18px; height:18px; border:2.5px solid var(--wine-soft); border-top-color:var(--wine); border-radius:50%; animation:spin 0.8s linear infinite; margin:30px auto;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div id="backWrap"></div>
+  <h1 id="headerTitle">BSA Finanças</h1>
+  <div class="sub" id="statusLine">conectando...</div>
+</header>
+
+<main id="app">
+  <div class="spinner"></div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+<script>
+(function(){
+
+var firebaseConfig = {
+  apiKey: "AIzaSyDmM2m_QnEeRflAKCyb11TzOrZM7iVgLCA",
+  authDomain: "bsa-app-493c3.firebaseapp.com",
+  projectId: "bsa-app-493c3",
+  storageBucket: "bsa-app-493c3.firebasestorage.app",
+  messagingSenderId: "455452879388",
+  appId: "1:455452879388:web:7135d93c116b2fe7cfcdd9"
+};
+var db = null;
+var state = { screen:'dashboard', alunos:[], mensalidades:[], search:'', currentAlunoId:null };
+
+function initFirebase(){
+  if(firebaseConfig.apiKey === "COLE_AQUI"){
+    document.getElementById('app').innerHTML = '<div class="setup-banner"><b>Configuração necessária</b>Preencha o firebaseConfig.</div>';
+    return;
+  }
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  var auth = firebase.auth();
+  auth.signInAnonymously().catch(function(){});
+  auth.onAuthStateChanged(function(user){
+    if(user){
+      document.getElementById('statusLine').textContent = 'conectado';
+      carregarTudo();
+    }
+  });
+}
+
+function pad(n){ return String(n).padStart(2,'0'); }
+function isoDate(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function mesAtualStr(){ var d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1); }
+function hojeStr(){ return isoDate(new Date()); }
+function onlyDigits(s){ return (s||'').replace(/\D/g,''); }
+function fmtMoeda(v){ return 'R$ ' + (Number(v)||0).toFixed(2).replace('.',','); }
+function fmtDataBR(iso){ if(!iso) return '—'; var p=iso.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+function iniciais(nome){ return (nome||'?').split(' ').filter(Boolean).slice(0,2).map(function(p){return p[0].toUpperCase();}).join(''); }
+function showToast(msg){
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 2800);
+}
+
+function calcularDataVencimento(mesStr, dia){
+  var partes = mesStr.split('-');
+  var ano = parseInt(partes[0],10), mes = parseInt(partes[1],10);
+  var ultimoDiaDoMes = new Date(ano, mes, 0).getDate();
+  var diaFinal = Math.min(dia, ultimoDiaDoMes);
+  return ano+'-'+pad(mes)+'-'+pad(diaFinal);
+}
+
+async function carregarTudo(){
+  try{
+    var alunosSnap = await db.collection('alunos').get();
+    state.alunos = [];
+    alunosSnap.forEach(function(doc){
+      var d = doc.data();
+      if(d.statusGeral === 'inativo') return;
+      state.alunos.push({
+        id: doc.id, nome: d.nome||'(sem nome)', unidade: d.unidade||'',
+        foto: d.foto||null, responsavelNome: d.responsavelNome||'',
+        responsavelWhatsapp: d.responsavelWhatsapp||'',
+        valorMensalidade: d.valorMensalidade || null,
+        diaVencimento: d.diaVencimento || null
+      });
+    });
+    await garantirMensalidadesDoMes();
+    await carregarMensalidades();
+    render();
+  }catch(err){
+    document.getElementById('app').innerHTML = '<div class="setup-banner"><b>Erro ao carregar</b>'+err.message+'</div>';
+  }
+}
+
+async function garantirMensalidadesDoMes(){
+  var mes = mesAtualStr();
+  var existentesSnap = await db.collection('mensalidades').where('mesReferencia','==',mes).get();
+  var existentesIds = {};
+  existentesSnap.forEach(function(doc){ existentesIds[doc.id] = true; });
+
+  var batch = db.batch();
+  var algumNovo = false;
+  state.alunos.forEach(function(a){
+    if(!a.valorMensalidade || !a.diaVencimento) return;
+    var id = a.id + '_' + mes;
+    if(existentesIds[id]) return;
+    var ref = db.collection('mensalidades').doc(id);
+    batch.set(ref, {
+      alunoId: a.id, nomeAluno: a.nome, unidade: a.unidade,
+      responsavelNome: a.responsavelNome, responsavelWhatsapp: a.responsavelWhatsapp,
+      mesReferencia: mes, valor: a.valorMensalidade, diaVencimento: a.diaVencimento,
+      dataVencimento: calcularDataVencimento(mes, a.diaVencimento),
+      dataPagamento: null, statusPagamento: 'pendente'
+    });
+    algumNovo = true;
+  });
+  if(algumNovo) await batch.commit();
+}
+
+async function carregarMensalidades(){
+  var snap = await db.collection('mensalidades').get();
+  state.mensalidades = [];
+  snap.forEach(function(doc){ state.mensalidades.push(Object.assign({id:doc.id}, doc.data())); });
+}
+
+function statusComputado(m){
+  if(m.statusPagamento === 'pago') return 'pago';
+  if(m.statusPagamento === 'isento') return 'isento';
+  if(hojeStr() > m.dataVencimento) return 'atrasado';
+  return 'pendente';
+}
+function diasAtraso(m){
+  var d1 = new Date(m.dataVencimento+'T00:00:00'), d2 = new Date(hojeStr()+'T00:00:00');
+  return Math.max(0, Math.round((d2-d1)/86400000));
+}
+function mensalidadeDoMes(alunoId, mes){
+  return state.mensalidades.find(function(m){ return m.alunoId===alunoId && m.mesReferencia===mes; });
+}
+function waLink(phone, texto){
+  return 'https://wa.me/55' + onlyDigits(phone) + '?text=' + encodeURIComponent(texto);
+}
+function msgLembrete(a){
+  return 'Olá, '+a.responsavelNome+'! Passando para lembrar que hoje vence a mensalidade do(a) '+a.nome+' na BSA. Para sua comodidade, o pagamento pode ser feito via Pix utilizando a chave cadastrada. Caso já tenha realizado, por favor, desconsidere este aviso. Agradecemos a parceria! Esporte é vida!';
+}
+function msgCobranca(a){
+  return 'Olá, '+a.responsavelNome+', tudo bem? Não identificamos o recebimento da mensalidade do(a) '+a.nome+' referente a este mês. Sabemos da rotina corrida e que imprevistos acontecem. Se precisar da segunda via ou do código Pix, estamos à disposição por aqui para ajudar a regularizar. Um abraço da equipe BSA!';
+}
+
+function setHeader(title, sub, showBack){
+  document.getElementById('headerTitle').textContent = title;
+  document.getElementById('statusLine').textContent = sub;
+  document.getElementById('backWrap').innerHTML = showBack ? '<button class="back-btn" data-action="voltar">&#8592; Voltar</button>' : '';
+}
+
+/* ---------- render router ---------- */
+function render(){
+  var app = document.getElementById('app');
+  if(state.screen==='dashboard') return renderDashboard(app);
+  if(state.screen==='inadimplentes') return renderInadimplentes(app);
+  if(state.screen==='alunos') return renderAlunos(app);
+  if(state.screen==='alunoDetail') return renderAlunoDetail(app);
+}
+
+function tabsHtml(){
+  return '<div class="tabs">'
+    + '<button class="tab-btn'+(state.screen==='dashboard'?' active':'')+'" data-action="irDashboard">Dashboard</button>'
+    + '<button class="tab-btn'+(state.screen==='inadimplentes'?' active':'')+'" data-action="irInadimplentes">Inadimplentes</button>'
+    + '<button class="tab-btn'+(state.screen==='alunos'?' active':'')+'" data-action="irAlunos">Alunos</button>'
+    + '</div>';
+}
+
+function renderDashboard(app){
+  setHeader('BSA Finanças', 'conectado', false);
+  var mes = mesAtualStr();
+  var doMes = state.mensalidades.filter(function(m){ return m.mesReferencia===mes; });
+  var semConfig = state.alunos.filter(function(a){ return !a.valorMensalidade || !a.diaVencimento; }).length;
+
+  var totalRecebido=0, totalAReceber=0, qtdPago=0, qtdPendente=0, qtdAtrasado=0;
+  doMes.forEach(function(m){
+    var st = statusComputado(m);
+    if(st==='pago'){ totalRecebido += Number(m.valor)||0; qtdPago++; }
+    else if(st==='atrasado'){ totalAReceber += Number(m.valor)||0; qtdAtrasado++; }
+    else if(st==='pendente'){ totalAReceber += Number(m.valor)||0; qtdPendente++; }
+  });
+  var totalContas = qtdPago+qtdPendente+qtdAtrasado;
+  var taxaInad = totalContas>0 ? Math.round((qtdAtrasado/totalContas)*100) : 0;
+
+  var pagoPct = totalContas>0 ? (qtdPago/totalContas*100) : 0;
+  var pendPct = totalContas>0 ? (qtdPendente/totalContas*100) : 0;
+  var atrPct = 100 - pagoPct - pendPct;
+  var conic = 'conic-gradient(var(--blue) 0% '+pagoPct+'%, var(--gold) '+pagoPct+'% '+(pagoPct+pendPct)+'%, var(--danger) '+(pagoPct+pendPct)+'% 100%)';
+
+  var html = tabsHtml();
+
+  if(semConfig>0){
+    html += '<div class="banner">⚠ '+semConfig+' aluno(s) sem valor/dia de vencimento configurado — vá em "Alunos" e complete o cadastro financeiro deles.</div>';
+  }
+
+  html += '<div class="stat-row">'
+    + '<div class="stat recebido"><div class="lbl">Recebido no mês</div><div class="num">'+fmtMoeda(totalRecebido)+'</div></div>'
+    + '<div class="stat areceber"><div class="lbl">A receber</div><div class="num">'+fmtMoeda(totalAReceber)+'</div></div>'
+    + '</div>';
+  html += '<div class="stat-row"><div class="stat inadimplencia"><div class="lbl">Taxa de inadimplência</div><div class="num">'+taxaInad+'%</div></div></div>';
+
+  html += '<div class="panel"><h2>Situação do mês</h2><div class="pie-wrap">'
+    + '<div class="pie" style="background:'+(totalContas>0?conic:'var(--line)')+';"></div>'
+    + '<div class="legend">'
+    + '<div class="legend-row"><span class="legend-dot" style="background:var(--blue);"></span>Pago<span class="n">'+qtdPago+'</span></div>'
+    + '<div class="legend-row"><span class="legend-dot" style="background:var(--gold);"></span>Pendente<span class="n">'+qtdPendente+'</span></div>'
+    + '<div class="legend-row"><span class="legend-dot" style="background:var(--danger);"></span>Atrasado<span class="n">'+qtdAtrasado+'</span></div>'
+    + '</div></div></div>';
+
+  app.innerHTML = html;
+}
+
+function renderInadimplentes(app){
+  setHeader('BSA Finanças', 'conectado', false);
+  var mes = mesAtualStr();
+  var atrasados = state.mensalidades.filter(function(m){ return m.mesReferencia===mes && statusComputado(m)==='atrasado'; })
+    .sort(function(a,b){ return diasAtraso(b)-diasAtraso(a); });
+
+  var html = tabsHtml();
+  if(atrasados.length===0){
+    html += '<div class="empty">Nenhum inadimplente este mês. Tudo em dia! 🎉</div>';
+  } else {
+    atrasados.forEach(function(m){
+      var a = state.alunos.find(function(x){return x.id===m.alunoId;});
+      var foto = a && a.foto ? '<img class="avatar" src="'+a.foto+'">' : '<div class="avatar">'+iniciais(m.nomeAluno)+'</div>';
+      html += '<div class="row-card" style="flex-direction:column;align-items:stretch;">'
+        + '<div style="display:flex;align-items:center;gap:12px;">'
+        + foto
+        + '<div class="info"><div class="name">'+m.nomeAluno+'</div><div class="meta">Responsável: '+m.responsavelNome+' · '+fmtMoeda(m.valor)+'</div></div>'
+        + '<span class="pill atrasado">'+diasAtraso(m)+'d atraso</span>'
+        + '</div>'
+        + '<div class="btn-row">'
+        + '<a class="btn btn-outline" style="text-decoration:none;flex:1;text-align:center;" target="_blank" href="'+waLink(m.responsavelWhatsapp, msgCobranca({responsavelNome:m.responsavelNome, nome:m.nomeAluno}))+'">Enviar cobrança</a>'
+        + '<button class="btn btn-blue" data-action="marcarPago" data-id="'+m.id+'">Marcar pago</button>'
+        + '</div></div>';
+    });
+  }
+  app.innerHTML = html;
+}
+
+function renderAlunos(app){
+  setHeader('BSA Finanças', 'conectado', false);
+  var mes = mesAtualStr();
+  var html = tabsHtml();
+  html += '<input class="search-box" id="searchInput" placeholder="Buscar aluno..." value="'+state.search.replace(/"/g,'&quot;')+'">';
+
+  var lista = state.alunos.filter(function(a){
+    return a.nome.toLowerCase().indexOf(state.search.toLowerCase()) !== -1;
+  }).sort(function(a,b){ return a.nome.localeCompare(b.nome); });
+
+  if(lista.length===0){
+    html += '<div class="empty">Nenhum aluno encontrado.</div>';
+  } else {
+    lista.forEach(function(a){
+      var m = mensalidadeDoMes(a.id, mes);
+      var st = m ? statusComputado(m) : 'semconfig';
+      var pillTxt = {pago:'Pago', pendente:'Pendente', atrasado:'Atrasado', isento:'Isento', semconfig:'Sem config.'}[st];
+      var foto = a.foto ? '<img class="avatar" src="'+a.foto+'">' : '<div class="avatar">'+iniciais(a.nome)+'</div>';
+      html += '<div class="row-card" data-action="abrirAluno" data-id="'+a.id+'">'
+        + foto
+        + '<div class="info"><div class="name">'+a.nome+'</div><div class="meta">'+a.unidade+'</div></div>'
+        + '<span class="pill '+st+'">'+pillTxt+'</span>'
+        + '</div>';
+    });
+  }
+  app.innerHTML = html;
+  var si = document.getElementById('searchInput');
+  si.addEventListener('input', function(e){ state.search = e.target.value; renderAlunos(document.getElementById('app')); si.focus(); si.setSelectionRange(si.value.length, si.value.length); });
+}
+
+function renderAlunoDetail(app){
+  var a = state.alunos.find(function(x){return x.id===state.currentAlunoId;});
+  if(!a){ state.screen='alunos'; return render(); }
+  setHeader(a.nome, a.unidade, true);
+  var mes = mesAtualStr();
+  var m = mensalidadeDoMes(a.id, mes);
+
+  var html = '<div class="panel">'
+    + '<h2>Configuração financeira</h2>'
+    + '<div class="field"><label>Valor da mensalidade (R$)</label><input type="number" id="fValor" value="'+(a.valorMensalidade||'')+'" placeholder="ex: 150"></div>'
+    + '<div class="field"><label>Dia de vencimento</label><select id="fDia">'
+    + [5,10,15,20].map(function(d){ return '<option value="'+d+'"'+(a.diaVencimento===d?' selected':'')+'>Dia '+d+'</option>'; }).join('')
+    + '</select></div>'
+    + '<button class="btn btn-primary" data-action="salvarConfig" data-id="'+a.id+'">Salvar configuração</button>'
+    + '</div>';
+
+  if(m){
+    var st = statusComputado(m);
+    var pillTxt = {pago:'Pago', pendente:'Pendente', atrasado:'Atrasado', isento:'Isento'}[st];
+    html += '<div class="panel"><h2>Mês atual ('+mes+')</h2>'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
+      + '<div><div class="mono" style="font-size:20px;font-weight:700;">'+fmtMoeda(m.valor)+'</div><div class="meta" style="color:var(--ink-soft);font-size:12px;">vence em '+fmtDataBR(m.dataVencimento)+'</div></div>'
+      + '<span class="pill '+st+'">'+pillTxt+'</span>'
+      + '</div>';
+    if(st !== 'pago'){
+      html += '<div class="btn-row">';
+      if(st === 'atrasado'){
+        html += '<a class="btn btn-outline" style="text-decoration:none;flex:1;text-align:center;" target="_blank" href="'+waLink(a.responsavelWhatsapp, msgCobranca(a))+'">Cobrar</a>';
+      } else {
+        html += '<a class="btn btn-outline" style="text-decoration:none;flex:1;text-align:center;" target="_blank" href="'+waLink(a.responsavelWhatsapp, msgLembrete(a))+'">Lembrete</a>';
+      }
+      html += '<button class="btn btn-blue" data-action="marcarPago" data-id="'+m.id+'">Marcar pago</button>';
+      html += '</div>';
+    } else {
+      html += '<div class="meta" style="font-size:12px;color:var(--ink-soft);">Pago em '+fmtDataBR(m.dataPagamento)+'</div>';
+    }
+    html += '</div>';
+  } else {
+    html += '<div class="banner">Configure valor e dia de vencimento acima para gerar a cobrança deste mês.</div>';
+  }
+
+  var historico = state.mensalidades.filter(function(x){ return x.alunoId===a.id && x.mesReferencia!==mes; })
+    .sort(function(x,y){ return y.mesReferencia.localeCompare(x.mesReferencia); });
+  if(historico.length){
+    html += '<div class="panel"><h2>Histórico</h2>';
+    historico.forEach(function(m2){
+      var st2 = statusComputado(m2);
+      html += '<div class="history-row"><span>'+m2.mesReferencia+'</span><span class="pill '+st2+'" style="font-size:10px;">'+({pago:'Pago',pendente:'Pendente',atrasado:'Atrasado',isento:'Isento'}[st2])+'</span></div>';
+    });
+    html += '</div>';
+  }
+
+  app.innerHTML = html;
+}
+
+/* ---------- actions ---------- */
+var Actions = {
+  irDashboard:function(){ state.screen='dashboard'; render(); },
+  irInadimplentes:function(){ state.screen='inadimplentes'; render(); },
+  irAlunos:function(){ state.screen='alunos'; render(); },
+  abrirAluno:function(el){ state.currentAlunoId = el.dataset.id; state.screen='alunoDetail'; render(); },
+  voltar:function(){ state.screen='alunos'; render(); },
+  marcarPago:async function(el){
+    var id = el.dataset.id;
+    try{
+      await db.collection('mensalidades').doc(id).update({ statusPagamento:'pago', dataPagamento: hojeStr() });
+      var m = state.mensalidades.find(function(x){return x.id===id;});
+      if(m){ m.statusPagamento='pago'; m.dataPagamento=hojeStr(); }
+      showToast('Marcado como pago!');
+      render();
+    }catch(e){ showToast('Não foi possível salvar: '+e.message); }
+  },
+  salvarConfig:async function(el){
+    var id = el.dataset.id;
+    var valor = parseFloat(document.getElementById('fValor').value);
+    var dia = parseInt(document.getElementById('fDia').value,10);
+    if(!valor || valor<=0){ showToast('Digite um valor válido.'); return; }
+    try{
+      await db.collection('alunos').doc(id).update({ valorMensalidade: valor, diaVencimento: dia });
+      var a = state.alunos.find(function(x){return x.id===id;});
+      a.valorMensalidade = valor; a.diaVencimento = dia;
+      await garantirMensalidadesDoMes();
+      await carregarMensalidades();
+      showToast('Configuração salva!');
+      render();
+    }catch(e){ showToast('Não foi possível salvar: '+e.message); }
+  }
+};
+
+document.addEventListener('click', function(e){
+  var el = e.target.closest('[data-action]');
+  if(!el) return;
+  var fn = Actions[el.dataset.action];
+  if(fn) fn(el);
+});
+
+initFirebase();
+
+})();
+</script>
+</body>
+</html>
