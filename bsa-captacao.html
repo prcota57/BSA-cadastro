@@ -99,6 +99,9 @@
   .lead-card .l-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
   .lead-card .l-name{font-family:var(--font-display);font-weight:600;font-size:15px;color:var(--ink-700);margin:0;}
   .lead-card .l-sub{font-size:12px;color:#8a8a80;margin:3px 0 0;}
+  .lead-card-waiting{border:1px dashed #7CB4E0;background:#F4FAFF;}
+  .lead-card-ready{border:1.5px solid #0B5394;background:#FFF9E5;box-shadow:0 0 0 3px rgba(11,83,148,0.08);}
+  .l-wait{font-size:11.5px;color:#0B5394;font-weight:600;margin-top:6px;}
   .status-pill{font-family:var(--font-mono);font-size:10px;padding:4px 10px;border-radius:100px;white-space:nowrap;flex-shrink:0;}
 
   .detail-header{text-align:center;margin-bottom:20px;}
@@ -191,8 +194,45 @@ var STATUS_META = {
   realizada:{label:'Aguardando decisão', bg:'#FFF3CC', fg:'#8A6D00'},
   nao_compareceu:{label:'Não compareceu', bg:'#DCE5DD', fg:'#5C7268'},
   matriculado:{label:'Matriculado', bg:'#FFC800', fg:'#0B4530'},
-  desistencia:{label:'Não converteu', bg:'#FF5A36', fg:'#fff'}
+  desistencia:{label:'Não converteu', bg:'#FF5A36', fg:'#fff'},
+  aguardando:{label:'Aguardando', bg:'#DCEEFB', fg:'#0B5394'}
 };
+var WAIT_REASONS = {
+  filho5anos:'Aguardando filho completar 5 anos',
+  mes:'Aguardando virar o mês',
+  unidade:'Aguardando abertura de unidade no bairro'
+};
+function calcFilho5AnosData(nascISO){
+  if(!nascISO) return null;
+  var d = new Date(nascISO+'T00:00:00');
+  d.setFullYear(d.getFullYear()+5);
+  return d.toISOString().slice(0,10);
+}
+function calcProximoMes(){
+  var d = new Date(); d.setDate(1); d.setMonth(d.getMonth()+1);
+  return d.toISOString().slice(0,10);
+}
+function calcWaitReturnDate(l){
+  if(l.waitReason==='filho5anos') return calcFilho5AnosData(l.waitChildBirth);
+  if(l.waitReason==='mes') return l.waitTargetDate || null;
+  return null;
+}
+function isWaitReady(l){
+  var data = calcWaitReturnDate(l);
+  if(!data) return false;
+  return data <= todayStr();
+}
+function waitSubLabel(l){
+  var motivo = WAIT_REASONS[l.waitReason] || 'Aguardando';
+  var data = calcWaitReturnDate(l);
+  if(l.waitReason==='unidade'){
+    return motivo + (l.waitNeighborhood ? ' ('+escapeHtml(l.waitNeighborhood)+')' : '');
+  }
+  if(data){
+    return motivo + ' · previsto para ' + fmtDate(data) + (isWaitReady(l) ? ' — pronto para retomar!' : '');
+  }
+  return motivo;
+}
 var FOLLOWUP_DAYS = 2;
 
 var state = {screen:'loading', leads:[], currentId:null, form:{}, filterStatus:'todos'};
@@ -257,13 +297,15 @@ function render(){
   if(state.screen==='pipeline') return renderPipeline(app);
   if(state.screen==='leadDetail') return renderLeadDetail(app);
   if(state.screen==='reports') return renderReports(app);
+  if(state.screen==='markWaiting') return renderMarkWaiting(app);
 }
 
 function renderHome(app){
   setHeader('BSA Experimental','Central de aulas experimentais',false);
   var alerts = getAlerts();
-  var counts = {agendado:0,realizada:0,matriculado:0,desistencia:0,nao_compareceu:0};
+  var counts = {agendado:0,realizada:0,matriculado:0,desistencia:0,nao_compareceu:0,aguardando:0};
   state.leads.forEach(function(l){ counts[l.status] = (counts[l.status]||0)+1; });
+  var prontos = state.leads.filter(function(l){ return l.status==='aguardando' && isWaitReady(l); });
 
   var html = '<div class="shortcuts">'
     + '<div class="shortcut" data-action="showNewLead"><span class="ic">&#10133;</span><span class="lb">Nova aula<br>experimental</span></div>'
@@ -275,7 +317,18 @@ function renderHome(app){
     + '<div class="f"><div class="n">'+counts.agendado+'</div><div class="l">AGENDADAS</div></div>'
     + '<div class="f"><div class="n">'+counts.realizada+'</div><div class="l">DECIDIR</div></div>'
     + '<div class="f"><div class="n">'+counts.matriculado+'</div><div class="l">MATRICULADOS</div></div>'
+    + '<div class="f"><div class="n">'+counts.aguardando+'</div><div class="l">AGUARDANDO</div></div>'
     + '</div>';
+
+  if(prontos.length>0){
+    html += '<p class="section-label">⏳ Prontos para retomar contato</p>';
+    prontos.forEach(function(l){
+      html += '<div class="alert-card urgent" data-action="openLead" data-id="'+l.id+'">'
+        + '<div class="a-top"><p class="a-name">'+escapeHtml(l.studentName)+'</p><span class="a-tag today">'+WAIT_REASONS[l.waitReason]+'</span></div>'
+        + '<p class="a-sub">'+escapeHtml(l.unit)+' · resp.: '+escapeHtml(l.parentName)+'</p>'
+        + '</div>';
+    });
+  }
 
   html += '<p class="section-label">Precisa da sua atenção</p>';
   if(alerts.length===0){
@@ -330,7 +383,7 @@ function renderNewLead(app){
 
 function renderPipeline(app){
   setHeader('Pipeline','Todas as aulas experimentais',true);
-  var tabs = [['todos','Todos'],['agendado','Agendados'],['realizada','Decidir'],['matriculado','Matriculados'],['desistencia','Não convertidos'],['nao_compareceu','Faltaram']];
+  var tabs = [['todos','Todos'],['agendado','Agendados'],['realizada','Decidir'],['aguardando','Aguardando'],['matriculado','Matriculados'],['desistencia','Não convertidos'],['nao_compareceu','Faltaram']];
   var tabHtml = tabs.map(function(t){ return '<button class="status-tab'+(state.filterStatus===t[0]?' active':'')+'" data-action="setFilter" data-status="'+t[0]+'">'+t[1]+'</button>'; }).join('');
   var list = state.leads.filter(function(l){ return state.filterStatus==='todos' || l.status===state.filterStatus; })
     .sort(function(a,b){ return b.trialDate.localeCompare(a.trialDate); });
@@ -340,13 +393,46 @@ function renderPipeline(app){
   } else {
     list.forEach(function(l){
       var meta = STATUS_META[l.status];
-      html += '<div class="lead-card" data-action="openLead" data-id="'+l.id+'">'
-        + '<div class="l-top"><p class="l-name">'+escapeHtml(l.studentName)+'</p><span class="status-pill" style="background:'+meta.bg+';color:'+meta.fg+';">'+meta.label+'</span></div>'
+      var isWaiting = l.status==='aguardando';
+      var pronto = isWaiting && isWaitReady(l);
+      html += '<div class="lead-card'+(isWaiting?' lead-card-waiting':'')+(pronto?' lead-card-ready':'')+'" data-action="openLead" data-id="'+l.id+'">'
+        + '<div class="l-top"><p class="l-name">'+escapeHtml(l.studentName)+'</p><span class="status-pill" style="background:'+meta.bg+';color:'+meta.fg+';">'+(pronto?'⏳ Pronto!':meta.label)+'</span></div>'
         + '<p class="l-sub">'+escapeHtml(l.unit)+' · '+fmtDate(l.trialDate)+' · '+escapeHtml(l.parentName)+'</p>'
+        + (isWaiting ? '<p class="l-wait">'+waitSubLabel(l)+'</p>' : '')
         + '</div>';
     });
   }
   app.innerHTML = html;
+}
+
+function renderMarkWaiting(app){
+  var l = getLead(state.currentId);
+  if(!l){ state.screen='pipeline'; return render(); }
+  setHeader('Marcar como Aguardando', l.studentName, true);
+  var f = state.waitForm || {};
+  var html = '<div class="field"><label>Motivo</label><select id="w_reason">'
+    + '<option value="filho5anos"'+(f.reason==='filho5anos'?' selected':'')+'>Filho completa 5 anos</option>'
+    + '<option value="mes"'+(f.reason==='mes'?' selected':'')+'>Aguardando virar o mês</option>'
+    + '<option value="unidade"'+(f.reason==='unidade'?' selected':'')+'>Aguardando abertura de unidade no bairro</option>'
+    + '</select></div>';
+  html += '<div id="w_extra">' + renderWaitExtraFields(f) + '</div>';
+  html += '<button class="btn btn-primary" data-action="saveWaiting" data-id="'+l.id+'">Salvar</button>';
+  app.innerHTML = html;
+  document.getElementById('w_reason').addEventListener('change', function(e){
+    state.waitForm = Object.assign({}, state.waitForm, {reason:e.target.value});
+    document.getElementById('w_extra').innerHTML = renderWaitExtraFields(state.waitForm);
+  });
+}
+function renderWaitExtraFields(f){
+  var reason = f.reason || 'filho5anos';
+  if(reason==='filho5anos'){
+    return '<div class="field"><label>Data de nascimento do filho(a)</label><input type="date" id="w_birth" value="'+(f.childBirth||'')+'"></div>'
+      + '<p class="l-sub">A data prevista de retorno é calculada automaticamente (5º aniversário).</p>';
+  }
+  if(reason==='unidade'){
+    return '<div class="field"><label>Bairro desejado</label><input type="text" id="w_neighborhood" placeholder="ex: Buritis" value="'+(f.neighborhood||'')+'"></div>';
+  }
+  return '<p class="l-sub">Este lead reaparecerá com destaque quando o mês virar.</p>';
 }
 
 function renderLeadDetail(app){
@@ -357,6 +443,9 @@ function renderLeadDetail(app){
   var html = '<div class="detail-header"><h2>'+escapeHtml(l.studentName)+'</h2>'
     + '<span class="status-pill" style="background:'+STATUS_META[l.status].bg+';color:'+STATUS_META[l.status].fg+';padding:6px 14px;font-size:12px;">'+STATUS_META[l.status].label+'</span></div>';
 
+  if(l.status==='aguardando'){
+    html += '<div class="needs-box" style="border-left-color:#0B5394;background:#DCEEFB;color:#0B5394;">'+waitSubLabel(l)+'</div>';
+  }
   if(l.hasNeeds){
     html += '<div class="needs-box"><strong>Atenção — necessidade específica:</strong> '+escapeHtml(l.needsDetails||'sinalizado pelo responsável')+'</div>';
   }
@@ -390,8 +479,14 @@ function renderLeadDetail(app){
   } else if(l.status==='realizada'){
     html += '<button class="btn btn-primary" style="margin-bottom:10px;" data-action="markEnrolled" data-id="'+l.id+'">Matricular</button>'
       + '<button class="btn btn-secondary" style="margin-bottom:10px;" data-action="markDropped" data-id="'+l.id+'">Marcar não convertido</button>';
+  } else if(l.status==='aguardando'){
+    html += '<button class="btn btn-primary" style="margin-bottom:10px;" data-action="reschedule" data-id="'+l.id+'">Reagendar aula experimental</button>'
+      + '<button class="btn btn-secondary" style="margin-bottom:10px;" data-action="markDropped" data-id="'+l.id+'">Marcar não convertido</button>';
   } else {
     html += '<button class="btn btn-secondary" style="margin-bottom:10px;" data-action="reopenLead" data-id="'+l.id+'">Reabrir avaliação</button>';
+  }
+  if(l.status!=='aguardando' && l.status!=='matriculado'){
+    html += '<button class="btn btn-secondary" style="margin-bottom:10px;" data-action="openMarkWaiting" data-id="'+l.id+'">Marcar como Aguardando</button>';
   }
   html += '<button class="btn btn-secondary" style="margin-bottom:10px;" data-action="editLead" data-id="'+l.id+'">Editar cadastro</button>';
   html += '<button class="btn btn-danger-ghost" data-action="deleteLead" data-id="'+l.id+'">Excluir cadastro</button>';
@@ -561,6 +656,33 @@ var Actions = {
   },
   markDropped:function(el){ var l=getLead(el.dataset.id); l.status='desistencia'; l.outcomeDate=new Date().toISOString(); saveLeads(); render(); showToast('Marcado como não convertido.'); },
   reopenLead:function(el){ var l=getLead(el.dataset.id); l.status='realizada'; saveLeads(); render(); showToast('Reaberto para nova decisão.'); },
+  openMarkWaiting:function(el){
+    var l = getLead(el.dataset.id);
+    state.currentId = l.id;
+    state.waitForm = { reason: l.waitReason || 'filho5anos', childBirth: l.waitChildBirth || '', neighborhood: l.waitNeighborhood || '' };
+    state.screen = 'markWaiting';
+    render();
+  },
+  saveWaiting:function(el){
+    var l = getLead(el.dataset.id);
+    var reason = document.getElementById('w_reason').value;
+    if(l.status!=='aguardando') l.waitPrevStatus = l.status;
+    l.status = 'aguardando';
+    l.waitReason = reason;
+    if(reason==='filho5anos'){
+      var birthEl = document.getElementById('w_birth');
+      l.waitChildBirth = birthEl ? birthEl.value : '';
+    } else if(reason==='unidade'){
+      var neighEl = document.getElementById('w_neighborhood');
+      l.waitNeighborhood = neighEl ? neighEl.value : '';
+    } else if(reason==='mes'){
+      l.waitTargetDate = calcProximoMes();
+    }
+    saveLeads();
+    state.screen = 'leadDetail';
+    render();
+    showToast('Lead marcado como Aguardando.');
+  },
   deleteLead:function(el){
     if(!confirm('Excluir este cadastro definitivamente?')) return;
     state.leads = state.leads.filter(function(l){return l.id!==el.dataset.id;});
