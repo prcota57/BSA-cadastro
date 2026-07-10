@@ -1185,6 +1185,12 @@ document.getElementById('btnApagarTudo').addEventListener('click', async ()=>{
 
 /* ---------- Início ---------- */
 document.getElementById('fMatricula').value = new Date().toISOString().slice(0,10);
+/* Wake Lock: impede que a tela apague enquanto o módulo estiver aberto (útil na captura de fotos) */
+var __wakeLock=null;
+async function __pedirWakeLock(){try{if('wakeLock' in navigator){__wakeLock=await navigator.wakeLock.request('screen');}}catch(e){}}
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') __pedirWakeLock(); });
+__pedirWakeLock();
+
 initFirebase();
 </script>
 </body>
