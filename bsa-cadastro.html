@@ -211,15 +211,56 @@
     color:#8A2E19; font-size:13px; line-height:1.5;
   }
   .setup-banner b{display:block; margin-bottom:4px; font-family:'Space Grotesk';}
+
+  .btn-back{
+    display:flex; align-items:center; justify-content:center;
+    width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,0.15);
+    color:#fff; font-size:18px; text-decoration:none; flex:0 0 auto; margin-right:10px;
+  }
+  header.top .row{gap:6px;}
+  header.top .titlewrap{display:flex; align-items:center; flex:1; min-width:0;}
+
+  .cnt-tag{
+    font-family:'IBM Plex Mono'; font-size:11px; opacity:0.85; margin-left:4px;
+  }
+
+  .bday-banner{
+    margin:14px 16px 4px; padding:14px; background:linear-gradient(135deg, var(--gold-soft), var(--surface));
+    border-radius:16px; border:1px solid var(--gold); display:none;
+  }
+  .bday-banner.show{display:block;}
+  .bday-banner .bday-title{font-family:'Space Grotesk'; font-weight:700; font-size:14px; color:var(--pitch-dark); margin-bottom:8px;}
+  .bday-row{display:flex; align-items:center; gap:10px; margin-bottom:8px; background:var(--surface); border-radius:12px; padding:8px 10px;}
+  .bday-row:last-child{margin-bottom:0;}
+  .bday-row .bday-name{flex:1; font-size:13.5px; font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .bday-row .bday-wpp{
+    background:#25D366; color:#fff; border:none; border-radius:20px; padding:7px 12px;
+    font-size:12px; font-weight:700; font-family:'Inter'; text-decoration:none; flex:0 0 auto;
+  }
+
+  .bday-list-row{
+    background:var(--surface); border-radius:14px; padding:12px; margin-bottom:10px;
+    display:flex; align-items:center; gap:10px; border:1px solid var(--line);
+  }
+  .bday-list-row .bday-date{
+    font-family:'Space Grotesk'; font-weight:700; color:var(--pitch); font-size:15px;
+    background:var(--pitch-soft); border-radius:10px; padding:6px 9px; text-align:center; flex:0 0 auto; min-width:44px;
+  }
+  .bday-list-row .bday-info{flex:1; min-width:0;}
+  .bday-list-row .bday-info .n{font-weight:600; font-size:14.5px;}
+  .bday-list-row .bday-info .m{font-size:12px; color:var(--ink-soft);}
 </style>
 </head>
 <body>
 
 <header class="top">
   <div class="row">
-    <div>
-      <h1>BSA Cadastro</h1>
-      <div class="sub" id="statusLine">conectando...</div>
+    <div class="titlewrap">
+      <a class="btn-back" href="https://prcota57.github.io/BSA-cadastro/" title="Voltar ao início">←</a>
+      <div>
+        <h1>BSA Cadastro</h1>
+        <div class="sub" id="statusLine">conectando...</div>
+      </div>
     </div>
     <div class="badge-count mono" id="countBadge">0</div>
   </div>
@@ -236,15 +277,19 @@
     <input type="text" id="searchInput" placeholder="Buscar aluno por nome...">
   </div>
   <div class="chipsrow" id="unitChips">
-    <div class="chip active" data-unit="todas">Todas unidades</div>
-    <div class="chip" data-unit="Carlos Prates">Carlos Prates</div>
-    <div class="chip" data-unit="Estoril">Estoril</div>
+    <div class="chip active" data-unit="todas">Todas unidades <span class="cnt-tag" id="cnt-todas">(0)</span></div>
+    <div class="chip" data-unit="Carlos Prates">Carlos Prates <span class="cnt-tag" id="cnt-carlosprates">(0)</span></div>
+    <div class="chip" data-unit="Estoril">Estoril <span class="cnt-tag" id="cnt-estoril">(0)</span></div>
   </div>
   <div class="chipsrow" id="statusChips" style="padding-top:0;">
     <div class="chip active" data-status="todos">Todos status</div>
     <div class="chip" data-status="ativo">Ativo</div>
     <div class="chip" data-status="inadimplente">Inadimplente</div>
     <div class="chip" data-status="isento">Isento</div>
+  </div>
+  <div class="bday-banner" id="bdayBanner">
+    <div class="bday-title">🎂 Aniversariante(s) de hoje</div>
+    <div id="bdayBannerList"></div>
   </div>
   <main id="listContainer">
     <div class="empty">
@@ -376,10 +421,22 @@
   </div>
 </section>
 
+<!-- ANIVERSÁRIOS -->
+<section class="screen" id="screen-aniversarios">
+  <div class="chipsrow" id="bdayChips" style="padding-top:14px;">
+    <div class="chip active" data-range="hoje">Hoje</div>
+    <div class="chip" data-range="semana">Esta semana</div>
+    <div class="chip" data-range="mes">Este mês</div>
+    <div class="chip" data-range="todos">Todos (próximos)</div>
+  </div>
+  <main id="bdayListContainer"></main>
+</section>
+
 <nav class="tabbar">
   <button class="active" data-screen="lista"><span class="ic">📋</span>Alunos</button>
   <button data-screen="cadastro"><span class="ic">➕</span>Novo</button>
   <button data-screen="importar"><span class="ic">📥</span>Importar</button>
+  <button data-screen="aniversarios"><span class="ic">🎂</span>Aniversários</button>
 </nav>
 
 <!-- Camera overlay -->
@@ -466,9 +523,24 @@ function listenAlunos(){
   db.collection('alunos').orderBy('nome').onSnapshot(snap=>{
     alunosCache = snap.docs.map(d=>({...d.data(), _docId:d.id}));
     renderLista();
+    updateUnitCounts();
+    renderBdayBanner();
+    if(document.getElementById('screen-aniversarios').classList.contains('active')){
+      renderAniversariantes();
+    }
   }, err=>{
     document.getElementById('statusLine').textContent = 'erro de sincronização';
   });
+}
+
+/* ---------- Contador de alunos por unidade ---------- */
+function updateUnitCounts(){
+  const ativos = alunosCache.filter(a => a.statusGeral !== 'inativo');
+  const cp = ativos.filter(a => a.unidade === 'Carlos Prates').length;
+  const est = ativos.filter(a => a.unidade === 'Estoril').length;
+  document.getElementById('cnt-todas').textContent = '(' + ativos.length + ')';
+  document.getElementById('cnt-carlosprates').textContent = '(' + cp + ')';
+  document.getElementById('cnt-estoril').textContent = '(' + est + ')';
 }
 
 /* ---------- Navegação ---------- */
@@ -480,6 +552,9 @@ function goToScreen(name){
   });
   if(name === 'cadastro' && !editingId){
     resetForm();
+  }
+  if(name === 'aniversarios'){
+    renderAniversariantes();
   }
 }
 document.querySelectorAll('nav.tabbar button').forEach(b=>{
@@ -676,6 +751,111 @@ function renderLista(){
       </div>`;
   }).join('');
 }
+
+/* ---------- Aniversariantes ---------- */
+function mesDiaFromISO(iso){
+  // iso: 'YYYY-MM-DD' -> {mes, dia}
+  if(!iso) return null;
+  const partes = iso.split('-');
+  return {mes: parseInt(partes[1],10), dia: parseInt(partes[2],10)};
+}
+function diasAteProximoAniversario(iso){
+  const md = mesDiaFromISO(iso);
+  if(!md) return 9999;
+  const hoje = new Date();
+  hoje.setHours(0,0,0,0);
+  let prox = new Date(hoje.getFullYear(), md.mes-1, md.dia);
+  if(prox < hoje) prox = new Date(hoje.getFullYear()+1, md.mes-1, md.dia);
+  return Math.round((prox - hoje) / 86400000);
+}
+function idadeQueVaiFazer(iso){
+  const md = mesDiaFromISO(iso);
+  if(!md) return '';
+  const nascYear = parseInt(iso.split('-')[0],10);
+  const hoje = new Date();
+  let anoAniversario = hoje.getFullYear();
+  const diasAte = diasAteProximoAniversario(iso);
+  const proxData = new Date(hoje.getTime() + diasAte*86400000);
+  return proxData.getFullYear() - nascYear;
+}
+function formatarDataCurta(iso){
+  const md = mesDiaFromISO(iso);
+  if(!md) return '--/--';
+  return String(md.dia).padStart(2,'0') + '/' + String(md.mes).padStart(2,'0');
+}
+function gerarLinkWhatsApp(numero, mensagem){
+  let n = (numero||'').toString().replace(/\D/g,'');
+  if(n && !n.startsWith('55')) n = '55' + n;
+  return 'https://wa.me/' + n + '?text=' + encodeURIComponent(mensagem);
+}
+function mensagemParabens(nome){
+  const primeiroNome = (nome||'').trim().split(' ')[0];
+  return `🎉 Parabéns, ${primeiroNome}! A equipe BSA (Brazilian Skills Academy) deseja um feliz aniversário! Que este novo ano venha cheio de gols, amizade e muita evolução dentro e fora de campo. Um abraço da nossa comissão técnica! 🎽⚽🎂`;
+}
+
+function renderBdayBanner(){
+  const hojeMd = mesDiaFromISO(new Date().toISOString().slice(0,10));
+  const aniversariantesHoje = alunosCache.filter(a=>{
+    if(a.statusGeral === 'inativo' || !a.dataNascimento) return false;
+    const md = mesDiaFromISO(a.dataNascimento);
+    return md && md.mes === hojeMd.mes && md.dia === hojeMd.dia;
+  });
+  const banner = document.getElementById('bdayBanner');
+  if(aniversariantesHoje.length === 0){
+    banner.classList.remove('show');
+    return;
+  }
+  banner.classList.add('show');
+  document.getElementById('bdayBannerList').innerHTML = aniversariantesHoje.map(a=>{
+    const msg = mensagemParabens(a.nome);
+    const link = a.responsavelWhatsapp ? gerarLinkWhatsApp(a.responsavelWhatsapp, msg) : null;
+    return `
+      <div class="bday-row">
+        <div class="bday-name">${a.nome} <span style="color:var(--ink-soft); font-weight:400;">(${a.unidade})</span></div>
+        ${link ? `<a class="bday-wpp" href="${link}" target="_blank" rel="noopener">Parabenizar</a>` : `<span class="hint">sem whatsapp</span>`}
+      </div>`;
+  }).join('');
+}
+
+function renderAniversariantes(){
+  const ativo = document.querySelector('#bdayChips .chip.active');
+  const range = ativo ? ativo.dataset.range : 'hoje';
+  let lista = alunosCache.filter(a => a.statusGeral !== 'inativo' && a.dataNascimento);
+  lista = lista.map(a => ({...a, _dias: diasAteProximoAniversario(a.dataNascimento)}));
+  if(range === 'hoje') lista = lista.filter(a => a._dias === 0);
+  else if(range === 'semana') lista = lista.filter(a => a._dias <= 7);
+  else if(range === 'mes') lista = lista.filter(a => a._dias <= 31);
+  lista.sort((a,b) => a._dias - b._dias);
+
+  const container = document.getElementById('bdayListContainer');
+  if(lista.length === 0){
+    container.innerHTML = `<div class="empty"><div class="big">🎂</div><div>Nenhum aniversariante nesse período.</div></div>`;
+    return;
+  }
+  container.innerHTML = lista.map(a=>{
+    const idade = idadeQueVaiFazer(a.dataNascimento);
+    const label = a._dias === 0 ? 'HOJE' : (a._dias === 1 ? 'amanhã' : 'em ' + a._dias + ' dias');
+    const msg = mensagemParabens(a.nome);
+    const link = a.responsavelWhatsapp ? gerarLinkWhatsApp(a.responsavelWhatsapp, msg) : null;
+    return `
+      <div class="bday-list-row">
+        <div class="bday-date mono">${formatarDataCurta(a.dataNascimento)}</div>
+        <div class="bday-info">
+          <div class="n">${a.nome}</div>
+          <div class="m">${a.unidade} · completa ${idade} anos · ${label}</div>
+        </div>
+        ${a._dias === 0 && link ? `<a class="bday-wpp" href="${link}" target="_blank" rel="noopener">🎉</a>` : ''}
+      </div>`;
+  }).join('');
+}
+
+document.querySelectorAll('#bdayChips .chip').forEach(c=>{
+  c.addEventListener('click', ()=>{
+    document.querySelectorAll('#bdayChips .chip').forEach(x=>x.classList.remove('active'));
+    c.classList.add('active');
+    renderAniversariantes();
+  });
+});
 
 /* ---------- Detalhe / edição ---------- */
 function abrirDetalhe(docId){
