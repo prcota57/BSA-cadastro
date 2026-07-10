@@ -519,6 +519,14 @@ function renderReports(app){
   html += '<p class="section-label">Por unidade</p><div class="stat-list">'+breakdownList(groupCount('unit'))+'</div>';
   html += '<p class="section-label">Dias da semana mais procurados</p><div class="stat-list">'+breakdownWeekdays()+'</div>';
 
+  html += '<p class="section-label">Conversão por origem do lead</p><div class="stat-list">'+renderOrigemConversao()+'</div>';
+
+  var tempos = tempoMedioFunil();
+  html += '<p class="section-label">Tempo médio no funil</p><div class="stat-list">'
+    + '<div class="stat-row"><span class="k">Do cadastro até a aula experimental</span><span class="v">'+(tempos.ateAula!==null ? tempos.ateAula+' dias' : '—')+'</span></div>'
+    + '<div class="stat-row"><span class="k">Da aula até a decisão (matrícula/desistência)</span><span class="v">'+(tempos.ateDecisao!==null ? tempos.ateDecisao+' dias' : '—')+'</span></div>'
+    + '</div>';
+
   var ages = state.leads.map(function(l){return parseFloat(l.age);}).filter(function(a){return !isNaN(a);});
   var avgAge = ages.length ? Math.round(ages.reduce(function(a,b){return a+b;},0)/ages.length*10)/10 : 0;
   var needsCount = state.leads.filter(function(l){return l.hasNeeds;}).length;
@@ -556,6 +564,50 @@ function breakdownWeekdays(){
   WEEKDAYS.forEach(function(d){m[d]=0;});
   state.leads.forEach(function(l){ (l.weekdays||[]).forEach(function(d){ m[d]=(m[d]||0)+1; }); });
   return breakdownList(m);
+}
+
+/* Conversão por origem: de onde vêm os leads que mais viram matrícula */
+function conversionByOrigin(){
+  var m = {};
+  state.leads.forEach(function(l){
+    var origem = l.howFound || 'Não informado';
+    if(!m[origem]) m[origem] = {total:0, matriculados:0};
+    m[origem].total++;
+    if(l.status==='matriculado') m[origem].matriculados++;
+  });
+  return Object.keys(m).map(function(k){
+    var x = m[k];
+    return {origem:k, total:x.total, matriculados:x.matriculados, pct: x.total>0 ? Math.round(x.matriculados/x.total*100) : 0};
+  }).sort(function(a,b){ return b.total-a.total; });
+}
+function renderOrigemConversao(){
+  var lista = conversionByOrigin();
+  if(lista.length===0) return '<div class="empty-state">Sem dados ainda.</div>';
+  var maxTotal = Math.max.apply(null, lista.map(function(x){return x.total;}));
+  return lista.map(function(x){
+    var pctBar = maxTotal>0 ? Math.round(x.total/maxTotal*100) : 0;
+    return '<div class="stat-row"><span class="k">'+escapeHtml(x.origem)+'</span><div class="bar-mini"><div class="bar-mini-fill" style="width:'+pctBar+'%"></div></div><span class="v">'+x.matriculados+'/'+x.total+' ('+x.pct+'%)</span></div>';
+  }).join('');
+}
+
+/* Tempo médio: quanto tempo leva do primeiro contato até a aula, e da aula até a decisão final */
+function tempoMedioFunil(){
+  var diasAteAula = [], diasAteDecisao = [];
+  state.leads.forEach(function(l){
+    if(l.createdAt && l.trialDate){
+      var d1 = l.createdAt.slice(0,10);
+      var dif = daysBetween(d1, l.trialDate);
+      if(dif>=0 && dif<365) diasAteAula.push(dif);
+    }
+    if(l.attendedAt && l.outcomeDate){
+      var d2 = l.attendedAt.slice(0,10);
+      var d3 = l.outcomeDate.slice(0,10);
+      var dif2 = daysBetween(d2, d3);
+      if(dif2>=0 && dif2<365) diasAteDecisao.push(dif2);
+    }
+  });
+  var avg = function(arr){ return arr.length ? Math.round(arr.reduce(function(a,b){return a+b;},0)/arr.length*10)/10 : null; };
+  return { ateAula: avg(diasAteAula), ateDecisao: avg(diasAteDecisao) };
 }
 
 /* ---------- actions ---------- */
