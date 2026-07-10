@@ -139,9 +139,11 @@
   .fab{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);width:calc(100% - 36px);max-width:404px;z-index:6;}
   .spinner{width:28px;height:28px;border-radius:50%;border:3px solid var(--chalk-300);border-top-color:var(--pitch-800);animation:spin 0.8s linear infinite;margin:60px auto;}
   @keyframes spin{to{transform:rotate(360deg);}}
+.btn-hub-fixed{position:fixed; top:calc(env(safe-area-inset-top) + 12px); right:12px; z-index:999; width:34px; height:34px; border-radius:50%; background:rgba(0,0,0,0.55); color:#fff; font-size:17px; display:flex; align-items:center; justify-content:center; text-decoration:none; box-shadow:0 2px 8px rgba(0,0,0,0.25);}
 </style>
 </head>
 <body>
+<a class="btn-hub-fixed" href="https://prcota57.github.io/BSA-cadastro/" title="Voltar ao início do Hub">&#8962;</a>
 <div class="shell">
   <header class="bar">
     <button class="back" id="backBtn" aria-label="Voltar">&#8592;</button>
@@ -645,6 +647,12 @@ try{
 }
 
 })();
+
+/* Wake Lock: impede que a tela apague enquanto o módulo estiver aberto */
+var __wakeLock=null;
+async function __pedirWakeLock(){try{if('wakeLock' in navigator){__wakeLock=await navigator.wakeLock.request('screen');}}catch(e){}}
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') __pedirWakeLock(); });
+__pedirWakeLock();
 </script>
 </body>
 </html>
