@@ -260,6 +260,7 @@ function render(){
   var app = document.getElementById('app');
   if(state.screen==='dashboard') return renderDashboard(app);
   if(state.screen==='inadimplentes') return renderInadimplentes(app);
+  if(state.screen==='recorrentes') return renderRecorrentes(app);
   if(state.screen==='alunos') return renderAlunos(app);
   if(state.screen==='alunoDetail') return renderAlunoDetail(app);
 }
@@ -268,6 +269,7 @@ function tabsHtml(){
   return '<div class="tabs">'
     + '<button class="tab-btn'+(state.screen==='dashboard'?' active':'')+'" data-action="irDashboard">Dashboard</button>'
     + '<button class="tab-btn'+(state.screen==='inadimplentes'?' active':'')+'" data-action="irInadimplentes">Inadimplentes</button>'
+    + '<button class="tab-btn'+(state.screen==='recorrentes'?' active':'')+'" data-action="irRecorrentes">Recorrentes</button>'
     + '<button class="tab-btn'+(state.screen==='alunos'?' active':'')+'" data-action="irAlunos">Alunos</button>'
     + '</div>';
 }
@@ -338,6 +340,57 @@ function renderInadimplentes(app){
         + '<div class="btn-row">'
         + '<a class="btn btn-outline" style="text-decoration:none;flex:1;text-align:center;" target="_blank" href="'+waLink(m.responsavelWhatsapp, msgCobranca({responsavelNome:m.responsavelNome, nome:m.nomeAluno}))+'">Enviar cobrança</a>'
         + '<button class="btn btn-blue" data-action="marcarPago" data-id="'+m.id+'">Marcar pago</button>'
+        + '</div></div>';
+    });
+  }
+  app.innerHTML = html;
+}
+
+/* Inadimplência recorrente: alunos com 2+ meses (dos últimos 6) sem pagamento registrado */
+function calcularRecorrentes(){
+  var hoje = hojeStr();
+  var mesAtual = mesAtualStr();
+  var mesesRef = [];
+  var d = new Date();
+  for(var i=0;i<6;i++){
+    mesesRef.push(d.getFullYear()+'-'+pad(d.getMonth()+1));
+    d.setMonth(d.getMonth()-1);
+  }
+  var porAluno = {};
+  state.mensalidades.forEach(function(m){
+    if(mesesRef.indexOf(m.mesReferencia) === -1) return;
+    var st = statusComputado(m);
+    var contaComoAtraso = (m.mesReferencia !== mesAtual && st !== 'pago' && st !== 'isento') || (m.mesReferencia === mesAtual && st === 'atrasado');
+    if(!contaComoAtraso) return;
+    if(!porAluno[m.alunoId]) porAluno[m.alunoId] = {alunoId:m.alunoId, nomeAluno:m.nomeAluno, responsavelNome:m.responsavelNome, responsavelWhatsapp:m.responsavelWhatsapp, unidade:m.unidade, meses:[], totalDevido:0};
+    porAluno[m.alunoId].meses.push(m.mesReferencia);
+    porAluno[m.alunoId].totalDevido += Number(m.valor)||0;
+  });
+  return Object.keys(porAluno).map(function(k){ return porAluno[k]; })
+    .filter(function(x){ return x.meses.length >= 2; })
+    .sort(function(a,b){ return b.meses.length - a.meses.length; });
+}
+
+function renderRecorrentes(app){
+  setHeader('BSA Finanças', 'conectado', false);
+  var lista = calcularRecorrentes();
+  var html = tabsHtml();
+  html += '<p class="section-label" style="margin:14px 0 8px;font-size:12px;color:var(--ink-soft);">Alunos com 2 ou mais meses em aberto nos últimos 6 meses — maior risco de cancelamento</p>';
+  if(lista.length===0){
+    html += '<div class="empty">Nenhum caso de inadimplência recorrente. Tudo em dia! 🎉</div>';
+  } else {
+    lista.forEach(function(x){
+      var a = state.alunos.find(function(y){return y.id===x.alunoId;});
+      var foto = a && a.foto ? '<img class="avatar" src="'+a.foto+'">' : '<div class="avatar">'+iniciais(x.nomeAluno)+'</div>';
+      html += '<div class="row-card" style="flex-direction:column;align-items:stretch;">'
+        + '<div style="display:flex;align-items:center;gap:12px;">'
+        + foto
+        + '<div class="info"><div class="name">'+x.nomeAluno+'</div><div class="meta">'+x.unidade+' · Responsável: '+x.responsavelNome+'</div></div>'
+        + '<span class="pill atrasado">'+x.meses.length+'x em aberto</span>'
+        + '</div>'
+        + '<div class="meta" style="margin:6px 0 0 62px;">Total em aberto: '+fmtMoeda(x.totalDevido)+' · Meses: '+x.meses.sort().join(', ')+'</div>'
+        + '<div class="btn-row">'
+        + '<a class="btn btn-outline" style="text-decoration:none;flex:1;text-align:center;" target="_blank" href="'+waLink(x.responsavelWhatsapp, msgCobranca({responsavelNome:x.responsavelNome, nome:x.nomeAluno}))+'">Enviar cobrança</a>'
         + '</div></div>';
     });
   }
@@ -433,6 +486,7 @@ function renderAlunoDetail(app){
 var Actions = {
   irDashboard:function(){ state.screen='dashboard'; render(); },
   irInadimplentes:function(){ state.screen='inadimplentes'; render(); },
+  irRecorrentes:function(){ state.screen='recorrentes'; render(); },
   irAlunos:function(){ state.screen='alunos'; render(); },
   abrirAluno:function(el){ state.currentAlunoId = el.dataset.id; state.screen='alunoDetail'; render(); },
   voltar:function(){ state.screen='alunos'; render(); },
