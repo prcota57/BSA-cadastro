@@ -95,9 +95,12 @@
   .setup-banner b{display:block; margin-bottom:4px; font-family:'Space Grotesk';}
   .spinner{width:18px; height:18px; border:2.5px solid var(--wine-soft); border-top-color:var(--wine); border-radius:50%; animation:spin 0.8s linear infinite; margin:30px auto;}
   @keyframes spin{to{transform:rotate(360deg);}}
+.btn-hub-fixed{position:fixed; top:calc(env(safe-area-inset-top) + 12px); left:12px; z-index:999; width:34px; height:34px; border-radius:50%; background:rgba(0,0,0,0.55); color:#fff; font-size:17px; display:flex; align-items:center; justify-content:center; text-decoration:none; box-shadow:0 2px 8px rgba(0,0,0,0.25);}
 </style>
 </head>
 <body>
+
+<a class="btn-hub-fixed" href="https://prcota57.github.io/BSA-cadastro/" title="Voltar ao início">&#8592;</a>
 
 <header class="top">
   <div id="backWrap"></div>
@@ -470,6 +473,12 @@ document.addEventListener('click', function(e){
 initFirebase();
 
 })();
+
+/* Wake Lock: impede que a tela apague enquanto o módulo estiver aberto */
+var __wakeLock=null;
+async function __pedirWakeLock(){try{if('wakeLock' in navigator){__wakeLock=await navigator.wakeLock.request('screen');}}catch(e){}}
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') __pedirWakeLock(); });
+__pedirWakeLock();
 </script>
 </body>
 </html>
