@@ -126,9 +126,12 @@
     overflow:hidden; text-overflow:ellipsis;
   }
   .toast.show{opacity:1;}
+.btn-hub-fixed{position:fixed; top:calc(env(safe-area-inset-top) + 12px); left:12px; z-index:999; width:34px; height:34px; border-radius:50%; background:rgba(0,0,0,0.55); color:#fff; font-size:17px; display:flex; align-items:center; justify-content:center; text-decoration:none; box-shadow:0 2px 8px rgba(0,0,0,0.25);}
 </style>
 </head>
 <body>
+
+<a class="btn-hub-fixed" href="https://prcota57.github.io/BSA-cadastro/" title="Voltar ao início">&#8592;</a>
 
 <header class="top">
   <div class="row">
@@ -438,6 +441,12 @@ document.querySelectorAll('.filter-row button').forEach(btn=>{
     renderLista();
   });
 });
+
+/* Wake Lock: impede que a tela apague enquanto o módulo estiver aberto */
+var __wakeLock=null;
+async function __pedirWakeLock(){try{if('wakeLock' in navigator){__wakeLock=await navigator.wakeLock.request('screen');}}catch(e){}}
+document.addEventListener('visibilitychange', function(){ if(document.visibilityState==='visible') __pedirWakeLock(); });
+__pedirWakeLock();
 
 initFirebase();
 </script>
