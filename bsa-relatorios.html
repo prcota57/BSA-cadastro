@@ -61,6 +61,8 @@
   .aluno-head .name{font-weight:600; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .aluno-head .meta{font-size:11px; color:var(--ink-soft);}
   .pct-badge{font-family:'Space Grotesk'; font-weight:700; font-size:15px; padding:6px 10px; border-radius:12px; flex:0 0 auto; text-align:center; min-width:52px;}
+  .wa-btn{display:inline-flex; align-items:center; justify-content:center; gap:6px; width:100%; margin-top:8px; padding:9px 12px; border-radius:10px; background:#25D366; color:#fff; font-family:'Inter'; font-weight:700; font-size:12.5px; text-decoration:none;}
+  .risco-meta{font-size:11.5px; color:var(--ink-soft); margin-top:2px;}
   .pct-good{background:var(--pitch-soft); color:var(--pitch-dark);}
   .pct-mid{background:var(--gold-soft); color:#8A6D00;}
   .pct-low{background:var(--coral-soft); color:#B23A20;}
@@ -148,6 +150,7 @@
     <div class="tabs">
       <button class="tab-btn active" data-tab="aluno">Por Aluno</button>
       <button class="tab-btn" data-tab="dia">Por Dia</button>
+      <button class="tab-btn" data-tab="risco">Risco de Evasão</button>
     </div>
 
     <div id="tabAluno">
@@ -162,6 +165,12 @@
     <div id="tabDia" style="display:none;">
       <div id="listaDias"></div>
       <div class="empty" id="emptyDias" style="display:none;">Nenhum dia de treino nesse período.</div>
+    </div>
+
+    <div id="tabRisco" style="display:none;">
+      <p style="font-size:12px;color:var(--ink-soft);margin:0 0 12px;">Alunos com frequência abaixo de 50% no período selecionado, ordenados pelos casos mais críticos.</p>
+      <div id="listaRisco"></div>
+      <div class="empty" id="emptyRisco" style="display:none;">Nenhum aluno em risco nesse período — tudo em dia! 🎉</div>
     </div>
 
   </div>
@@ -228,7 +237,7 @@ async function carregarDados(){
     alunosCache = [];
     alunosSnap.forEach(doc=>{
       const d = doc.data();
-      alunosCache.push({ id: doc.id, nome: d.nome || '(sem nome)', unidade: d.unidade || '', foto: d.foto || null });
+      alunosCache.push({ id: doc.id, nome: d.nome || '(sem nome)', unidade: d.unidade || '', foto: d.foto || null, responsavelNome: d.responsavelNome || '', responsavelWhatsapp: d.responsavelWhatsapp || '' });
     });
     presencasCache = [];
     presencasSnap.forEach(doc=> presencasCache.push(doc.data()));
@@ -257,6 +266,8 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
     abaAtual = btn.dataset.tab;
     document.getElementById('tabAluno').style.display = abaAtual==='aluno' ? 'block' : 'none';
     document.getElementById('tabDia').style.display = abaAtual==='dia' ? 'block' : 'none';
+    document.getElementById('tabRisco').style.display = abaAtual==='risco' ? 'block' : 'none';
+    if(abaAtual==='risco') renderRisco();
   });
 });
 
@@ -332,6 +343,7 @@ function renderTudo(){
 
   renderPorAluno();
   renderPorDia();
+  if(abaAtual==='risco') renderRisco();
 }
 
 function classePct(pct){
@@ -394,6 +406,68 @@ function renderPorAluno(){
 function toggleAluno(idx){
   const el = document.getElementById('detalheAluno' + idx);
   el.classList.toggle('show');
+}
+
+function ultimaPresenca(alunoId){
+  const doAluno = presencasCache.filter(p=>p.alunoId===alunoId).sort((a,b)=> b.data.localeCompare(a.data));
+  return doAluno.length ? doAluno[0].data : null;
+}
+function diasDesde(iso){
+  if(!iso) return null;
+  const d1 = new Date(iso+'T00:00:00'), d2 = new Date(isoDate(new Date())+'T00:00:00');
+  return Math.round((d2-d1)/86400000);
+}
+function waLinkAluno(a, tipo){
+  const digits = (a.responsavelWhatsapp||'').replace(/\D/g,'');
+  const msg = tipo==='sumiu'
+    ? `Olá, ${a.responsavelNome||''}! Aqui é da BSA. Notamos que o(a) ${a.nome} está afastado(a) dos treinos há um tempo — está tudo bem? Estamos com saudade e à disposição para qualquer coisa que precisar.`
+    : `Olá, ${a.responsavelNome||''}! Aqui é da BSA. Notamos que a frequência do(a) ${a.nome} caiu um pouco nas últimas semanas — gostaríamos de saber se está tudo bem e se podemos ajudar em algo.`;
+  return `https://wa.me/55${digits}?text=${encodeURIComponent(msg)}`;
+}
+
+function renderRisco(){
+  const presFiltradas = window._presFiltradas || [];
+  const alunosF = window._alunosF || [];
+  const diasPorUnidade = window._diasPorUnidade || {};
+
+  let linhas = alunosF.map(aluno=>{
+    const totalDias = (diasPorUnidade[aluno.unidade] ? diasPorUnidade[aluno.unidade].size : 0);
+    const presencasAluno = presFiltradas.filter(p=>p.alunoId === aluno.id);
+    const pct = totalDias > 0 ? Math.round((presencasAluno.length / totalDias) * 100) : 0;
+    const ultima = ultimaPresenca(aluno.id);
+    const dias = diasDesde(ultima);
+    return { aluno, totalDias, qtdPresencas: presencasAluno.length, pct, ultima, dias };
+  }).filter(l=> l.totalDias > 0 && l.pct < 50)
+    .sort((a,b)=> a.pct - b.pct);
+
+  const cont = document.getElementById('listaRisco');
+  const vazio = document.getElementById('emptyRisco');
+  if(linhas.length === 0){
+    cont.innerHTML = '';
+    vazio.style.display = 'block';
+    return;
+  }
+  vazio.style.display = 'none';
+
+  cont.innerHTML = linhas.map(l=>{
+    const foto = l.aluno.foto ? `<img class="avatar" src="${l.aluno.foto}">` : `<div class="avatar ph">${iniciaisDe(l.aluno.nome)}</div>`;
+    const ultimaTxt = l.ultima ? `${l.dias} dia(s) desde a última presença` : 'Sem nenhuma presença registrada';
+    const tipoMsg = (l.dias===null || l.dias>=21) ? 'sumiu' : 'caiu';
+    const temWhats = !!l.aluno.responsavelWhatsapp;
+    return `
+      <div class="aluno-card">
+        <div class="aluno-head" style="cursor:default;">
+          ${foto}
+          <div class="info">
+            <div class="name">${l.aluno.nome}</div>
+            <div class="meta">${l.aluno.unidade} · ${l.qtdPresencas}/${l.totalDias} treinos</div>
+            <div class="risco-meta">${ultimaTxt}</div>
+          </div>
+          <div class="pct-badge ${classePct(l.pct)}">${l.pct}%</div>
+        </div>
+        ${temWhats ? `<div style="padding:0 14px 14px;"><a class="wa-btn" target="_blank" href="${waLinkAluno(l.aluno, tipoMsg)}">Enviar mensagem no WhatsApp</a></div>` : ''}
+      </div>`;
+  }).join('');
 }
 
 function formatarDataBR(iso){
