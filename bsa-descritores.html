@@ -336,7 +336,7 @@ function renderLista(){
     const foto = a.foto ? `<img class="avatar" src="${a.foto}">` : `<div class="avatar placeholder">${iniciaisDe(a.nome)}</div>`;
     let pill = '';
     if(c==='ok') pill = '<span class="status-pill ok">pronto</span>';
-    else if(c==='err') pill = '<span class="status-pill err" title="'+(a.faceDescriptorErro||'')+'">erro</span>';
+    else if(c==='err') pill = '<span class="status-pill err" data-erro="'+(a.faceDescriptorErro||'erro desconhecido').replace(/"/g,'&quot;')+'" onclick="alert(this.dataset.erro)">erro</span>';
     else if(c==='semfoto') pill = '<span class="status-pill err">sem foto</span>';
     else pill = `<span class="status-pill pend" data-pend-id="${a.id}">pendente</span>`;
     return `<div class="row-aluno" id="linha-${a.id}">
@@ -371,7 +371,7 @@ async function processarAluno(aluno){
   marcarProcessando(aluno.id);
   try{
     const img = await carregarImagem(aluno.foto);
-    const opcoes = new faceapi.TinyFaceDetectorOptions({inputSize: 416, scoreThreshold: 0.4});
+    const opcoes = new faceapi.TinyFaceDetectorOptions({inputSize: 512, scoreThreshold: 0.3});
     const deteccao = await faceapi
       .detectSingleFace(img, opcoes)
       .withFaceLandmarks()
