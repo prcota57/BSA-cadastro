@@ -595,7 +595,9 @@ document.getElementById('btnOpenCamera').addEventListener('click', async ()=>{
   overlay.classList.add('active');
   try{
     currentStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}, audio:false});
-    document.getElementById('cameraVideo').srcObject = currentStream;
+    const videoEl = document.getElementById('cameraVideo');
+    videoEl.srcObject = currentStream;
+    try{ await videoEl.play(); }catch(playErr){ /* alguns navegadores já iniciam sozinhos */ }
   }catch(err){
     showToast('Não foi possível acessar a câmera');
     overlay.classList.remove('active');
