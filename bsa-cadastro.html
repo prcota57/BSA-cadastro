@@ -446,6 +446,7 @@
   <div class="camera-controls">
     <button class="cancel" id="btnCancelCamera">✕</button>
     <button id="btnCapture">📸</button>
+    <button class="cancel" id="btnFlipCamera">🔄</button>
   </div>
 </div>
 
@@ -590,18 +591,30 @@ document.getElementById('fCategoriaManualToggle').addEventListener('change', e=>
 });
 
 /* ---------- Câmera ---------- */
-document.getElementById('btnOpenCamera').addEventListener('click', async ()=>{
+let currentFacingMode = 'user';
+async function openCameraStream(facingMode){
   const overlay = document.getElementById('cameraOverlay');
   overlay.classList.add('active');
+  if(currentStream){
+    currentStream.getTracks().forEach(t=>t.stop());
+    currentStream = null;
+  }
   try{
-    currentStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}, audio:false});
+    currentStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:facingMode}}, audio:false});
     const videoEl = document.getElementById('cameraVideo');
     videoEl.srcObject = currentStream;
     try{ await videoEl.play(); }catch(playErr){ /* alguns navegadores já iniciam sozinhos */ }
+    currentFacingMode = facingMode;
   }catch(err){
     showToast('Não foi possível acessar a câmera');
     overlay.classList.remove('active');
   }
+}
+document.getElementById('btnOpenCamera').addEventListener('click', ()=>{
+  openCameraStream(currentFacingMode);
+});
+document.getElementById('btnFlipCamera').addEventListener('click', ()=>{
+  openCameraStream(currentFacingMode === 'user' ? 'environment' : 'user');
 });
 function closeCamera(){
   document.getElementById('cameraOverlay').classList.remove('active');
