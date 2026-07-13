@@ -282,6 +282,7 @@
   <div class="camera-stage">
     <video id="video" autoplay playsinline muted></video>
     <canvas id="overlayCanvas"></canvas>
+    <canvas id="procCanvas" style="display:none;"></canvas>
     <div class="camera-topbar">
       <div class="unit-label" id="camUnitLabel">Unidade<small>aponte a câmera para o rosto do aluno</small></div>
       <div style="display:flex; gap:8px;">
@@ -718,15 +719,52 @@ function fecharCamera(){
   document.getElementById('recognitionCard').classList.remove('show');
 }
 
+/* ---------- Correção automática de balanço de branco (lona azul, etc.) ---------- */
+function corrigirBalancoBranco(ctx, w, h){
+  try{
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const d = imgData.data;
+    let rSum=0, gSum=0, bSum=0, n=0;
+    const passo = 16; // amostra 1 a cada 4 pixels (4 canais) pra ficar rápido
+    for(let i=0; i<d.length; i+=passo){
+      rSum += d[i]; gSum += d[i+1]; bSum += d[i+2]; n++;
+    }
+    if(n === 0) return;
+    const rAvg = rSum/n, gAvg = gSum/n, bAvg = bSum/n;
+    const grayAvg = (rAvg + gAvg + bAvg) / 3;
+    if(grayAvg < 1) return;
+    const clamp = v => Math.min(2.0, Math.max(0.5, v));
+    const kr = clamp(grayAvg / Math.max(1, rAvg));
+    const kg = clamp(grayAvg / Math.max(1, gAvg));
+    const kb = clamp(grayAvg / Math.max(1, bAvg));
+    if(Math.abs(kr-1) < 0.04 && Math.abs(kg-1) < 0.04 && Math.abs(kb-1) < 0.04) return;
+    for(let i=0; i<d.length; i+=4){
+      d[i]   = Math.min(255, d[i]   * kr);
+      d[i+1] = Math.min(255, d[i+1] * kg);
+      d[i+2] = Math.min(255, d[i+2] * kb);
+    }
+    ctx.putImageData(imgData, 0, 0);
+  }catch(err){
+    console.error('Erro na correção de balanço de branco:', err);
+  }
+}
+
 async function loopReconhecimento(){
   const video = document.getElementById('video');
   const canvas = document.getElementById('overlayCanvas');
   const ctx = canvas.getContext('2d');
+  const procCanvas = document.getElementById('procCanvas');
+  const pctx = procCanvas.getContext('2d');
   const opcoes = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
 
   while(loopAtivo){
     try{
-      const deteccoes = await faceapi.detectAllFaces(video, opcoes).withFaceLandmarks().withFaceDescriptors();
+      procCanvas.width = video.videoWidth;
+      procCanvas.height = video.videoHeight;
+      pctx.drawImage(video, 0, 0, procCanvas.width, procCanvas.height);
+      corrigirBalancoBranco(pctx, procCanvas.width, procCanvas.height);
+
+      const deteccoes = await faceapi.detectAllFaces(procCanvas, opcoes).withFaceLandmarks().withFaceDescriptors();
       ctx.clearRect(0,0,canvas.width,canvas.height);
 
       if(deteccoes.length === 0){
