@@ -358,6 +358,7 @@ function renderNewLead(app){
 
   var html = ''
     + '<div class="field"><label>Dia da aula experimental</label><input type="date" id="f_trialDate" value="'+(f.trialDate||todayStr())+'"></div>'
+    + '<div class="field"><label>Horário da aula experimental</label><input type="time" id="f_trialTime" value="'+(f.trialTime||'')+'"></div>'
     + '<div class="field"><label>Unidade</label><div class="seg-row">'
     + '<button class="seg-btn'+(f.unit==='Carlos Prates'?' selected':'')+'" data-action="setUnit" data-val="Carlos Prates">Carlos Prates</button>'
     + '<button class="seg-btn'+(f.unit==='Estoril'?' selected':'')+'" data-action="setUnit" data-val="Estoril">Estoril</button>'
@@ -397,7 +398,7 @@ function renderPipeline(app){
       var pronto = isWaiting && isWaitReady(l);
       html += '<div class="lead-card'+(isWaiting?' lead-card-waiting':'')+(pronto?' lead-card-ready':'')+'" data-action="openLead" data-id="'+l.id+'">'
         + '<div class="l-top"><p class="l-name">'+escapeHtml(l.studentName)+'</p><span class="status-pill" style="background:'+meta.bg+';color:'+meta.fg+';">'+(pronto?'⏳ Pronto!':meta.label)+'</span></div>'
-        + '<p class="l-sub">'+escapeHtml(l.unit)+' · '+fmtDate(l.trialDate)+' · '+escapeHtml(l.parentName)+'</p>'
+        + '<p class="l-sub">'+escapeHtml(l.unit)+' · '+fmtDate(l.trialDate)+(l.trialTime?' '+l.trialTime:'')+' · '+escapeHtml(l.parentName)+'</p>'
         + (isWaiting ? '<p class="l-wait">'+waitSubLabel(l)+'</p>' : '')
         + '</div>';
     });
@@ -454,7 +455,7 @@ function renderLeadDetail(app){
   }
 
   html += '<div class="info-grid">'
-    + infoRow('Aula experimental', fmtDate(l.trialDate))
+    + infoRow('Aula experimental', fmtDate(l.trialDate) + (l.trialTime ? ' às ' + l.trialTime : ''))
     + infoRow('Unidade', escapeHtml(l.unit))
     + infoRow('Idade', l.age+' anos')
     + infoRow('Nível', l.experience==='ja_treina'?'Já treina':'Começando agora')
@@ -655,6 +656,7 @@ var Actions = {
       existing.parentPhone = f.parentPhone.trim();
       existing.unit = f.unit;
       existing.trialDate = f.trialDate;
+      existing.trialTime = f.trialTime || '';
       existing.age = f.age || '';
       existing.experience = f.experience || 'iniciante';
       existing.weekdays = f.weekdays || [];
@@ -672,7 +674,7 @@ var Actions = {
     }
     var lead = {
       id:uid(), studentName:f.studentName.trim(), parentName:f.parentName.trim(), parentPhone:f.parentPhone.trim(),
-      unit:(f.unit||'').trim(), trialDate:f.trialDate, age:f.age||'', experience:f.experience||'iniciante',
+      unit:(f.unit||'').trim(), trialDate:f.trialDate, trialTime:f.trialTime||'', age:f.age||'', experience:f.experience||'iniciante',
       weekdays:f.weekdays||[], hasNeeds:!!f.hasNeeds, needsDetails:f.needsDetails||'', howFound:f.howFound||'', notes:f.notes||'',
       status:'agendado', createdAt:new Date().toISOString()
     };
@@ -687,7 +689,8 @@ var Actions = {
   whatsParent:function(el){
     var l = getLead(el.dataset.id);
     var digits = onlyDigits(l.parentPhone);
-    var msg = 'Olá, '+l.parentName+'! Aqui é da BSA falando sobre a aula experimental de '+l.studentName+'.';
+    var quandoTxt = fmtDate(l.trialDate) + (l.trialTime ? ' às ' + l.trialTime : '');
+    var msg = 'Olá, '+l.parentName+'! Aqui é da BSA falando sobre a aula experimental de '+l.studentName+', marcada para o dia '+quandoTxt+' na unidade '+l.unit+'. Qualquer dúvida, estamos à disposição!';
     window.open('https://wa.me/55'+digits+'?text='+encodeURIComponent(msg), '_blank');
   },
   markAttended:function(el){ var l=getLead(el.dataset.id); l.status='realizada'; l.attendedAt=new Date().toISOString(); saveLeads(); render(); showToast('Presença confirmada.'); },
@@ -770,7 +773,7 @@ async function criarAlunoSeNecessario(l){
 
 function syncFormInputs(){
   var f = state.form;
-  ['trialDate','studentName','parentName','parentPhone','age'].forEach(function(id){
+  ['trialDate','trialTime','studentName','parentName','parentPhone','age'].forEach(function(id){
     var el = document.getElementById('f_'+id);
     if(el) f[id] = el.value;
   });
