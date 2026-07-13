@@ -388,6 +388,23 @@
 
     <div class="field-row">
       <div class="field">
+        <label>Valor da mensalidade (R$)</label>
+        <input type="number" id="fValorMensalidade" placeholder="ex: 150" step="0.01" min="0">
+      </div>
+      <div class="field">
+        <label>Dia de vencimento</label>
+        <select id="fDiaVencimento">
+          <option value="">Selecione</option>
+          <option value="5">Dia 5</option>
+          <option value="10">Dia 10</option>
+          <option value="15">Dia 15</option>
+          <option value="20">Dia 20</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
         <label>Status mensalidade</label>
         <select id="fStatusMens">
           <option value="ativo">Ativo</option>
@@ -820,6 +837,8 @@ function resetForm(){
   document.getElementById('fUnidade').value = 'Carlos Prates';
   setDiasSelecionados([]);
   document.getElementById('fHorario').value = '';
+  document.getElementById('fValorMensalidade').value = '';
+  document.getElementById('fDiaVencimento').value = '';
   document.getElementById('fRespNome').value = '';
   document.getElementById('fRespWhats').value = '';
   document.getElementById('fStatusMens').value = 'ativo';
@@ -853,6 +872,8 @@ document.getElementById('btnSalvar').addEventListener('click', async ()=>{
     unidade: document.getElementById('fUnidade').value,
     diasTreino: getDiasSelecionados(),
     horarioTreino: document.getElementById('fHorario').value || '',
+    valorMensalidade: parseFloat(document.getElementById('fValorMensalidade').value) || null,
+    diaVencimento: parseInt(document.getElementById('fDiaVencimento').value, 10) || null,
     responsavelNome: document.getElementById('fRespNome').value.trim(),
     responsavelWhatsapp: document.getElementById('fRespWhats').value.trim(),
     statusMensalidade: document.getElementById('fStatusMens').value,
@@ -1065,6 +1086,10 @@ function abrirDetalhe(docId){
       <b>${formatarHorarioFixo(a.diasTreino, a.horarioTreino)}</b>
     </div>
     <div class="card" style="display:block; margin-bottom:16px;">
+      <div class="hint">Mensalidade e vencimento</div>
+      <b>${a.valorMensalidade ? 'R$ ' + Number(a.valorMensalidade).toFixed(2).replace('.',',') : 'Valor não definido'}${a.diaVencimento ? ' · dia ' + a.diaVencimento : ''}</b>
+    </div>
+    <div class="card" style="display:block; margin-bottom:16px;">
       <div class="hint">Responsável</div>
       <b>${a.responsavelNome || '—'}</b>
       <div class="hint" style="margin-top:6px;">WhatsApp</div>
@@ -1099,6 +1124,8 @@ function editarAluno(docId){
   document.getElementById('fUnidade').value = a.unidade;
   setDiasSelecionados(a.diasTreino || []);
   document.getElementById('fHorario').value = a.horarioTreino || '';
+  document.getElementById('fValorMensalidade').value = a.valorMensalidade || '';
+  document.getElementById('fDiaVencimento').value = a.diaVencimento || '';
   document.getElementById('fRespNome').value = a.responsavelNome || '';
   document.getElementById('fRespWhats').value = a.responsavelWhatsapp || '';
   document.getElementById('fStatusMens').value = a.statusMensalidade;
