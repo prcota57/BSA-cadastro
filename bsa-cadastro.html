@@ -188,6 +188,7 @@
     background:#fff; color:var(--pitch); cursor:pointer;
   }
   .camera-controls .cancel{background:rgba(255,255,255,0.15); color:#fff; width:48px; height:48px; align-self:center; font-size:20px;}
+  .ident-status{color:#fff; text-align:center; font-family:'Space Grotesk'; font-weight:600; margin-top:14px; font-size:15px; padding:0 24px;}
 
   /* Detail modal */
   .modal-overlay{
@@ -286,6 +287,9 @@
 <section class="screen active" id="screen-lista">
   <div class="searchbar">
     <input type="text" id="searchInput" placeholder="Buscar aluno por nome...">
+  </div>
+  <div style="padding:0 16px 8px;">
+    <button class="btn btn-outline btn-block" id="btnIdentificar" type="button">📷 Identificar aluno (sem lançar presença)</button>
   </div>
   <div class="chipsrow" id="unitChips">
     <div class="chip active" data-unit="todas">Todas unidades <span class="cnt-tag" id="cnt-todas">(0)</span></div>
@@ -480,6 +484,14 @@
   </div>
 </div>
 
+<div class="camera-overlay" id="identOverlay">
+  <video id="identVideo" autoplay playsinline muted></video>
+  <div class="ident-status" id="identStatus">Carregando modelo de reconhecimento facial...</div>
+  <div class="camera-controls">
+    <button class="cancel" id="btnFecharIdent">✕</button>
+  </div>
+</div>
+
 <!-- Detail modal -->
 <div class="modal-overlay" id="detailModal">
   <div class="modal-sheet" id="detailSheet">
@@ -495,6 +507,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 <script>
 /* =========================================================
    BSA CADASTRO — configuração do Firebase
@@ -523,6 +536,108 @@ function showToast(msg){
   t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'), 2200);
 }
+
+/* ---------- Identificar aluno (sem lançar presença) ---------- */
+const IDENT_MODEL_URL = "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js/weights/";
+const IDENT_DISTANCE_THRESHOLD = 0.5;
+let identModelsLoaded = false;
+let identStream = null;
+let identLoopAtivo = false;
+let identFaceMatcher = null;
+let identUltimoId = null;
+let identUltimoTs = 0;
+
+async function garantirModelosIdent(){
+  if(identModelsLoaded) return true;
+  try{
+    document.getElementById('identStatus').textContent = 'Carregando modelo (detector)...';
+    await faceapi.nets.tinyFaceDetector.loadFromUri(IDENT_MODEL_URL);
+    document.getElementById('identStatus').textContent = 'Carregando modelo (landmarks)...';
+    await faceapi.nets.faceLandmark68Net.loadFromUri(IDENT_MODEL_URL);
+    document.getElementById('identStatus').textContent = 'Carregando modelo (reconhecimento)...';
+    await faceapi.nets.faceRecognitionNet.loadFromUri(IDENT_MODEL_URL);
+    identModelsLoaded = true;
+    return true;
+  }catch(err){
+    document.getElementById('identStatus').textContent = 'Erro ao carregar modelo: ' + err.message;
+    return false;
+  }
+}
+
+async function abrirIdentificacao(){
+  const comRosto = alunosCache.filter(a=>a.faceDescriptor && Array.isArray(a.faceDescriptor));
+  if(comRosto.length === 0){
+    showToast('Nenhum aluno com reconhecimento facial processado ainda');
+    return;
+  }
+  document.getElementById('identOverlay').classList.add('active');
+  document.getElementById('identStatus').textContent = 'Carregando modelo de reconhecimento facial...';
+  const ok = await garantirModelosIdent();
+  if(!ok) return;
+
+  identFaceMatcher = new faceapi.FaceMatcher(
+    comRosto.map(a => new faceapi.LabeledFaceDescriptors(a._docId, [new Float32Array(a.faceDescriptor)])),
+    IDENT_DISTANCE_THRESHOLD
+  );
+
+  try{
+    identStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    const video = document.getElementById('identVideo');
+    video.srcObject = identStream;
+    identLoopAtivo = true;
+    document.getElementById('identStatus').textContent = 'Procurando rosto...';
+    loopIdentificacao();
+  }catch(err){
+    document.getElementById('identStatus').textContent = 'Não foi possível acessar a câmera: ' + err.message;
+  }
+}
+
+function fecharIdentificacao(){
+  identLoopAtivo = false;
+  if(identStream){
+    identStream.getTracks().forEach(t=>t.stop());
+    identStream = null;
+  }
+  document.getElementById('identOverlay').classList.remove('active');
+}
+
+async function loopIdentificacao(){
+  const video = document.getElementById('identVideo');
+  const opcoes = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
+  while(identLoopAtivo){
+    try{
+      const deteccoes = await faceapi.detectAllFaces(video, opcoes).withFaceLandmarks().withFaceDescriptors();
+      if(deteccoes.length === 0){
+        document.getElementById('identStatus').textContent = 'Procurando rosto...';
+      } else {
+        for(const det of deteccoes){
+          const match = identFaceMatcher.findBestMatch(det.descriptor);
+          if(match.label !== 'unknown'){
+            const agora = Date.now();
+            if(match.label === identUltimoId && (agora - identUltimoTs) < 3000) continue;
+            identUltimoId = match.label;
+            identUltimoTs = agora;
+            const aluno = alunosCache.find(a=>a._docId === match.label);
+            if(aluno){
+              document.getElementById('identStatus').textContent = 'Identificado: ' + aluno.nome;
+              fecharIdentificacao();
+              setTimeout(()=> abrirDetalhe(aluno._docId), 250);
+              return;
+            }
+          } else {
+            document.getElementById('identStatus').textContent = 'Rosto não reconhecido';
+          }
+        }
+      }
+    }catch(err){
+      console.error(err);
+    }
+    await new Promise(r=>setTimeout(r, 550));
+  }
+}
+
+document.getElementById('btnIdentificar').addEventListener('click', abrirIdentificacao);
+document.getElementById('btnFecharIdent').addEventListener('click', fecharIdentificacao);
 
 function initFirebase(){
   if(firebaseConfig.apiKey === "COLE_AQUI"){
