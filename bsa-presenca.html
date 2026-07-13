@@ -122,10 +122,15 @@
   .repo-row .info{flex:1; min-width:0;}
   .repo-row .info .n{font-weight:600; font-size:14px;}
   .repo-row .info .m{font-size:11.5px; color:var(--ink-soft); margin-top:2px;}
-  .repo-row .badge-repo{
+  .repo-row .badge-repo, .badge-repo{
     background:var(--gold-soft); color:#8A6A00; font-size:11px; font-weight:700;
     padding:4px 9px; border-radius:10px; font-family:'IBM Plex Mono'; flex:0 0 auto;
   }
+  .badge-alerta{
+    background:var(--coral-soft); color:#B23A20; font-size:11px; font-weight:700;
+    padding:4px 9px; border-radius:10px; font-family:'IBM Plex Mono'; flex:0 0 auto;
+  }
+  .recognition-card .schedule{color:rgba(255,255,255,0.75); font-size:11.5px; margin-top:3px;}
   .repo-row .btn-cancel{
     background:var(--coral-soft); color:#B23A20; border:none; border-radius:10px;
     padding:6px 10px; font-size:11.5px; font-weight:700; flex:0 0 auto;
@@ -255,6 +260,7 @@
       <div>
         <div class="name" id="recName">—</div>
         <div class="status" id="recStatus">presença registrada</div>
+        <div class="schedule" id="recSchedule"></div>
       </div>
     </div>
   </div>
@@ -374,7 +380,7 @@ function carregarAlunos(){
     snap.forEach(doc=>{
       const d = doc.data();
       if(d.faceDescriptor && Array.isArray(d.faceDescriptor)){
-        alunosCache.push({ id: doc.id, nome: d.nome || '(sem nome)', unidade: d.unidade || '', foto: d.foto || null, faceDescriptor: d.faceDescriptor });
+        alunosCache.push({ id: doc.id, nome: d.nome || '(sem nome)', unidade: d.unidade || '', foto: d.foto || null, faceDescriptor: d.faceDescriptor, diasTreino: d.diasTreino || [], horarioTreino: d.horarioTreino || '' });
       }
     });
     document.getElementById('countBadge').textContent = alunosCache.length;
@@ -517,6 +523,21 @@ function dataHojeISO(){
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
 
+const DIA_LABEL = {dom:'Dom', seg:'Seg', ter:'Ter', qua:'Qua', qui:'Qui', sex:'Sex', sab:'Sáb'};
+const DIAS_SEMANA_ARR = ['dom','seg','ter','qua','qui','sex','sab'];
+function diaSemanaHoje(){
+  return DIAS_SEMANA_ARR[new Date().getDay()];
+}
+function estaForaDoHorario(aluno){
+  if(!aluno.diasTreino || aluno.diasTreino.length === 0) return false; // sem horário cadastrado, não alertamos
+  return !aluno.diasTreino.includes(diaSemanaHoje());
+}
+function formatarHorarioAluno(aluno){
+  if(!aluno.diasTreino || aluno.diasTreino.length === 0) return '';
+  const dias = aluno.diasTreino.map(d => DIA_LABEL[d] || d).join(', ');
+  return 'Turma: ' + dias + (aluno.horarioTreino ? ' · ' + aluno.horarioTreino : '');
+}
+
 function listenHistoricoHoje(){
   if(!unidadeAtual) return;
   db.collection('presencas')
@@ -544,7 +565,8 @@ function renderHistorico(itens){
   vazio.style.display = 'none';
   cont.innerHTML = itens.map(p=>{
     const foto = p.foto ? `<img class="avatar" src="${p.foto}">` : `<div class="avatar" style="display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;color:var(--pitch);">${(p.nome||'?').slice(0,1)}</div>`;
-    const selo = p.tipoRegistro === 'reposicao' ? ' <span class="badge-repo">reposição</span>' : '';
+    const selo = p.tipoRegistro === 'reposicao' ? ' <span class="badge-repo">reposição</span>'
+      : (p.tipoRegistro === 'fora_horario' ? ' <span class="badge-alerta">fora do horário</span>' : '');
     return `<div class="presenca-item">${foto}<div class="info"><div class="name">${p.nome}${selo}</div><div class="time">${p.hora}</div></div></div>`;
   }).join('');
 }
@@ -649,6 +671,7 @@ function mostrarCardReconhecimento(aluno, statusTexto){
   document.getElementById('recImg').src = aluno.foto || '';
   document.getElementById('recName').textContent = aluno.nome;
   document.getElementById('recStatus').textContent = statusTexto;
+  document.getElementById('recSchedule').textContent = formatarHorarioAluno(aluno);
   const card = document.getElementById('recognitionCard');
   card.classList.add('show');
   clearTimeout(window._cardTimer);
@@ -681,6 +704,7 @@ async function marcarPresenca(aluno, distance){
   const hora = String(agora.getHours()).padStart(2,'0') + ':' + String(agora.getMinutes()).padStart(2,'0');
 
   const reposicao = await buscarReposicaoAgendadaHoje(aluno);
+  const foraDoHorario = !reposicao && estaForaDoHorario(aluno);
 
   await ref.set({
     alunoId: aluno.id,
@@ -692,8 +716,10 @@ async function marcarPresenca(aluno, distance){
     hora: hora,
     horaTimestamp: agora.getTime(),
     confianca: Math.round(Math.max(0, (1 - distance/0.6)) * 100),
-    tipoRegistro: reposicao ? 'reposicao' : 'normal',
-    reposicaoId: reposicao ? reposicao._docId : null
+    tipoRegistro: reposicao ? 'reposicao' : (foraDoHorario ? 'fora_horario' : 'normal'),
+    reposicaoId: reposicao ? reposicao._docId : null,
+    diasTreino: aluno.diasTreino || [],
+    horarioTreino: aluno.horarioTreino || ''
   });
 
   if(reposicao){
@@ -702,6 +728,9 @@ async function marcarPresenca(aluno, distance){
       usadoEm: firebase.firestore.FieldValue.serverTimestamp()
     });
     return { mensagem: 'reposição registrada ✓ (direito utilizado)', tocarBip: true };
+  }
+  if(foraDoHorario){
+    return { mensagem: '⚠️ presença registrada — fora do horário fixo dele', tocarBip: true };
   }
   return { mensagem: 'presença registrada ✓', tocarBip: true };
 }
