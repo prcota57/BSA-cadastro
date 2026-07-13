@@ -130,6 +130,17 @@
     background:var(--coral-soft); color:#B23A20; font-size:11px; font-weight:700;
     padding:4px 9px; border-radius:10px; font-family:'IBM Plex Mono'; flex:0 0 auto;
   }
+  .falt-row{
+    display:flex; align-items:center; gap:10px; padding:10px 4px; border-bottom:1px solid var(--line);
+  }
+  .falt-row:last-child{border-bottom:none;}
+  .falt-row .info{flex:1; min-width:0;}
+  .falt-row .info .n{font-weight:600; font-size:14px;}
+  .falt-row .info .m{font-size:11.5px; color:var(--ink-soft);}
+  .falt-row .falt-wpp{
+    background:#25D366; color:#fff; border:none; border-radius:20px; padding:8px 13px;
+    font-size:12px; font-weight:700; font-family:'Inter'; text-decoration:none; flex:0 0 auto;
+  }
   .recognition-card .schedule{color:rgba(255,255,255,0.75); font-size:11.5px; margin-top:3px;}
   .repo-row .btn-cancel{
     background:var(--coral-soft); color:#B23A20; border:none; border-radius:10px;
@@ -199,6 +210,13 @@
     <h2>Presenças de hoje <span id="historyUnitLabel" style="color:var(--ink-soft); font-weight:500;"></span></h2>
     <div id="historyList"></div>
     <div class="empty" id="historyEmpty">Nenhuma presença registrada ainda hoje.</div>
+  </div>
+
+  <div class="panel" id="faltantesPanel" style="display:none;">
+    <h2>Faltantes de hoje <span id="faltantesUnitLabel" style="color:var(--ink-soft); font-weight:500;"></span></h2>
+    <div class="hint" style="margin-bottom:10px;">Alunos com treino fixo hoje que ainda não registraram presença. Toque em WhatsApp para avisar o responsável.</div>
+    <div id="faltantesList"></div>
+    <div class="empty" id="faltantesEmpty">Selecione a unidade para ver os faltantes.</div>
   </div>
 
   <div class="panel" id="repoPanel">
@@ -400,9 +418,18 @@ function carregarTodosAlunos(){
     snap.forEach(doc=>{
       const d = doc.data();
       if(d.statusGeral !== 'inativo'){
-        todosAlunosCache.push({ id: doc.id, nome: d.nome || '(sem nome)', unidade: d.unidade || '' });
+        todosAlunosCache.push({
+          id: doc.id,
+          nome: d.nome || '(sem nome)',
+          unidade: d.unidade || '',
+          diasTreino: d.diasTreino || [],
+          horarioTreino: d.horarioTreino || '',
+          responsavelNome: d.responsavelNome || '',
+          responsavelWhatsapp: d.responsavelWhatsapp || ''
+        });
       }
     });
+    renderFaltantes();
   }, err=>{ console.error(err); });
 }
 
@@ -514,7 +541,9 @@ document.querySelectorAll('.unit-btn').forEach(btn=>{
     document.getElementById('btnIniciar').textContent = 'Iniciar câmera — ' + unidadeAtual;
     document.getElementById('historyPanel').style.display = 'block';
     document.getElementById('historyUnitLabel').textContent = '· ' + unidadeAtual;
+    document.getElementById('faltantesPanel').style.display = 'block';
     listenHistoricoHoje();
+    renderFaltantes();
   });
 });
 
@@ -538,6 +567,8 @@ function formatarHorarioAluno(aluno){
   return 'Turma: ' + dias + (aluno.horarioTreino ? ' · ' + aluno.horarioTreino : '');
 }
 
+let presentesHojeIds = new Set();
+
 function listenHistoricoHoje(){
   if(!unidadeAtual) return;
   db.collection('presencas')
@@ -547,10 +578,62 @@ function listenHistoricoHoje(){
       const itens = [];
       snap.forEach(doc=> itens.push(doc.data()));
       itens.sort((a,b)=> (b.horaTimestamp||0) - (a.horaTimestamp||0));
+      presentesHojeIds = new Set(itens.map(i=>i.alunoId));
       renderHistorico(itens);
+      renderFaltantes();
     }, err=>{
       console.error(err);
     });
+}
+
+function gerarLinkWhatsApp(numero, mensagem){
+  let n = (numero||'').toString().replace(/\D/g,'');
+  if(n && !n.startsWith('55')) n = '55' + n;
+  return 'https://wa.me/' + n + '?text=' + encodeURIComponent(mensagem);
+}
+function mensagemFalta(nome){
+  const primeiroNome = (nome||'').trim().split(' ')[0] || nome;
+  return `Olá! Aqui é da equipe do BSA (Brazilian Skills Academy) 🎽⚽. Notamos que ${primeiroNome} não compareceu ao treino hoje. Está tudo bem com ele(a)? Se puder, nos conta rapidinho o motivo da ausência. E se quiserem remarcar, é só nos chamar por aqui que a gente agenda a reposição com prazer! 💚`;
+}
+
+function renderFaltantes(){
+  const cont = document.getElementById('faltantesList');
+  const vazio = document.getElementById('faltantesEmpty');
+  const countEl = document.getElementById('faltantesUnitLabel');
+  if(!unidadeAtual){
+    cont.innerHTML = '';
+    vazio.style.display = 'block';
+    vazio.textContent = 'Selecione a unidade para ver os faltantes.';
+    return;
+  }
+  countEl.textContent = '· ' + unidadeAtual;
+  const hoje = diaSemanaHoje();
+  const esperados = todosAlunosCache.filter(a => a.unidade === unidadeAtual && a.diasTreino && a.diasTreino.includes(hoje));
+  const faltantes = esperados.filter(a => !presentesHojeIds.has(a.id));
+  if(esperados.length === 0){
+    cont.innerHTML = '';
+    vazio.style.display = 'block';
+    vazio.textContent = 'Nenhum aluno tem treino fixo cadastrado para hoje nesta unidade.';
+    return;
+  }
+  if(faltantes.length === 0){
+    cont.innerHTML = '';
+    vazio.style.display = 'block';
+    vazio.textContent = 'Todos os alunos esperados hoje já compareceram 🎉';
+    return;
+  }
+  vazio.style.display = 'none';
+  cont.innerHTML = faltantes.map(a=>{
+    const link = a.responsavelWhatsapp ? gerarLinkWhatsApp(a.responsavelWhatsapp, mensagemFalta(a.nome)) : null;
+    return `
+      <div class="falt-row">
+        <div class="info">
+          <div class="n">${a.nome}</div>
+          <div class="m">${a.horarioTreino ? 'treino ' + a.horarioTreino : 'sem horário definido'}</div>
+        </div>
+        ${link ? `<a class="falt-wpp" href="${link}" target="_blank" rel="noopener">WhatsApp</a>` : '<span class="hint">sem WhatsApp</span>'}
+      </div>`;
+  }).join('');
 }
 
 function renderHistorico(itens){
