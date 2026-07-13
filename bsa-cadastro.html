@@ -503,6 +503,7 @@
 
 <div class="camera-overlay" id="identOverlay">
   <video id="identVideo" autoplay playsinline muted></video>
+  <canvas id="identProcCanvas" style="display:none;"></canvas>
   <div class="ident-status" id="identStatus">Carregando modelo de reconhecimento facial...</div>
   <div class="camera-controls">
     <button class="cancel" id="btnFecharIdent">✕</button>
@@ -620,10 +621,17 @@ function fecharIdentificacao(){
 
 async function loopIdentificacao(){
   const video = document.getElementById('identVideo');
+  const procCanvas = document.getElementById('identProcCanvas');
+  const pctx = procCanvas.getContext('2d');
   const opcoes = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
   while(identLoopAtivo){
     try{
-      const deteccoes = await faceapi.detectAllFaces(video, opcoes).withFaceLandmarks().withFaceDescriptors();
+      if(video.videoWidth === 0){ await new Promise(r=>setTimeout(r, 200)); continue; }
+      procCanvas.width = video.videoWidth;
+      procCanvas.height = video.videoHeight;
+      pctx.drawImage(video, 0, 0, procCanvas.width, procCanvas.height);
+      corrigirBalancoBranco(pctx, procCanvas.width, procCanvas.height);
+      const deteccoes = await faceapi.detectAllFaces(procCanvas, opcoes).withFaceLandmarks().withFaceDescriptors();
       if(deteccoes.length === 0){
         document.getElementById('identStatus').textContent = 'Procurando rosto...';
       } else {
@@ -786,6 +794,37 @@ function closeCamera(){
   }
 }
 document.getElementById('btnCancelCamera').addEventListener('click', closeCamera);
+/* ---------- Correção automática de balanço de branco (lona azul, etc.) ---------- */
+function corrigirBalancoBranco(ctx, w, h){
+  try{
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const d = imgData.data;
+    let rSum=0, gSum=0, bSum=0, n=0;
+    const passo = 16; // amostra 1 a cada 4 pixels (4 canais) pra ficar rápido
+    for(let i=0; i<d.length; i+=passo){
+      rSum += d[i]; gSum += d[i+1]; bSum += d[i+2]; n++;
+    }
+    if(n === 0) return;
+    const rAvg = rSum/n, gAvg = gSum/n, bAvg = bSum/n;
+    const grayAvg = (rAvg + gAvg + bAvg) / 3;
+    if(grayAvg < 1) return;
+    const clamp = v => Math.min(2.0, Math.max(0.5, v));
+    const kr = clamp(grayAvg / Math.max(1, rAvg));
+    const kg = clamp(grayAvg / Math.max(1, gAvg));
+    const kb = clamp(grayAvg / Math.max(1, bAvg));
+    // só corrige se houver desequilíbrio real de cor (evita mexer em foto já neutra)
+    if(Math.abs(kr-1) < 0.04 && Math.abs(kg-1) < 0.04 && Math.abs(kb-1) < 0.04) return;
+    for(let i=0; i<d.length; i+=4){
+      d[i]   = Math.min(255, d[i]   * kr);
+      d[i+1] = Math.min(255, d[i+1] * kg);
+      d[i+2] = Math.min(255, d[i+2] * kb);
+    }
+    ctx.putImageData(imgData, 0, 0);
+  }catch(err){
+    console.error('Erro na correção de balanço de branco:', err);
+  }
+}
+
 document.getElementById('btnCapture').addEventListener('click', ()=>{
   const video = document.getElementById('cameraVideo');
   const canvas = document.getElementById('cameraCanvas');
@@ -797,6 +836,7 @@ document.getElementById('btnCapture').addEventListener('click', ()=>{
   const side = Math.min(vw, vh);
   const sx = (vw - side)/2, sy = (vh - side)/2;
   ctx.drawImage(video, sx, sy, side, side, 0, 0, size, size);
+  corrigirBalancoBranco(ctx, size, size);
   capturedPhoto = canvas.toDataURL('image/jpeg', 0.7);
   const preview = document.getElementById('photoPreview');
   preview.innerHTML = '<img src="'+capturedPhoto+'">';
