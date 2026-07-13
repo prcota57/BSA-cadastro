@@ -153,6 +153,7 @@ function pad(n){ return String(n).padStart(2,'0'); }
 function isoDate(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
 function mesAtualStr(){ var d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1); }
 function hojeStr(){ return isoDate(new Date()); }
+function amanhaStr(){ var d = new Date(); d.setDate(d.getDate()+1); return isoDate(d); }
 function onlyDigits(s){ return (s||'').replace(/\D/g,''); }
 function fmtMoeda(v){ return 'R$ ' + (Number(v)||0).toFixed(2).replace('.',','); }
 function fmtDataBR(iso){ if(!iso) return '—'; var p=iso.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
@@ -245,6 +246,9 @@ function waLink(phone, texto){
 function msgLembrete(a){
   return 'Olá, '+a.responsavelNome+'! Passando para lembrar que hoje vence a mensalidade do(a) '+a.nome+' na BSA. Para sua comodidade, o pagamento pode ser feito via Pix utilizando a chave cadastrada. Caso já tenha realizado, por favor, desconsidere este aviso. Agradecemos a parceria! Esporte é vida!';
 }
+function msgLembreteVespera(a){
+  return 'Olá, '+a.responsavelNome+'! Passando para avisar que amanhã vence a mensalidade do(a) '+a.nome+' na BSA. Assim vocês já se programam com antecedência. Qualquer dúvida, estamos à disposição por aqui. Um abraço da equipe BSA!';
+}
 function msgCobranca(a){
   return 'Olá, '+a.responsavelNome+', tudo bem? Não identificamos o recebimento da mensalidade do(a) '+a.nome+' referente a este mês. Sabemos da rotina corrida e que imprevistos acontecem. Se precisar da segunda via ou do código Pix, estamos à disposição por aqui para ajudar a regularizar. Um abraço da equipe BSA!';
 }
@@ -259,6 +263,7 @@ function setHeader(title, sub, showBack){
 function render(){
   var app = document.getElementById('app');
   if(state.screen==='dashboard') return renderDashboard(app);
+  if(state.screen==='hoje') return renderHoje(app);
   if(state.screen==='inadimplentes') return renderInadimplentes(app);
   if(state.screen==='recorrentes') return renderRecorrentes(app);
   if(state.screen==='alunos') return renderAlunos(app);
@@ -268,10 +273,62 @@ function render(){
 function tabsHtml(){
   return '<div class="tabs">'
     + '<button class="tab-btn'+(state.screen==='dashboard'?' active':'')+'" data-action="irDashboard">Dashboard</button>'
+    + '<button class="tab-btn'+(state.screen==='hoje'?' active':'')+'" data-action="irHoje">Hoje</button>'
     + '<button class="tab-btn'+(state.screen==='inadimplentes'?' active':'')+'" data-action="irInadimplentes">Inadimplentes</button>'
     + '<button class="tab-btn'+(state.screen==='recorrentes'?' active':'')+'" data-action="irRecorrentes">Recorrentes</button>'
     + '<button class="tab-btn'+(state.screen==='alunos'?' active':'')+'" data-action="irAlunos">Alunos</button>'
     + '</div>';
+}
+
+function renderHoje(app){
+  setHeader('BSA Finanças', 'conectado', false);
+  var mes = mesAtualStr();
+  var hoje = hojeStr();
+  var amanha = amanhaStr();
+  var doMes = state.mensalidades.filter(function(m){ return m.mesReferencia===mes && m.statusPagamento!=='pago' && m.statusPagamento!=='isento'; });
+  var venceHoje = doMes.filter(function(m){ return m.dataVencimento===hoje; });
+  var venceAmanha = doMes.filter(function(m){ return m.dataVencimento===amanha; });
+
+  var html = tabsHtml();
+  html += '<p class="meta" style="margin:2px 0 14px;font-size:12px;color:var(--ink-soft);">Lembretes e cobranças do dia — toque para enviar no WhatsApp do responsável.</p>';
+
+  html += '<div class="panel"><h2>Vence hoje ('+venceHoje.length+')</h2>';
+  if(venceHoje.length===0){
+    html += '<div class="empty">Nenhuma mensalidade vence hoje.</div>';
+  } else {
+    venceHoje.forEach(function(m){
+      var a = state.alunos.find(function(x){return x.id===m.alunoId;});
+      var foto = a && a.foto ? '<img class="avatar" src="'+a.foto+'">' : '<div class="avatar">'+iniciais(m.nomeAluno)+'</div>';
+      html += '<div class="row-card" style="flex-direction:column;align-items:stretch;">'
+        + '<div style="display:flex;align-items:center;gap:12px;">'
+        + foto
+        + '<div class="info"><div class="name">'+m.nomeAluno+'</div><div class="meta">'+fmtMoeda(m.valor)+' · vence hoje</div></div>'
+        + '</div>'
+        + '<div class="btn-row"><a class="btn btn-outline" style="text-decoration:none;flex:1;text-align:center;" target="_blank" href="'+waLink(m.responsavelWhatsapp, msgLembrete({responsavelNome:m.responsavelNome, nome:m.nomeAluno}))+'">Enviar lembrete de hoje</a></div>'
+        + '</div>';
+    });
+  }
+  html += '</div>';
+
+  html += '<div class="panel"><h2>Vence amanhã ('+venceAmanha.length+')</h2>';
+  if(venceAmanha.length===0){
+    html += '<div class="empty">Nenhuma mensalidade vence amanhã.</div>';
+  } else {
+    venceAmanha.forEach(function(m){
+      var a = state.alunos.find(function(x){return x.id===m.alunoId;});
+      var foto = a && a.foto ? '<img class="avatar" src="'+a.foto+'">' : '<div class="avatar">'+iniciais(m.nomeAluno)+'</div>';
+      html += '<div class="row-card" style="flex-direction:column;align-items:stretch;">'
+        + '<div style="display:flex;align-items:center;gap:12px;">'
+        + foto
+        + '<div class="info"><div class="name">'+m.nomeAluno+'</div><div class="meta">'+fmtMoeda(m.valor)+' · vence amanhã</div></div>'
+        + '</div>'
+        + '<div class="btn-row"><a class="btn btn-outline" style="text-decoration:none;flex:1;text-align:center;" target="_blank" href="'+waLink(m.responsavelWhatsapp, msgLembreteVespera({responsavelNome:m.responsavelNome, nome:m.nomeAluno}))+'">Enviar aviso de véspera</a></div>'
+        + '</div>';
+    });
+  }
+  html += '</div>';
+
+  app.innerHTML = html;
 }
 
 function renderDashboard(app){
@@ -299,6 +356,12 @@ function renderDashboard(app){
 
   if(semConfig>0){
     html += '<div class="banner">⚠ '+semConfig+' aluno(s) sem valor/dia de vencimento configurado — vá em "Alunos" e complete o cadastro financeiro deles.</div>';
+  }
+
+  var hojeQtd = doMes.filter(function(m){ return m.dataVencimento===hojeStr() && statusComputado(m)!=='pago' && statusComputado(m)!=='isento'; }).length;
+  var amanhaQtd = doMes.filter(function(m){ return m.dataVencimento===amanhaStr() && statusComputado(m)!=='pago' && statusComputado(m)!=='isento'; }).length;
+  if(hojeQtd>0 || amanhaQtd>0){
+    html += '<div class="banner" data-action="irHoje" style="cursor:pointer;">🔔 '+hojeQtd+' vencendo hoje e '+amanhaQtd+' vencendo amanhã — toque para ver e enviar os avisos na aba "Hoje".</div>';
   }
 
   html += '<div class="stat-row">'
@@ -485,6 +548,7 @@ function renderAlunoDetail(app){
 /* ---------- actions ---------- */
 var Actions = {
   irDashboard:function(){ state.screen='dashboard'; render(); },
+  irHoje:function(){ state.screen='hoje'; render(); },
   irInadimplentes:function(){ state.screen='inadimplentes'; render(); },
   irRecorrentes:function(){ state.screen='recorrentes'; render(); },
   irAlunos:function(){ state.screen='alunos'; render(); },
