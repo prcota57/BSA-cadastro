@@ -48,6 +48,8 @@
   .btn-primary{background:var(--pitch); color:#fff;}
   .btn-primary:disabled{background:var(--line); color:var(--ink-soft);}
   .btn-outline{background:transparent; border:1.5px solid var(--coral); color:#B23A20;}
+  .btn-outline-pitch{background:transparent; border:1.5px solid var(--pitch); color:var(--pitch);}
+  .btn:disabled{opacity:0.5; cursor:default;}
 
   .loadmsg{display:flex; align-items:center; gap:10px; font-size:13.5px; color:var(--ink-soft);}
   .spinner{width:16px; height:16px; border:2.5px solid var(--pitch-soft); border-top-color:var(--pitch); border-radius:50%; animation:spin 0.8s linear infinite; flex:0 0 auto;}
@@ -204,6 +206,7 @@
       <button class="unit-btn" data-u="Estoril">Estoril<span class="count" id="countES">0 rostos prontos</span></button>
     </div>
     <button class="btn btn-primary" id="btnIniciar" disabled>Selecione uma unidade</button>
+    <button class="btn btn-outline-pitch" id="btnManual" disabled style="margin-top:10px;">✋ Reconhecimento manual</button>
   </div>
 
   <div class="panel" id="historyPanel" style="display:none;">
@@ -263,13 +266,28 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="manualModal">
+  <div class="modal-sheet">
+    <div class="modal-close-row"><button class="modal-close-btn" id="btnFecharManualModal">✕</button></div>
+    <h2>Reconhecimento manual</h2>
+    <div class="field">
+      <label>Buscar aluno da unidade <span id="manualUnidadeLabel"></span></label>
+      <input type="text" id="manualBusca" placeholder="Digite o nome do aluno...">
+    </div>
+    <div id="manualLista" style="max-height:55vh; overflow-y:auto;"></div>
+  </div>
+</div>
+
 <div class="camera-overlay" id="cameraOverlay">
   <div class="camera-stage">
     <video id="video" autoplay playsinline muted></video>
     <canvas id="overlayCanvas"></canvas>
     <div class="camera-topbar">
       <div class="unit-label" id="camUnitLabel">Unidade<small>aponte a câmera para o rosto do aluno</small></div>
-      <button class="camera-close" id="btnFecharCamera">✕</button>
+      <div style="display:flex; gap:8px;">
+        <button class="camera-close" id="btnManualNaCamera" title="Reconhecimento manual">✋</button>
+        <button class="camera-close" id="btnFecharCamera">✕</button>
+      </div>
     </div>
     <div class="today-count-chip" id="todayCountChip">0 presenças hoje</div>
     <div class="scan-hint" id="scanHint">Procurando rosto...</div>
@@ -422,6 +440,7 @@ function carregarTodosAlunos(){
           id: doc.id,
           nome: d.nome || '(sem nome)',
           unidade: d.unidade || '',
+          foto: d.foto || null,
           diasTreino: d.diasTreino || [],
           horarioTreino: d.horarioTreino || '',
           responsavelNome: d.responsavelNome || '',
@@ -539,6 +558,7 @@ document.querySelectorAll('.unit-btn').forEach(btn=>{
     unidadeAtual = btn.dataset.u;
     document.getElementById('btnIniciar').disabled = false;
     document.getElementById('btnIniciar').textContent = 'Iniciar câmera — ' + unidadeAtual;
+    document.getElementById('btnManual').disabled = false;
     document.getElementById('historyPanel').style.display = 'block';
     document.getElementById('historyUnitLabel').textContent = '· ' + unidadeAtual;
     document.getElementById('faltantesPanel').style.display = 'block';
@@ -650,7 +670,8 @@ function renderHistorico(itens){
     const foto = p.foto ? `<img class="avatar" src="${p.foto}">` : `<div class="avatar" style="display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;color:var(--pitch);">${(p.nome||'?').slice(0,1)}</div>`;
     const selo = p.tipoRegistro === 'reposicao' ? ' <span class="badge-repo">reposição</span>'
       : (p.tipoRegistro === 'fora_horario' ? ' <span class="badge-alerta">fora do horário</span>' : '');
-    return `<div class="presenca-item">${foto}<div class="info"><div class="name">${p.nome}${selo}</div><div class="time">${p.hora}</div></div></div>`;
+    const seloManual = p.origemRegistro === 'manual' ? ' <span class="badge-repo">manual</span>' : '';
+    return `<div class="presenca-item">${foto}<div class="info"><div class="name">${p.nome}${selo}${seloManual}</div><div class="time">${p.hora}</div></div></div>`;
   }).join('');
 }
 
@@ -773,7 +794,8 @@ async function buscarReposicaoAgendadaHoje(aluno){
   return snap.empty ? null : { _docId: snap.docs[0].id, ...snap.docs[0].data() };
 }
 
-async function marcarPresenca(aluno, distance){
+async function marcarPresenca(aluno, distance, origem){
+  origem = origem || 'facial';
   const dataISO = dataHojeISO();
   const docId = aluno.id + '_' + dataISO;
   const ref = db.collection('presencas').doc(docId);
@@ -798,7 +820,8 @@ async function marcarPresenca(aluno, distance){
     data: dataISO,
     hora: hora,
     horaTimestamp: agora.getTime(),
-    confianca: Math.round(Math.max(0, (1 - distance/0.6)) * 100),
+    confianca: (distance !== null && distance !== undefined) ? Math.round(Math.max(0, (1 - distance/0.6)) * 100) : null,
+    origemRegistro: origem,
     tipoRegistro: reposicao ? 'reposicao' : (foraDoHorario ? 'fora_horario' : 'normal'),
     reposicaoId: reposicao ? reposicao._docId : null,
     diasTreino: aluno.diasTreino || [],
@@ -817,6 +840,53 @@ async function marcarPresenca(aluno, distance){
   }
   return { mensagem: 'presença registrada ✓', tocarBip: true };
 }
+
+/* ---------- Reconhecimento manual ---------- */
+function abrirManualModal(){
+  if(!unidadeAtual){ toast('Selecione a unidade primeiro'); return; }
+  document.getElementById('manualUnidadeLabel').textContent = unidadeAtual;
+  document.getElementById('manualBusca').value = '';
+  renderManualLista('');
+  document.getElementById('manualModal').classList.add('active');
+  setTimeout(()=> document.getElementById('manualBusca').focus(), 200);
+}
+function fecharManualModal(){
+  document.getElementById('manualModal').classList.remove('active');
+}
+function renderManualLista(termo){
+  const lista = document.getElementById('manualLista');
+  const t = (termo||'').trim().toLowerCase();
+  const encontrados = todosAlunosCache
+    .filter(a => a.unidade === unidadeAtual && (t.length === 0 || a.nome.toLowerCase().includes(t)))
+    .sort((a,b)=> a.nome.localeCompare(b.nome))
+    .slice(0, 30);
+  if(encontrados.length === 0){
+    lista.innerHTML = '<div class="empty">Nenhum aluno encontrado nesta unidade.</div>';
+    return;
+  }
+  lista.innerHTML = encontrados.map(a=>{
+    const foto = a.foto ? `<img class="avatar" src="${a.foto}">` : `<div class="avatar" style="display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;color:var(--pitch);">${(a.nome||'?').slice(0,1)}</div>`;
+    return `<div class="presenca-item" style="cursor:pointer;" onclick="confirmarManual('${a.id}')">${foto}<div class="info"><div class="name">${a.nome}</div></div></div>`;
+  }).join('');
+}
+async function confirmarManual(alunoId){
+  const aluno = todosAlunosCache.find(a=>a.id === alunoId);
+  if(!aluno) return;
+  fecharManualModal();
+  toast('Registrando presença de ' + aluno.nome + '...');
+  try{
+    const resultado = await marcarPresenca(aluno, null, 'manual');
+    toast(resultado.mensagem + ' (manual)');
+    if(resultado.tocarBip) bip();
+  }catch(err){
+    toast('Erro ao registrar: ' + err.message);
+  }
+}
+document.getElementById('btnManual').addEventListener('click', abrirManualModal);
+document.getElementById('btnManualNaCamera').addEventListener('click', ()=>{ fecharCamera(); abrirManualModal(); });
+document.getElementById('btnFecharManualModal').addEventListener('click', fecharManualModal);
+document.getElementById('manualModal').addEventListener('click', e=>{ if(e.target.id === 'manualModal') fecharManualModal(); });
+document.getElementById('manualBusca').addEventListener('input', e=> renderManualLista(e.target.value));
 
 initFirebase();
 </script>
