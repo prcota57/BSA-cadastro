@@ -163,6 +163,17 @@
   .cat-toggle input{width:auto;}
   .cat-toggle span{font-size:12.5px; color:var(--ink-soft);}
 
+  .day-chips{display:flex; gap:6px; flex-wrap:wrap;}
+  .day-chip{
+    flex:0 0 auto; padding:8px 12px; border-radius:12px; font-size:13px; font-weight:600;
+    background:var(--surface); color:var(--ink-soft); border:1.5px solid var(--line); cursor:pointer;
+  }
+  .day-chip.active{background:var(--pitch); color:#fff; border-color:var(--pitch);}
+  .schedule-pill{
+    background:var(--gold-soft); color:#8A6A00; font-size:11px; font-weight:600;
+    padding:2px 8px; border-radius:10px;
+  }
+
   /* Camera overlay */
   .camera-overlay{
     position:fixed; inset:0; background:#000; z-index:100; display:none;
@@ -339,6 +350,25 @@
         <option value="Carlos Prates">Carlos Prates</option>
         <option value="Estoril">Estoril</option>
       </select>
+    </div>
+
+    <div class="field">
+      <label>Dias fixos de treino</label>
+      <div class="day-chips" id="diaChips">
+        <div class="day-chip" data-dia="dom">Dom</div>
+        <div class="day-chip" data-dia="seg">Seg</div>
+        <div class="day-chip" data-dia="ter">Ter</div>
+        <div class="day-chip" data-dia="qua">Qua</div>
+        <div class="day-chip" data-dia="qui">Qui</div>
+        <div class="day-chip" data-dia="sex">Sex</div>
+        <div class="day-chip" data-dia="sab">Sáb</div>
+      </div>
+      <div class="hint">Toque nos dias em que o aluno treina fixo. Isso ajuda a saber quando ele aparece fora do horário dele.</div>
+    </div>
+
+    <div class="field">
+      <label>Horário fixo de treino</label>
+      <input type="time" id="fHorario">
     </div>
 
     <div class="field-row">
@@ -641,6 +671,27 @@ document.getElementById('btnCapture').addEventListener('click', ()=>{
   closeCamera();
 });
 
+/* ---------- Horário fixo de treino ---------- */
+const DIA_LABEL = {dom:'Dom', seg:'Seg', ter:'Ter', qua:'Qua', qui:'Qui', sex:'Sex', sab:'Sáb'};
+const ORDEM_DIAS = ['dom','seg','ter','qua','qui','sex','sab'];
+document.querySelectorAll('#diaChips .day-chip').forEach(chip=>{
+  chip.addEventListener('click', ()=> chip.classList.toggle('active'));
+});
+function getDiasSelecionados(){
+  return ORDEM_DIAS.filter(d => document.querySelector(`#diaChips .day-chip[data-dia="${d}"]`).classList.contains('active'));
+}
+function setDiasSelecionados(arr){
+  const setDias = new Set(arr || []);
+  document.querySelectorAll('#diaChips .day-chip').forEach(chip=>{
+    chip.classList.toggle('active', setDias.has(chip.dataset.dia));
+  });
+}
+function formatarHorarioFixo(dias, horario){
+  if(!dias || dias.length === 0) return 'Não definido';
+  const diasFmt = dias.map(d => DIA_LABEL[d] || d).join(', ');
+  return diasFmt + (horario ? ' · ' + horario : '');
+}
+
 /* ---------- Formulário ---------- */
 function resetForm(){
   editingId = null;
@@ -652,6 +703,8 @@ function resetForm(){
   document.getElementById('fCategoria').readOnly = true;
   document.getElementById('fCategoriaManualToggle').checked = false;
   document.getElementById('fUnidade').value = 'Carlos Prates';
+  setDiasSelecionados([]);
+  document.getElementById('fHorario').value = '';
   document.getElementById('fRespNome').value = '';
   document.getElementById('fRespWhats').value = '';
   document.getElementById('fStatusMens').value = 'ativo';
@@ -683,6 +736,8 @@ document.getElementById('btnSalvar').addEventListener('click', async ()=>{
     dataNascimento: nascimento,
     categoria: document.getElementById('fCategoria').value || calcCategoria(nascimento),
     unidade: document.getElementById('fUnidade').value,
+    diasTreino: getDiasSelecionados(),
+    horarioTreino: document.getElementById('fHorario').value || '',
     responsavelNome: document.getElementById('fRespNome').value.trim(),
     responsavelWhatsapp: document.getElementById('fRespWhats').value.trim(),
     statusMensalidade: document.getElementById('fStatusMens').value,
@@ -760,6 +815,7 @@ function renderLista(){
             <span class="pill">${a.id || '—'}</span>
             <span>${a.categoria || ''}</span>
             <span>· ${a.unidade}</span>
+            ${a.diasTreino && a.diasTreino.length ? `<span class="schedule-pill">${formatarHorarioFixo(a.diasTreino, a.horarioTreino)}</span>` : ''}
           </div>
         </div>
         <div class="chevron">›</div>
@@ -890,6 +946,10 @@ function abrirDetalhe(docId){
       <div class="card" style="display:block;"><div class="hint">Matrícula</div><b>${a.dataMatricula || '—'}</b></div>
     </div>
     <div class="card" style="display:block; margin-bottom:16px;">
+      <div class="hint">Horário fixo de treino</div>
+      <b>${formatarHorarioFixo(a.diasTreino, a.horarioTreino)}</b>
+    </div>
+    <div class="card" style="display:block; margin-bottom:16px;">
       <div class="hint">Responsável</div>
       <b>${a.responsavelNome || '—'}</b>
       <div class="hint" style="margin-top:6px;">WhatsApp</div>
@@ -922,6 +982,8 @@ function editarAluno(docId){
   document.getElementById('fNascimento').value = a.dataNascimento;
   document.getElementById('fCategoria').value = a.categoria;
   document.getElementById('fUnidade').value = a.unidade;
+  setDiasSelecionados(a.diasTreino || []);
+  document.getElementById('fHorario').value = a.horarioTreino || '';
   document.getElementById('fRespNome').value = a.responsavelNome || '';
   document.getElementById('fRespWhats').value = a.responsavelWhatsapp || '';
   document.getElementById('fStatusMens').value = a.statusMensalidade;
