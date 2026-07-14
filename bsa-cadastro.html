@@ -494,6 +494,7 @@
 <div class="camera-overlay" id="cameraOverlay">
   <video id="cameraVideo" autoplay playsinline muted></video>
   <canvas id="cameraCanvas"></canvas>
+  <div class="ident-status" id="captureStatus" style="display:none;"></div>
   <div class="camera-controls">
     <button class="cancel" id="btnCancelCamera">✕</button>
     <button id="btnCapture">📸</button>
@@ -544,6 +545,7 @@ let db, auth;
 let alunosCache = [];
 let editingId = null;
 let capturedPhoto = null;
+let capturedFaceDescriptor = null;
 let currentStream = null;
 let filterUnit = "todas";
 let filterStatus = "todos";
@@ -782,6 +784,7 @@ async function openCameraStream(facingMode){
 }
 document.getElementById('btnOpenCamera').addEventListener('click', ()=>{
   openCameraStream(currentFacingMode);
+  garantirModelosIdent(); // começa a carregar em segundo plano, sem travar a câmera
 });
 document.getElementById('btnFlipCamera').addEventListener('click', ()=>{
   openCameraStream(currentFacingMode === 'user' ? 'environment' : 'user');
@@ -825,9 +828,13 @@ function corrigirBalancoBranco(ctx, w, h){
   }
 }
 
-document.getElementById('btnCapture').addEventListener('click', ()=>{
+const CADASTRO_DISTANCE_THRESHOLD = 0.5;
+
+document.getElementById('btnCapture').addEventListener('click', async ()=>{
   const video = document.getElementById('cameraVideo');
   const canvas = document.getElementById('cameraCanvas');
+  const status = document.getElementById('captureStatus');
+  const btnCapture = document.getElementById('btnCapture');
   const size = 480;
   canvas.width = size;
   canvas.height = size;
@@ -837,10 +844,70 @@ document.getElementById('btnCapture').addEventListener('click', ()=>{
   const sx = (vw - side)/2, sy = (vh - side)/2;
   ctx.drawImage(video, sx, sy, side, side, 0, 0, size, size);
   corrigirBalancoBranco(ctx, size, size);
-  capturedPhoto = canvas.toDataURL('image/jpeg', 0.7);
-  const preview = document.getElementById('photoPreview');
-  preview.innerHTML = '<img src="'+capturedPhoto+'">';
-  closeCamera();
+
+  btnCapture.disabled = true;
+  status.style.display = 'block';
+  status.textContent = 'Verificando foto...';
+
+  try{
+    const ok = await garantirModelosIdent();
+    if(!ok){
+      status.textContent = 'Não foi possível verificar a foto agora, mas ela foi salva.';
+      capturedPhoto = canvas.toDataURL('image/jpeg', 0.7);
+      const preview = document.getElementById('photoPreview');
+      preview.innerHTML = '<img src="'+capturedPhoto+'">';
+      setTimeout(closeCamera, 900);
+      return;
+    }
+
+    const opcoes = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
+    const deteccao = await faceapi.detectSingleFace(canvas, opcoes).withFaceLandmarks().withFaceDescriptor();
+
+    if(!deteccao){
+      status.textContent = '⚠️ Rosto não identificado na foto. Ajuste a luz/enquadramento e tire novamente.';
+      btnCapture.disabled = false;
+      setTimeout(()=>{ status.style.display = 'none'; }, 2600);
+      return; // não fecha a câmera, deixa tentar de novo
+    }
+
+    // checa duplicidade contra alunos já cadastrados (exclui o próprio, se estiver editando)
+    const comRosto = alunosCache.filter(a => a.faceDescriptor && Array.isArray(a.faceDescriptor) && a._docId !== editingId);
+    if(comRosto.length > 0){
+      const matcher = new faceapi.FaceMatcher(
+        comRosto.map(a => new faceapi.LabeledFaceDescriptors(a._docId, [new Float32Array(a.faceDescriptor)])),
+        CADASTRO_DISTANCE_THRESHOLD
+      );
+      const match = matcher.findBestMatch(deteccao.descriptor);
+      if(match.label !== 'unknown'){
+        const alunoExistente = alunosCache.find(a => a._docId === match.label);
+        if(alunoExistente){
+          showToast('⚠️ Aluno já cadastrado: ' + alunoExistente.nome);
+          status.style.display = 'none';
+          btnCapture.disabled = false;
+          closeCamera();
+          setTimeout(()=> abrirDetalhe(alunoExistente._docId), 250);
+          return;
+        }
+      }
+    }
+
+    // rosto ok e sem duplicidade: aceita a foto e guarda o descritor pra já salvar processado
+    capturedFaceDescriptor = deteccao.descriptor;
+    capturedPhoto = canvas.toDataURL('image/jpeg', 0.7);
+    const preview = document.getElementById('photoPreview');
+    preview.innerHTML = '<img src="'+capturedPhoto+'">';
+    status.style.display = 'none';
+    btnCapture.disabled = false;
+    closeCamera();
+  }catch(err){
+    console.error(err);
+    status.textContent = 'Erro ao verificar a foto, mas ela foi salva.';
+    capturedPhoto = canvas.toDataURL('image/jpeg', 0.7);
+    const preview = document.getElementById('photoPreview');
+    preview.innerHTML = '<img src="'+capturedPhoto+'">';
+    btnCapture.disabled = false;
+    setTimeout(closeCamera, 900);
+  }
 });
 
 /* ---------- Horário fixo de treino ---------- */
@@ -868,6 +935,7 @@ function formatarHorarioFixo(dias, horario){
 function resetForm(){
   editingId = null;
   capturedPhoto = null;
+  capturedFaceDescriptor = null;
   document.getElementById('formTitle').textContent = 'Novo aluno';
   document.getElementById('fNome').value = '';
   document.getElementById('fNascimento').value = '';
@@ -923,6 +991,7 @@ document.getElementById('btnSalvar').addEventListener('click', async ()=>{
     atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
   };
   if(capturedPhoto) dados.foto = capturedPhoto;
+  if(capturedFaceDescriptor) dados.faceDescriptor = Array.from(capturedFaceDescriptor);
 
   try{
     if(editingId){
@@ -1155,6 +1224,7 @@ function editarAluno(docId){
   if(!a) return;
   editingId = docId;
   capturedPhoto = null;
+  capturedFaceDescriptor = null;
   fecharDetalhe();
   goToScreen('cadastro');
   document.getElementById('formTitle').textContent = 'Editar aluno';
