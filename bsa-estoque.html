@@ -209,6 +209,19 @@
     </div>
   </div>
 
+  <!-- ===== TELA ADMIN: LISTA DE INTERESSE EM UNIFORME ===== -->
+  <div class="screen" id="screen-interesse">
+    <div class="panel">
+      <h2>📋 Interessados (ainda não pagaram)</h2>
+      <div id="listaInteressados"><div class="empty">Carregando...</div></div>
+      <button class="btn btn-primary" onclick="abrirNovoInteresse()">+ Novo interessado</button>
+    </div>
+    <div class="panel">
+      <h2>💰 Pagos — aguardando chegar</h2>
+      <div id="listaAguardandoChegada"><div class="empty">Carregando...</div></div>
+    </div>
+  </div>
+
   <!-- ===== TELA ADMIN: EQUIPAMENTOS ===== -->
   <div class="screen" id="screen-equipamentos">
     <div class="panel">
@@ -278,6 +291,41 @@
   </div>
 </div>
 
+<!-- ===== MODAL: NOVO INTERESSADO EM UNIFORME ===== -->
+<div class="modal-bg" id="modalInteresse">
+  <div class="modal">
+    <h3>Novo interessado em uniforme</h3>
+    <label>Nome</label>
+    <input type="text" id="intNome" placeholder="Nome da pessoa">
+    <label>Telefone</label>
+    <input type="text" id="intTelefone" placeholder="(31) 9....-....">
+    <label>Cor desejada (opcional)</label>
+    <select id="intCor"><option value="">—</option></select>
+    <label>Data do interesse</label>
+    <input type="text" id="intData" value="">
+    <button class="btn btn-primary" onclick="salvarNovoInteresse()">Salvar</button>
+    <button class="btn btn-outline" onclick="fecharModal('modalInteresse')">Cancelar</button>
+  </div>
+</div>
+
+<!-- ===== MODAL: REGISTRAR PAGAMENTO DE INTERESSADO ===== -->
+<div class="modal-bg" id="modalPagamentoInteresse">
+  <div class="modal">
+    <h3>Registrar pagamento</h3>
+    <label>Tipo de pagamento</label>
+    <div class="chip-row" id="tipoPagamentoChips">
+      <div class="chip sel" data-t="entrada" onclick="selecionarTipoPagamento(this)">Deu entrada</div>
+      <div class="chip" data-t="integral" onclick="selecionarTipoPagamento(this)">Pagou integral</div>
+    </div>
+    <label>Valor pago (R$)</label>
+    <input type="number" id="pagValor" value="0" min="0" step="0.01">
+    <label>Data do pagamento</label>
+    <input type="text" id="pagData" value="">
+    <button class="btn btn-primary" onclick="confirmarPagamentoInteresse()">Confirmar</button>
+    <button class="btn btn-outline" onclick="fecharModal('modalPagamentoInteresse')">Cancelar</button>
+  </div>
+</div>
+
 <!-- ===== MODAL: PIN ADMIN ===== -->
 <div class="modal-bg" id="modalPin">
   <div class="modal" style="text-align:center;">
@@ -324,7 +372,7 @@ const TIPOS_UNIFORME = [{id:'aluno', nome:'Aluno'}, {id:'comissao', nome:'Comiss
 const MOTIVOS_DANO = ['Bola furada', 'Colete rasgado', 'Cone quebrado', 'Barreira danificada', 'Outro'];
 
 let db;
-let uniformesCache = [], equipamentosCache = [], movimentacoesCache = [];
+let uniformesCache = [], equipamentosCache = [], movimentacoesCache = [], interessesCache = [];
 let unidadeAtual = localStorage.getItem('bsaEstoqueUnidade') || 'Carlos Prates';
 let professorNome = localStorage.getItem('bsaEstoqueProfessor') || '';
 let modoAtual = 'professor';
@@ -356,6 +404,12 @@ db.collection('movimentacoes').orderBy('data','desc').limit(200).onSnapshot(snap
   snap.forEach(doc=> movimentacoesCache.push(Object.assign({_docId: doc.id}, doc.data())));
   renderMovimentacoesProfessor(); renderHistorico(); renderDashboard();
 }, err=> showToast('Erro ao carregar histórico: ' + err.message, true));
+
+db.collection('interesseUniformes').orderBy('dataInteresse','asc').onSnapshot(snap=>{
+  interessesCache = [];
+  snap.forEach(doc=> interessesCache.push(Object.assign({_docId: doc.id}, doc.data())));
+  renderInteresse();
+}, err=> showToast('Erro ao carregar lista de interesse: ' + err.message, true));
 
 /* ============ HELPERS ============ */
 function showToast(msg, isErr){
@@ -457,6 +511,7 @@ function renderBottomNav(){
     itens = [
       {id:'screen-dashboard', ic:'📊', lbl:'Dashboard'},
       {id:'screen-uniformes', ic:'👕', lbl:'Uniformes'},
+      {id:'screen-interesse', ic:'📋', lbl:'Interesse'},
       {id:'screen-equipamentos', ic:'⚽', lbl:'Equipamentos'},
       {id:'screen-movimentacoes', ic:'🔁', lbl:'Movimentações'},
     ];
@@ -810,6 +865,108 @@ function confirmarVenda(){
       tipo:'venda', itemNome: nomeUniforme(u), quantidade:1, unidade: unidadeAtual, comprador, valorVenda: valor, data: new Date().toISOString()
     })).then(()=>{ showToast('Venda registrada'); fecharModal('modalVenda'); })
     .catch(err=> showToast('Erro: '+err.message, true));
+}
+
+/* ============ LISTA DE INTERESSE EM UNIFORME (ADMIN) ============ */
+function onlyDigits(s){ return (s||'').replace(/\D/g,''); }
+function linkWhats(tel){
+  const d = onlyDigits(tel);
+  if(!d) return '#';
+  const comDDI = d.length <= 11 ? '55'+d : d;
+  return 'https://wa.me/'+comDDI;
+}
+function abrirNovoInteresse(){
+  document.getElementById('intNome').value = '';
+  document.getElementById('intTelefone').value = '';
+  document.getElementById('intCor').innerHTML = '<option value="">—</option>' + CORES_UNIFORME.map(c=> `<option value="${c.id}">${c.nome}</option>`).join('');
+  document.getElementById('intData').value = new Date().toLocaleDateString('pt-BR');
+  abrirModal('modalInteresse');
+}
+function salvarNovoInteresse(){
+  const nome = document.getElementById('intNome').value.trim();
+  const telefone = document.getElementById('intTelefone').value.trim();
+  if(!nome){ showToast('Digite o nome', true); return; }
+  if(!telefone){ showToast('Digite o telefone', true); return; }
+  db.collection('interesseUniformes').add({
+    nome, telefone,
+    corDesejada: document.getElementById('intCor').value || '',
+    dataInteresse: new Date().toISOString(),
+    unidade: unidadeAtual,
+    status: 'interessado'
+  }).then(()=>{ showToast('Interessado adicionado'); fecharModal('modalInteresse'); })
+    .catch(err=> showToast('Erro: '+err.message, true));
+}
+
+let interesseSelecionadoId = null;
+let tipoPagamentoSelecionado = 'entrada';
+function abrirPagamentoInteresse(id){
+  interesseSelecionadoId = id;
+  tipoPagamentoSelecionado = 'entrada';
+  document.querySelectorAll('#tipoPagamentoChips .chip').forEach(c=> c.classList.remove('sel'));
+  document.querySelector('#tipoPagamentoChips .chip[data-t="entrada"]').classList.add('sel');
+  document.getElementById('pagValor').value = 0;
+  document.getElementById('pagData').value = new Date().toLocaleDateString('pt-BR');
+  abrirModal('modalPagamentoInteresse');
+}
+function selecionarTipoPagamento(el){
+  document.querySelectorAll('#tipoPagamentoChips .chip').forEach(c=> c.classList.remove('sel'));
+  el.classList.add('sel');
+  tipoPagamentoSelecionado = el.dataset.t;
+}
+function confirmarPagamentoInteresse(){
+  if(!interesseSelecionadoId) return;
+  const valor = Number(document.getElementById('pagValor').value) || 0;
+  db.collection('interesseUniformes').doc(interesseSelecionadoId).update({
+    status: 'aguardando_chegada',
+    tipoPagamento: tipoPagamentoSelecionado,
+    valorPago: valor,
+    dataPagamento: new Date().toISOString()
+  }).then(()=>{ showToast('Pagamento registrado — movido pra "aguardando chegar"'); fecharModal('modalPagamentoInteresse'); })
+    .catch(err=> showToast('Erro: '+err.message, true));
+}
+function marcarEntregueInteresse(id){
+  if(!confirm('Marcar como entregue e remover da lista de espera?')) return;
+  db.collection('interesseUniformes').doc(id).delete()
+    .then(()=> showToast('Removido da lista — uniforme entregue'))
+    .catch(err=> showToast('Erro: '+err.message, true));
+}
+function removerInteresse(id){
+  if(!confirm('Remover esse interessado da lista?')) return;
+  db.collection('interesseUniformes').doc(id).delete().catch(err=> showToast('Erro: '+err.message, true));
+}
+
+function renderInteresse(){
+  const interessados = interessesCache.filter(i=> i.status === 'interessado');
+  const aguardando = interessesCache.filter(i=> i.status === 'aguardando_chegada');
+
+  const listaInt = document.getElementById('listaInteressados');
+  listaInt.innerHTML = interessados.length === 0 ? '<div class="empty">Ninguém na fila de interesse</div>' :
+    interessados.map((i, idx)=>{
+      const cor = CORES_UNIFORME.find(c=>c.id===i.corDesejada);
+      return `<div class="item-row">
+        <div class="info">
+          <b>#${idx+1} ${i.nome}</b>
+          <span><a href="${linkWhats(i.telefone)}" target="_blank" style="color:inherit;">📞 ${i.telefone}</a> · ${fmtData(i.dataInteresse)}${cor?' · '+cor.nome:''}</span>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="chip" onclick="abrirPagamentoInteresse('${i._docId}')">💰 Pagou</button>
+          <button class="chip" onclick="removerInteresse('${i._docId}')">✕</button>
+        </div>
+      </div>`;
+    }).join('');
+
+  const listaAg = document.getElementById('listaAguardandoChegada');
+  listaAg.innerHTML = aguardando.length === 0 ? '<div class="empty">Ninguém aguardando chegada</div>' :
+    aguardando.map(i=>{
+      const tipoLbl = i.tipoPagamento === 'integral' ? 'Pagou integral' : 'Deu entrada';
+      return `<div class="item-row">
+        <div class="info">
+          <b>${i.nome}</b>
+          <span><a href="${linkWhats(i.telefone)}" target="_blank" style="color:inherit;">📞 ${i.telefone}</a> · ${tipoLbl} ${fmtMoeda(i.valorPago)} em ${fmtData(i.dataPagamento)}</span>
+        </div>
+        <button class="chip" onclick="marcarEntregueInteresse('${i._docId}')">✅ Entregue</button>
+      </div>`;
+    }).join('');
 }
 
 /* ============ LISTAS DE HISTÓRICO ============ */
