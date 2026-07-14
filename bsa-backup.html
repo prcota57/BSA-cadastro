@@ -75,7 +75,8 @@
   <div class="panel">
     <h2>Backup completo</h2>
     <p>Baixa um arquivo com todos os alunos, mensalidades, presenças, avaliações físicas, reposições e leads de captação de uma vez só.</p>
-    <p>Guarde o arquivo baixado no Google Drive, iCloud ou onde for mais seguro pra você.</p>
+    <p>O nome do arquivo é sempre o mesmo — ao salvar no mesmo lugar de novo, o iPhone pergunta se quer <b>substituir</b> o anterior, então não fica acumulando arquivo à toa.</p>
+    <p>Esse backup só tem os <b>dados</b> (alunos, financeiro, etc.) — o código/programação dos apps fica salvo separadamente no GitHub, com histórico de versões automático.</p>
     <button class="btn btn-primary" id="btnBackup">📥 Fazer backup agora</button>
     <div class="status" id="status"></div>
     <div class="stat-row" id="statRow" style="display:none;"></div>
@@ -175,16 +176,29 @@ document.getElementById('btnBackup').addEventListener('click', async ()=>{
     const jsonLimpo = limparTimestamps(backup);
     const blob = new Blob([JSON.stringify(jsonLimpo, null, 2)], {type: 'application/json'});
     const url = URL.createObjectURL(blob);
-    const dataStr = new Date().toISOString().slice(0,10);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'bsa-backup-' + dataStr + '.json';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    const NOME_ARQUIVO = 'bsa-backup.json'; // nome fixo — ao salvar no mesmo lugar de novo, o iPhone pergunta se quer substituir
+    const file = new File([blob], NOME_ARQUIVO, {type: 'application/json'});
+
+    if(navigator.canShare && navigator.canShare({files: [file]})){
+      // abre a folha de compartilhamento do iPhone: escolha "Salvar em Arquivos" e salve no mesmo lugar de sempre
+      await navigator.share({
+        files: [file],
+        title: 'Backup BSA',
+        text: 'Backup do sistema BSA — salve em Arquivos, substituindo o anterior'
+      });
+      status.textContent = 'Backup pronto — escolha onde salvar ✅';
+    } else {
+      // navegadores sem suporte a compartilhar arquivo: baixa direto (nome fixo também)
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = NOME_ARQUIVO;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      status.textContent = 'Backup baixado ✅';
+    }
     setTimeout(()=> URL.revokeObjectURL(url), 4000);
 
-    status.textContent = 'Backup concluído ✅';
     statRow.style.display = 'flex';
     Object.keys(contagens).forEach(nome=>{
       statRow.innerHTML += `<div class="stat"><div class="num">${contagens[nome]}</div><div class="lbl">${nome}</div></div>`;
@@ -192,11 +206,16 @@ document.getElementById('btnBackup').addEventListener('click', async ()=>{
     const agora = new Date();
     localStorage.setItem('bsaUltimoBackup', agora.toISOString());
     document.getElementById('lastBackup').textContent = 'Último backup: ' + agora.toLocaleString('pt-BR');
-    showToast('Backup baixado! Salve o arquivo em algum lugar seguro (Drive, iCloud, etc.)');
+    showToast('Ao salvar, escolha o mesmo local de sempre e toque em "Substituir" quando o iPhone perguntar');
   }catch(err){
-    console.error(err);
-    status.textContent = 'Erro ao gerar backup: ' + err.message;
-    showToast('Erro ao gerar backup');
+    if(err && err.name === 'AbortError'){
+      // usuário cancelou a folha de compartilhamento — não é erro
+      status.textContent = 'Backup gerado, mas não foi salvo (cancelado)';
+    } else {
+      console.error(err);
+      status.textContent = 'Erro ao gerar backup: ' + err.message;
+      showToast('Erro ao gerar backup');
+    }
   }finally{
     btn.disabled = false;
   }
