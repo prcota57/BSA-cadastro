@@ -276,6 +276,25 @@
   </div>
 </div>
 
+<!-- ===== MODAL: EDITAR UNIFORME ===== -->
+<div class="modal-bg" id="modalEditarUniforme">
+  <div class="modal">
+    <h3>Editar kit</h3>
+    <label>Cor</label>
+    <select id="uniEditCor"></select>
+    <label>Tipo</label>
+    <select id="uniEditTipo"></select>
+    <label>Tamanho</label>
+    <select id="uniEditTamanho"></select>
+    <label>Unidade</label>
+    <select id="uniEditUnidade"></select>
+    <label>Estoque mínimo (alerta)</label>
+    <input type="number" id="uniEditMin" value="2" min="0">
+    <button class="btn btn-primary" onclick="salvarEdicaoUniforme()">Salvar</button>
+    <button class="btn btn-outline" onclick="fecharModal('modalEditarUniforme')">Cancelar</button>
+  </div>
+</div>
+
 <!-- ===== MODAL: NOVO EQUIPAMENTO ===== -->
 <div class="modal-bg" id="modalEquip">
   <div class="modal">
@@ -294,7 +313,7 @@
     <label>Valor estimado (unidade, R$)</label>
     <input type="number" id="eqValor" value="0" min="0" step="0.01">
     <label>Unidade</label>
-    <select id="eqUnidade"><option>Carlos Prates</option><option>Estoril</option></select>
+    <select id="eqUnidade"><option>Carlos Prates</option><option>Estoril</option><option>Ambas</option></select>
     <button class="btn btn-primary" onclick="salvarNovoEquipamento()">Salvar</button>
     <button class="btn btn-outline" onclick="fecharModal('modalEquip')">Cancelar</button>
   </div>
@@ -395,6 +414,7 @@ const firebaseConfig = {
 const ADMIN_PIN = "2580"; // pode pedir pra trocar quando quiser
 
 const UNIDADES = ['Carlos Prates', 'Estoril'];
+const UNIDADES_EQUIP = ['Carlos Prates', 'Estoril', 'Ambas'];
 const CORES_UNIFORME = [
   {id:'vinho', nome:'Vinho'}, {id:'azul', nome:'Azul'}, {id:'dourado', nome:'Dourado'}
 ];
@@ -604,10 +624,10 @@ function nomeUniforme(u){
 }
 
 /* ============ UNIFORMES (ADMIN) ============ */
-function renderTabsUnidade(containerId, filtroAtualGetter, onSelect){
+function renderTabsUnidade(containerId, filtroAtualGetter, onSelect, listaUnidades){
   const el = document.getElementById(containerId);
   el.innerHTML = '';
-  UNIDADES.forEach(u=>{
+  (listaUnidades || UNIDADES).forEach(u=>{
     const b = document.createElement('button');
     b.textContent = u;
     if(filtroAtualGetter() === u) b.classList.add('active');
@@ -631,6 +651,7 @@ function renderUniformes(){
     return `<div class="item-row">
       <div class="info"><b>${nomeUniforme(u)}</b><span>${statusLbl}<span class="status-pill status-${u.status}"></span></span></div>
       <div style="display:flex; align-items:center; gap:8px;">
+        <button class="chip" onclick="abrirEditarUniforme('${u._docId}')">✏️</button>
         <button class="chip" onclick="ajustarQtdUniforme('${u._docId}', -1)">−</button>
         <div class="qty-badge ${baixo?'low':''}">${u.quantidade}</div>
         <button class="chip" onclick="ajustarQtdUniforme('${u._docId}', 1)">+</button>
@@ -651,6 +672,30 @@ function ajustarQtdUniforme(id, delta){
 }
 function mudarStatusUniforme(id, status){
   db.collection('estoqueUniformes').doc(id).update({status}).catch(err=> showToast('Erro: '+err.message, true));
+}
+let uniformeEditId = null;
+function abrirEditarUniforme(id){
+  const u = uniformesCache.find(x=>x._docId===id);
+  if(!u) return;
+  uniformeEditId = id;
+  document.getElementById('uniEditCor').innerHTML = CORES_UNIFORME.map(c=> `<option value="${c.id}" ${c.id===u.cor?'selected':''}>${c.nome}</option>`).join('');
+  document.getElementById('uniEditTipo').innerHTML = TIPOS_UNIFORME.map(t=> `<option value="${t.id}" ${t.id===u.tipo?'selected':''}>${t.nome}</option>`).join('');
+  const tamanhos = [...TAMANHOS_INFANTIL, ...TAMANHOS_JUVENIL];
+  document.getElementById('uniEditTamanho').innerHTML = tamanhos.map(t=> `<option value="${t}" ${t===u.tamanho?'selected':''}>${t}</option>`).join('');
+  document.getElementById('uniEditUnidade').innerHTML = UNIDADES.map(un=> `<option value="${un}" ${un===u.unidade?'selected':''}>${un}</option>`).join('');
+  document.getElementById('uniEditMin').value = u.estoqueMinimo || 0;
+  abrirModal('modalEditarUniforme');
+}
+function salvarEdicaoUniforme(){
+  if(!uniformeEditId) return;
+  db.collection('estoqueUniformes').doc(uniformeEditId).update({
+    cor: document.getElementById('uniEditCor').value,
+    tipo: document.getElementById('uniEditTipo').value,
+    tamanho: document.getElementById('uniEditTamanho').value,
+    unidade: document.getElementById('uniEditUnidade').value,
+    estoqueMinimo: Number(document.getElementById('uniEditMin').value) || 0
+  }).then(()=>{ showToast('Kit atualizado'); fecharModal('modalEditarUniforme'); })
+    .catch(err=> showToast('Erro: '+err.message, true));
 }
 function gerarGradeUniformes(){
   if(!confirm('Gerar toda a grade de tamanhos (vinho/azul/dourado x infantil/juvenil x aluno/comissão) pra unidade ' + filtroUnidadeUniformes + '?')) return;
@@ -678,9 +723,10 @@ function gerarGradeUniformes(){
 
 /* ============ EQUIPAMENTOS (ADMIN) ============ */
 function renderEquipamentos(){
-  renderTabsUnidade('tabsEquipUnidade', ()=>filtroUnidadeEquip, (u)=>{ filtroUnidadeEquip = u; renderEquipamentos(); });
+  renderTabsUnidade('tabsEquipUnidade', ()=>filtroUnidadeEquip, (u)=>{ filtroUnidadeEquip = u; renderEquipamentos(); }, UNIDADES_EQUIP);
   const lista = document.getElementById('listaEquipamentos');
-  const filtrados = equipamentosCache.filter(e=> e.unidade === filtroUnidadeEquip);
+  // itens "Ambas" aparecem em qualquer aba, além dos itens específicos da unidade selecionada
+  const filtrados = equipamentosCache.filter(e=> e.unidade === filtroUnidadeEquip || (filtroUnidadeEquip !== 'Ambas' && e.unidade === 'Ambas'));
   if(filtrados.length === 0){
     lista.innerHTML = '<div class="empty">Nenhum equipamento cadastrado nessa unidade ainda.</div>';
     return;
@@ -689,12 +735,14 @@ function renderEquipamentos(){
     const baixo = (Number(e.quantidade)||0) <= (Number(e.estoqueMinimo)||0);
     const catLbl = e.categoria === 'especial' ? 'Equipamento especial' : 'Consumível';
     const thumb = e.foto ? `<img class="item-thumb" src="${e.foto}">` : `<div class="item-thumb"></div>`;
+    const badgeAmbas = e.unidade === 'Ambas' ? ' · 🔁 Ambas as unidades' : '';
     return `<div class="item-row">
       <div class="item-row-left">
         <div onclick="abrirCameraEquip('foto', '${e._docId}')">${thumb}</div>
-        <div class="info"><b>${e.nome}</b><span>${catLbl}${e.condicao==='manutencao'?' · em manutenção':''}</span></div>
+        <div class="info"><b>${e.nome}</b><span>${catLbl}${e.condicao==='manutencao'?' · em manutenção':''}${badgeAmbas}</span></div>
       </div>
       <div style="display:flex; align-items:center; gap:8px;">
+        <button class="chip" onclick="abrirEditarEquipamento('${e._docId}')">✏️</button>
         <button class="chip" onclick="ajustarQtdEquip('${e._docId}', -1)">−</button>
         <div class="qty-badge ${baixo?'low':''}">${e.quantidade}</div>
         <button class="chip" onclick="ajustarQtdEquip('${e._docId}', 1)">+</button>
@@ -708,14 +756,33 @@ function ajustarQtdEquip(id, delta){
   const nova = Math.max(0, (Number(e.quantidade)||0) + delta);
   db.collection('estoqueEquipamentos').doc(id).update({quantidade: nova}).catch(err=> showToast('Erro: '+err.message, true));
 }
+let eqEditId = null;
 function abrirNovoEquipamento(){
+  eqEditId = null;
+  document.querySelector('#modalEquip h3').textContent = 'Novo item de equipamento';
   document.getElementById('eqNome').value = '';
+  document.getElementById('eqCategoria').value = 'consumivel';
   document.getElementById('eqQtd').value = 1;
   document.getElementById('eqMin').value = 2;
   document.getElementById('eqValor').value = 0;
-  document.getElementById('eqUnidade').value = filtroUnidadeEquip;
+  document.getElementById('eqUnidade').value = filtroUnidadeEquip === 'Ambas' ? 'Ambas' : filtroUnidadeEquip;
   fotoEquipTemp = null;
   document.getElementById('eqFotoPreview').innerHTML = '';
+  abrirModal('modalEquip');
+}
+function abrirEditarEquipamento(id){
+  const e = equipamentosCache.find(x=>x._docId===id);
+  if(!e) return;
+  eqEditId = id;
+  document.querySelector('#modalEquip h3').textContent = 'Editar item';
+  document.getElementById('eqNome').value = e.nome || '';
+  document.getElementById('eqCategoria').value = e.categoria || 'consumivel';
+  document.getElementById('eqQtd').value = e.quantidade || 0;
+  document.getElementById('eqMin').value = e.estoqueMinimo || 0;
+  document.getElementById('eqValor').value = e.valorEstimado || 0;
+  document.getElementById('eqUnidade').value = e.unidade || 'Carlos Prates';
+  fotoEquipTemp = null;
+  document.getElementById('eqFotoPreview').innerHTML = e.foto ? '<img src="'+e.foto+'" style="width:120px;height:120px;border-radius:14px;object-fit:cover;">' : '';
   abrirModal('modalEquip');
 }
 function salvarNovoEquipamento(){
@@ -727,11 +794,21 @@ function salvarNovoEquipamento(){
     quantidade: Number(document.getElementById('eqQtd').value) || 0,
     estoqueMinimo: Number(document.getElementById('eqMin').value) || 0,
     valorEstimado: Number(document.getElementById('eqValor').value) || 0,
-    condicao: 'boa',
-    unidade: document.getElementById('eqUnidade').value,
-    criadoEm: new Date().toISOString()
+    unidade: document.getElementById('eqUnidade').value
   };
   if(fotoEquipTemp) dados.foto = fotoEquipTemp.dataUrl;
+
+  if(eqEditId){
+    db.collection('estoqueEquipamentos').doc(eqEditId).update(dados).then(()=>{
+      showToast('Item atualizado');
+      fecharModal('modalEquip');
+      if(fotoEquipTemp) gerarEembeddingEmSegundoPlano(eqEditId, fotoEquipTemp.canvas);
+    }).catch(err=> showToast('Erro: '+err.message, true));
+    return;
+  }
+
+  dados.condicao = 'boa';
+  dados.criadoEm = new Date().toISOString();
   db.collection('estoqueEquipamentos').add(dados).then(ref=>{
     showToast('Item adicionado');
     fecharModal('modalEquip');
@@ -886,13 +963,15 @@ let movimentoTipoAtual = null;
 function listaItensDisponiveis(){
   const uniformesUnid = uniformesCache.filter(u=> u.unidade === unidadeAtual && Number(u.quantidade) > 0)
     .map(u=> ({id:'uniforme_'+u._docId, colecao:'estoqueUniformes', docId:u._docId, nome: nomeUniforme(u), qtd:u.quantidade}));
-  const equipUnid = equipamentosCache.filter(e=> e.unidade === unidadeAtual && Number(e.quantidade) > 0)
-    .map(e=> ({id:'equip_'+e._docId, colecao:'estoqueEquipamentos', docId:e._docId, nome:e.nome, qtd:e.quantidade}));
+  // equipamento "Ambas" fica disponível pra retirada em qualquer unidade
+  const equipUnid = equipamentosCache.filter(e=> (e.unidade === unidadeAtual || e.unidade === 'Ambas') && Number(e.quantidade) > 0)
+    .map(e=> ({id:'equip_'+e._docId, colecao:'estoqueEquipamentos', docId:e._docId, nome:e.nome + (e.unidade==='Ambas'?' (compartilhado)':''), qtd:e.quantidade}));
   return [...uniformesUnid, ...equipUnid];
 }
 function listaItensParaTransferencia(){
   const uniformesUnid = uniformesCache.filter(u=> u.unidade === unidadeAtual)
     .map(u=> ({id:'uniforme_'+u._docId, colecao:'estoqueUniformes', docId:u._docId, nome: nomeUniforme(u), qtd:u.quantidade}));
+  // itens "Ambas" não têm uma unidade de origem única, então não entram na transferência
   const equipUnid = equipamentosCache.filter(e=> e.unidade === unidadeAtual)
     .map(e=> ({id:'equip_'+e._docId, colecao:'estoqueEquipamentos', docId:e._docId, nome:e.nome, qtd:e.quantidade}));
   return [...uniformesUnid, ...equipUnid];
