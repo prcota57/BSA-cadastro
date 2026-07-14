@@ -96,6 +96,20 @@
   .item-row .info span{font-size:12px; color:var(--ink-soft);}
   .qty-badge{font-family:'Space Grotesk'; font-weight:700; font-size:15px; background:var(--pitch-soft); color:var(--pitch-dark); border-radius:10px; padding:5px 10px; min-width:34px; text-align:center;}
   .qty-badge.low{background:var(--coral-soft); color:var(--coral);}
+  .item-thumb{width:44px; height:44px; border-radius:10px; object-fit:cover; background:var(--pitch-soft); flex:0 0 auto;}
+  .item-row-left{display:flex; align-items:center; gap:10px;}
+  .camera-overlay{
+    position:fixed; inset:0; background:#000; display:none; z-index:70; flex-direction:column; align-items:center; justify-content:center; padding:20px;
+  }
+  .camera-overlay.active{display:flex;}
+  .camera-overlay video{width:100%; max-width:480px; aspect-ratio:1/1; object-fit:cover; border-radius:20px;}
+  .camera-overlay canvas{display:none;}
+  .camera-controls{display:flex; gap:16px; margin-top:22px; padding-bottom:env(safe-area-inset-bottom);}
+  .camera-controls button{border:none; border-radius:50%; width:64px; height:64px; font-size:26px; background:#fff; color:var(--pitch-dark);}
+  .camera-controls .cancel{background:rgba(255,255,255,0.15); color:#fff; width:48px; height:48px; align-self:center; font-size:20px;}
+  .cam-status{color:#fff; text-align:center; font-family:'Space Grotesk'; font-weight:600; margin-top:14px; font-size:15px; padding:0 24px;}
+  .resultado-ident{background:var(--pitch-soft); border-radius:16px; padding:16px; text-align:center; margin-top:12px;}
+  .resultado-ident b{display:block; font-family:'Space Grotesk'; font-size:17px; color:var(--pitch-dark); margin-bottom:4px;}
   .status-pill{font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:10px; margin-left:6px;}
   .status-disponivel{background:var(--pitch-soft); color:var(--pitch-dark);}
   .status-reservado{background:var(--gold-soft); color:#8A6D00;}
@@ -229,6 +243,8 @@
       <div class="tabs" id="tabsEquipUnidade"></div>
       <div id="listaEquipamentos"><div class="empty">Carregando...</div></div>
       <button class="btn btn-primary" onclick="abrirNovoEquipamento()">+ Novo item</button>
+      <button class="btn btn-outline" onclick="abrirCameraEquip('identificar')">🔍 Identificar equipamento pela câmera</button>
+      <div id="resultadoIdentEquip"></div>
     </div>
   </div>
 
@@ -264,6 +280,9 @@
 <div class="modal-bg" id="modalEquip">
   <div class="modal">
     <h3>Novo item de equipamento</h3>
+    <label>Foto (ajuda no reconhecimento por câmera)</label>
+    <div id="eqFotoPreview" style="text-align:center; margin-bottom:6px;"></div>
+    <button class="btn btn-outline" type="button" onclick="abrirCameraEquip('foto')">📷 Tirar foto</button>
     <label>Nome</label>
     <input type="text" id="eqNome" placeholder="Ex: Bola de campo nº5">
     <label>Categoria</label>
@@ -326,6 +345,17 @@
   </div>
 </div>
 
+<!-- ===== CÂMERA: FOTO / IDENTIFICAÇÃO DE EQUIPAMENTO ===== -->
+<div class="camera-overlay" id="cameraOverlayEquip">
+  <video id="videoEquip" autoplay playsinline muted></video>
+  <canvas id="canvasEquip"></canvas>
+  <div class="cam-status" id="statusEquipCam"></div>
+  <div class="camera-controls">
+    <button class="cancel" id="btnCancelEquipCam">✕</button>
+    <button id="btnCaptureEquipCam">📸</button>
+  </div>
+</div>
+
 <!-- ===== MODAL: PIN ADMIN ===== -->
 <div class="modal-bg" id="modalPin">
   <div class="modal" style="text-align:center;">
@@ -350,6 +380,8 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js"></script>
 <script>
 /* ============ CONFIG ============ */
 const firebaseConfig = {
@@ -656,8 +688,12 @@ function renderEquipamentos(){
   lista.innerHTML = filtrados.map(e=>{
     const baixo = (Number(e.quantidade)||0) <= (Number(e.estoqueMinimo)||0);
     const catLbl = e.categoria === 'especial' ? 'Equipamento especial' : 'Consumível';
+    const thumb = e.foto ? `<img class="item-thumb" src="${e.foto}">` : `<div class="item-thumb"></div>`;
     return `<div class="item-row">
-      <div class="info"><b>${e.nome}</b><span>${catLbl}${e.condicao==='manutencao'?' · em manutenção':''}</span></div>
+      <div class="item-row-left">
+        <div onclick="abrirCameraEquip('foto', '${e._docId}')">${thumb}</div>
+        <div class="info"><b>${e.nome}</b><span>${catLbl}${e.condicao==='manutencao'?' · em manutenção':''}</span></div>
+      </div>
       <div style="display:flex; align-items:center; gap:8px;">
         <button class="chip" onclick="ajustarQtdEquip('${e._docId}', -1)">−</button>
         <div class="qty-badge ${baixo?'low':''}">${e.quantidade}</div>
@@ -678,12 +714,14 @@ function abrirNovoEquipamento(){
   document.getElementById('eqMin').value = 2;
   document.getElementById('eqValor').value = 0;
   document.getElementById('eqUnidade').value = filtroUnidadeEquip;
+  fotoEquipTemp = null;
+  document.getElementById('eqFotoPreview').innerHTML = '';
   abrirModal('modalEquip');
 }
 function salvarNovoEquipamento(){
   const nome = document.getElementById('eqNome').value.trim();
   if(!nome){ showToast('Digite o nome do item', true); return; }
-  db.collection('estoqueEquipamentos').add({
+  const dados = {
     nome,
     categoria: document.getElementById('eqCategoria').value,
     quantidade: Number(document.getElementById('eqQtd').value) || 0,
@@ -692,8 +730,154 @@ function salvarNovoEquipamento(){
     condicao: 'boa',
     unidade: document.getElementById('eqUnidade').value,
     criadoEm: new Date().toISOString()
-  }).then(()=>{ showToast('Item adicionado'); fecharModal('modalEquip'); })
-    .catch(err=> showToast('Erro: '+err.message, true));
+  };
+  if(fotoEquipTemp) dados.foto = fotoEquipTemp.dataUrl;
+  db.collection('estoqueEquipamentos').add(dados).then(ref=>{
+    showToast('Item adicionado');
+    fecharModal('modalEquip');
+    if(fotoEquipTemp) gerarEembeddingEmSegundoPlano(ref.id, fotoEquipTemp.canvas);
+  }).catch(err=> showToast('Erro: '+err.message, true));
+}
+
+/* ============ CÂMERA E RECONHECIMENTO DE EQUIPAMENTO ============ */
+let fotoEquipTemp = null; // {dataUrl, canvas} — usado ao criar um item novo, antes de salvar
+let equipCameraStream = null;
+let modoCameraEquipAtual = null; // 'foto' | 'identificar'
+let equipFotoTargetId = null; // se definido, a foto tirada atualiza direto esse item já existente
+let mobilenetModel = null;
+let carregandoModeloObjetos = false;
+
+async function garantirModeloObjetos(){
+  if(mobilenetModel) return true;
+  if(carregandoModeloObjetos){
+    while(carregandoModeloObjetos){ await new Promise(r=>setTimeout(r,200)); }
+    return !!mobilenetModel;
+  }
+  carregandoModeloObjetos = true;
+  try{
+    mobilenetModel = await mobilenet.load();
+    return true;
+  }catch(err){
+    console.error(err);
+    return false;
+  }finally{
+    carregandoModeloObjetos = false;
+  }
+}
+
+function cosineSimilarity(a,b){
+  let dot=0, na=0, nb=0;
+  for(let i=0;i<a.length;i++){ dot += a[i]*b[i]; na += a[i]*a[i]; nb += b[i]*b[i]; }
+  if(na===0||nb===0) return 0;
+  return dot / (Math.sqrt(na)*Math.sqrt(nb));
+}
+
+async function abrirCameraEquip(modo, targetId){
+  modoCameraEquipAtual = modo;
+  equipFotoTargetId = targetId || null;
+  const video = document.getElementById('videoEquip');
+  const status = document.getElementById('statusEquipCam');
+  status.style.display = 'none';
+  try{
+    equipCameraStream = await navigator.mediaDevices.getUserMedia({video: {facingMode: 'environment'}, audio: false});
+    video.srcObject = equipCameraStream;
+    document.getElementById('cameraOverlayEquip').classList.add('active');
+    if(modo === 'identificar'){
+      status.style.display = 'block';
+      status.textContent = 'Carregando modelo de reconhecimento...';
+      const ok = await garantirModeloObjetos();
+      status.textContent = ok ? 'Aponte pro equipamento e toque em 📸' : 'Não foi possível carregar o modelo agora';
+    }
+  }catch(err){
+    showToast('Não foi possível abrir a câmera: ' + err.message, true);
+  }
+}
+function fecharCameraEquip(){
+  if(equipCameraStream){ equipCameraStream.getTracks().forEach(t=>t.stop()); equipCameraStream = null; }
+  document.getElementById('cameraOverlayEquip').classList.remove('active');
+}
+document.getElementById('btnCancelEquipCam').addEventListener('click', fecharCameraEquip);
+
+document.getElementById('btnCaptureEquipCam').addEventListener('click', async ()=>{
+  const video = document.getElementById('videoEquip');
+  const canvas = document.getElementById('canvasEquip');
+  const status = document.getElementById('statusEquipCam');
+  const size = 400;
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const side = Math.min(vw, vh);
+  const sx = (vw-side)/2, sy = (vh-side)/2;
+  ctx.drawImage(video, sx, sy, side, side, 0, 0, size, size);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+
+  if(modoCameraEquipAtual === 'foto'){
+    const canvasCopy = document.createElement('canvas');
+    canvasCopy.width = size; canvasCopy.height = size;
+    canvasCopy.getContext('2d').drawImage(canvas, 0, 0);
+
+    if(equipFotoTargetId){
+      // atualiza foto de um item já existente
+      db.collection('estoqueEquipamentos').doc(equipFotoTargetId).update({foto: dataUrl})
+        .then(()=>{ showToast('Foto atualizada'); gerarEembeddingEmSegundoPlano(equipFotoTargetId, canvasCopy); })
+        .catch(err=> showToast('Erro: '+err.message, true));
+    } else {
+      // guarda a foto pra usar quando salvar o novo item
+      fotoEquipTemp = {dataUrl, canvas: canvasCopy};
+      document.getElementById('eqFotoPreview').innerHTML = '<img src="'+dataUrl+'" style="width:120px;height:120px;border-radius:14px;object-fit:cover;">';
+    }
+    fecharCameraEquip();
+  }
+
+  else if(modoCameraEquipAtual === 'identificar'){
+    status.style.display = 'block';
+    status.textContent = 'Identificando...';
+    try{
+      const ok = await garantirModeloObjetos();
+      if(!ok){ status.textContent = 'Modelo indisponível, tente novamente'; return; }
+      const t = mobilenetModel.infer(canvas, true);
+      const embedding = Array.from(t.dataSync());
+      t.dispose();
+
+      const comFoto = equipamentosCache.filter(e=> Array.isArray(e.embedding) && e.embedding.length > 0);
+      let melhor = null, melhorScore = 0;
+      comFoto.forEach(e=>{
+        const score = cosineSimilarity(embedding, e.embedding);
+        if(score > melhorScore){ melhorScore = score; melhor = e; }
+      });
+
+      fecharCameraEquip();
+      const resultado = document.getElementById('resultadoIdentEquip');
+      if(melhor && melhorScore >= 0.75){
+        resultado.innerHTML = `<div class="resultado-ident">
+          <b>${melhor.nome}</b>
+          Quantidade: ${melhor.quantidade} · Valor aprox.: ${fmtMoeda(melhor.valorEstimado)}<br>
+          <span style="font-size:11px; opacity:0.7;">Unidade: ${melhor.unidade} · confiança ${(melhorScore*100).toFixed(0)}%</span>
+        </div>`;
+      } else {
+        resultado.innerHTML = `<div class="resultado-ident">
+          Não consegui identificar com confiança 🤔<br>
+          <span style="font-size:11.5px;">Cadastre uma foto de referência no item pra melhorar o reconhecimento.</span>
+        </div>`;
+      }
+    }catch(err){
+      console.error(err);
+      showToast('Erro ao identificar: ' + err.message, true);
+      fecharCameraEquip();
+    }
+  }
+});
+
+function gerarEembeddingEmSegundoPlano(docId, canvasEl){
+  garantirModeloObjetos().then(ok=>{
+    if(!ok) return;
+    try{
+      const t = mobilenetModel.infer(canvasEl, true);
+      const embedding = Array.from(t.dataSync());
+      t.dispose();
+      db.collection('estoqueEquipamentos').doc(docId).update({embedding});
+    }catch(err){ console.error(err); }
+  });
 }
 
 /* ============ MOVIMENTOS: RETIRADA / DEVOLUÇÃO / DANO / TRANSFERÊNCIA ============ */
