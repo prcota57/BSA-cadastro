@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<title>BSA Estoque</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F6F8F4; --surface:#FFFFFF; --pitch:#0F5C3D; --pitch-dark:#0B4530; --pitch-soft:#E4EFE8;
+    --gold:#FFC800; --gold-soft:#FFF3CC; --coral:#FF5A36; --coral-soft:#FFE4DC;
+    --vinho:#7A1730; --vinho-soft:#F4DEE3; --azul:#1B4F9C; --azul-soft:#DCE7F8; --dourado:#B8860B; --dourado-soft:#F7EBCB;
+    --ink:#142B20; --ink-soft:#5C7268; --line:#DCE5DD; --radius:18px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif; height:100%;}
+  body{padding-bottom:calc(78px + env(safe-area-inset-bottom)); padding-top:env(safe-area-inset-top);}
+  h1,h2,h3{font-family:'Space Grotesk',sans-serif; margin:0;}
+  header.top{
+    position:sticky; top:0; z-index:20; background:var(--pitch); color:#fff;
+    padding:16px 18px 14px; border-radius:0 0 22px 22px; box-shadow:0 6px 18px rgba(15,92,61,0.18);
+  }
+  header.top .row{display:flex; align-items:center; gap:10px; justify-content:space-between;}
+  header.top .left{display:flex; align-items:center; gap:10px;}
+  header.top a.back{color:#fff; text-decoration:none; font-size:20px;}
+  header.top h1{font-size:19px; font-weight:700;}
+  header.top .sub{font-size:12px; opacity:0.85; margin-top:1px;}
+  .unit-pill{
+    background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.3); color:#fff;
+    border-radius:20px; padding:6px 12px; font-size:12.5px; font-weight:600; font-family:'Space Grotesk';
+  }
+  .mode-toggle{display:flex; gap:6px; margin-top:12px;}
+  .mode-toggle button{
+    flex:1; border:none; border-radius:12px; padding:9px 6px; font-family:'Space Grotesk'; font-weight:600; font-size:13px;
+    background:rgba(255,255,255,0.12); color:#fff; opacity:0.75;
+  }
+  .mode-toggle button.active{background:#fff; color:var(--pitch-dark); opacity:1;}
+
+  main{padding:16px 14px 10px;}
+  .screen{display:none;}
+  .screen.active{display:block;}
+
+  .panel{background:var(--surface); border-radius:var(--radius); padding:16px; margin-bottom:12px; border:1px solid var(--line); box-shadow:0 2px 8px rgba(20,43,32,0.05);}
+  .panel h2{font-size:15px; margin-bottom:10px;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;}
+
+  .stat-card{background:var(--pitch); color:#fff; border-radius:var(--radius); padding:16px; margin-bottom:12px;}
+  .stat-card .big{font-family:'Space Grotesk'; font-size:26px; font-weight:800;}
+  .stat-card .lbl{font-size:12.5px; opacity:0.85; margin-top:2px;}
+  .stat-mini{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:12px 10px; text-align:center;}
+  .stat-mini .num{font-family:'Space Grotesk'; font-size:19px; font-weight:700; color:var(--pitch-dark);}
+  .stat-mini.alert .num{color:var(--coral);}
+  .stat-mini .lbl{font-size:10.5px; color:var(--ink-soft); margin-top:2px;}
+
+  .big-btn{
+    display:flex; align-items:center; gap:14px; background:var(--surface); border:1px solid var(--line);
+    border-radius:16px; padding:16px; margin-bottom:10px; cursor:pointer;
+  }
+  .big-btn .emoji{font-size:26px;}
+  .big-btn .txt b{display:block; font-family:'Space Grotesk'; font-size:15px;}
+  .big-btn .txt span{font-size:12px; color:var(--ink-soft);}
+  .big-btn.coral{border-color:var(--coral); background:var(--coral-soft);}
+
+  label{display:block; font-size:12.5px; font-weight:600; color:var(--ink-soft); margin:10px 0 5px;}
+  select, input[type=text], input[type=number]{
+    width:100%; padding:12px; border-radius:12px; border:1.5px solid var(--line); font-size:15px; font-family:'Inter'; background:#fff; color:var(--ink);
+  }
+  .chip-row{display:flex; gap:8px; flex-wrap:wrap; margin-top:4px;}
+  .chip{
+    border:1.5px solid var(--line); border-radius:20px; padding:8px 14px; font-size:13px; font-weight:600; background:#fff; color:var(--ink-soft); cursor:pointer;
+  }
+  .chip.sel{background:var(--pitch); border-color:var(--pitch); color:#fff;}
+  .chip.sel.vinho{background:var(--vinho); border-color:var(--vinho);}
+  .chip.sel.azul{background:var(--azul); border-color:var(--azul);}
+  .chip.sel.dourado{background:var(--dourado); border-color:var(--dourado);}
+
+  .btn{border:none; border-radius:14px; padding:15px; font-family:'Space Grotesk'; font-weight:700; font-size:15.5px; cursor:pointer; text-align:center; width:100%; margin-top:14px;}
+  .btn-primary{background:var(--pitch); color:#fff;}
+  .btn-coral{background:var(--coral); color:#fff;}
+  .btn-outline{background:transparent; border:1.5px solid var(--pitch); color:var(--pitch);}
+  .btn:disabled{opacity:0.5;}
+
+  .tabs{display:flex; gap:6px; margin-bottom:12px; overflow-x:auto;}
+  .tabs button{flex:0 0 auto; border:none; background:var(--pitch-soft); color:var(--pitch-dark); font-family:'Space Grotesk'; font-weight:600; font-size:12.5px; padding:9px 14px; border-radius:20px;}
+  .tabs button.active{background:var(--pitch); color:#fff;}
+
+  .item-row{display:flex; align-items:center; justify-content:space-between; padding:11px 0; border-bottom:1px solid var(--line);}
+  .item-row:last-child{border-bottom:none;}
+  .item-row .info b{display:block; font-size:14px;}
+  .item-row .info span{font-size:12px; color:var(--ink-soft);}
+  .qty-badge{font-family:'Space Grotesk'; font-weight:700; font-size:15px; background:var(--pitch-soft); color:var(--pitch-dark); border-radius:10px; padding:5px 10px; min-width:34px; text-align:center;}
+  .qty-badge.low{background:var(--coral-soft); color:var(--coral);}
+  .status-pill{font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:10px; margin-left:6px;}
+  .status-disponivel{background:var(--pitch-soft); color:var(--pitch-dark);}
+  .status-reservado{background:var(--gold-soft); color:#8A6D00;}
+  .status-producao{background:var(--azul-soft); color:var(--azul);}
+
+  .bottom-nav{
+    position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--line);
+    display:flex; padding:8px 6px calc(8px + env(safe-area-inset-bottom)); z-index:30;
+  }
+  .bottom-nav button{flex:1; border:none; background:none; display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 2px; color:var(--ink-soft); font-size:10.5px; font-family:'Inter'; font-weight:600;}
+  .bottom-nav button .ic{font-size:19px;}
+  .bottom-nav button.active{color:var(--pitch);}
+
+  .empty{text-align:center; color:var(--ink-soft); font-size:13px; padding:24px 10px;}
+  .toast{position:fixed; bottom:88px; left:50%; transform:translateX(-50%); background:var(--pitch-dark); color:#fff; padding:11px 20px; border-radius:12px; font-size:13.5px; opacity:0; pointer-events:none; transition:opacity 0.25s; z-index:50; max-width:88%; text-align:center;}
+  .toast.show{opacity:1;}
+  .toast.err{background:var(--coral);}
+
+  .modal-bg{position:fixed; inset:0; background:rgba(20,43,32,0.45); display:none; align-items:flex-end; z-index:60;}
+  .modal-bg.active{display:flex;}
+  .modal{background:#fff; width:100%; border-radius:22px 22px 0 0; padding:20px 18px calc(20px + env(safe-area-inset-bottom)); max-height:85vh; overflow-y:auto;}
+  .modal h3{font-size:16px; margin-bottom:4px;}
+  .modal .close{position:absolute; right:20px; top:16px; font-size:20px; color:var(--ink-soft);}
+  .pin-dots{display:flex; gap:12px; justify-content:center; margin:18px 0;}
+  .pin-dots span{width:14px; height:14px; border-radius:50%; border:2px solid var(--pitch); display:block;}
+  .pin-dots span.filled{background:var(--pitch);}
+  .pin-pad{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;}
+  .pin-pad button{padding:16px; border-radius:14px; border:1px solid var(--line); background:#fff; font-family:'Space Grotesk'; font-size:18px; font-weight:700;}
+  .spinner{width:22px; height:22px; border:2.5px solid var(--pitch-soft); border-top-color:var(--pitch); border-radius:50%; animation:spin 0.8s linear infinite; margin:30px auto;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="row">
+    <div class="left">
+      <a class="back" href="index.html">←</a>
+      <div>
+        <h1>📦 BSA Estoque</h1>
+        <div class="sub" id="modeSub">Modo Professor</div>
+      </div>
+    </div>
+    <div class="unit-pill" id="unitPill" onclick="abrirTrocaUnidade()">Carlos Prates ▾</div>
+  </div>
+  <div class="mode-toggle">
+    <button id="btnModoProfessor" class="active">👟 Professor</button>
+    <button id="btnModoAdmin">🔑 Administrador</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ===== TELA PROFESSOR ===== -->
+  <div class="screen active" id="screen-professor">
+    <div class="big-btn" onclick="abrirMovimento('retirada')">
+      <div class="emoji">📤</div>
+      <div class="txt"><b>Retirar Material</b><span>Levar uniforme ou equipamento pra aula</span></div>
+    </div>
+    <div class="big-btn" onclick="abrirMovimento('devolucao')">
+      <div class="emoji">📥</div>
+      <div class="txt"><b>Devolver Material</b><span>Voltar item pro estoque</span></div>
+    </div>
+    <div class="big-btn coral" onclick="abrirMovimento('dano')">
+      <div class="emoji">⚠️</div>
+      <div class="txt"><b>Reportar Problema</b><span>Bola furada, colete rasgado, etc.</span></div>
+    </div>
+
+    <div class="panel">
+      <h2>Últimas movimentações — <span id="unidadeLabelProf">Carlos Prates</span></h2>
+      <div id="listaMovProf"><div class="empty">Carregando...</div></div>
+    </div>
+  </div>
+
+  <!-- ===== TELA ADMIN: DASHBOARD ===== -->
+  <div class="screen" id="screen-dashboard">
+    <div class="stat-card">
+      <div class="lbl">Valor total estimado do patrimônio</div>
+      <div class="big" id="valorPatrimonio">R$ 0</div>
+    </div>
+    <div class="grid3">
+      <div class="stat-mini"><div class="num" id="totalItens">0</div><div class="lbl">itens no total</div></div>
+      <div class="stat-mini alert"><div class="num" id="totalBaixo">0</div><div class="lbl">estoque baixo</div></div>
+      <div class="stat-mini alert"><div class="num" id="totalDanos">0</div><div class="lbl">danos pendentes</div></div>
+    </div>
+    <div class="panel">
+      <h2>Vendas de uniforme (mês atual)</h2>
+      <div class="stat-card" style="background:var(--gold); color:var(--ink);">
+        <div class="lbl" style="color:#8A6D00;">Total vendido</div>
+        <div class="big" id="valorVendasMes">R$ 0</div>
+      </div>
+      <button class="btn btn-outline" onclick="abrirVenda()">💰 Registrar venda de uniforme</button>
+    </div>
+    <div class="panel">
+      <h2>Alertas de estoque mínimo</h2>
+      <div id="listaAlertas"><div class="empty">Carregando...</div></div>
+    </div>
+    <div class="panel">
+      <h2>Danos pendentes</h2>
+      <div id="listaDanos"><div class="empty">Carregando...</div></div>
+    </div>
+  </div>
+
+  <!-- ===== TELA ADMIN: UNIFORMES ===== -->
+  <div class="screen" id="screen-uniformes">
+    <div class="panel">
+      <h2>Uniformes BSA</h2>
+      <div class="tabs" id="tabsUniformeUnidade"></div>
+      <div id="listaUniformes"><div class="empty">Carregando...</div></div>
+      <button class="btn btn-outline" onclick="gerarGradeUniformes()">🧩 Gerar grade completa de tamanhos</button>
+    </div>
+  </div>
+
+  <!-- ===== TELA ADMIN: EQUIPAMENTOS ===== -->
+  <div class="screen" id="screen-equipamentos">
+    <div class="panel">
+      <h2>Equipamentos e Patrimônio</h2>
+      <div class="tabs" id="tabsEquipUnidade"></div>
+      <div id="listaEquipamentos"><div class="empty">Carregando...</div></div>
+      <button class="btn btn-primary" onclick="abrirNovoEquipamento()">+ Novo item</button>
+    </div>
+  </div>
+
+  <!-- ===== TELA ADMIN: MOVIMENTAÇÕES / TRANSFERÊNCIA ===== -->
+  <div class="screen" id="screen-movimentacoes">
+    <div class="panel">
+      <h2>Transferir entre unidades</h2>
+      <button class="btn btn-outline" onclick="abrirMovimento('transferencia')">🔁 Nova transferência</button>
+    </div>
+    <div class="panel">
+      <h2>Histórico completo</h2>
+      <div class="tabs" id="tabsHistoricoFiltro"></div>
+      <div id="listaHistorico"><div class="empty">Carregando...</div></div>
+    </div>
+  </div>
+
+</main>
+
+<div class="bottom-nav" id="bottomNav"></div>
+<div class="toast" id="toast"></div>
+
+<!-- ===== MODAL: MOVIMENTO (retirada/devolução/dano/transferência) ===== -->
+<div class="modal-bg" id="modalMovimento">
+  <div class="modal">
+    <h3 id="modalMovTitulo">Retirar material</h3>
+    <div id="modalMovBody"></div>
+    <button class="btn btn-primary" id="btnConfirmarMov">Confirmar</button>
+    <button class="btn btn-outline" onclick="fecharModal('modalMovimento')">Cancelar</button>
+  </div>
+</div>
+
+<!-- ===== MODAL: NOVO EQUIPAMENTO ===== -->
+<div class="modal-bg" id="modalEquip">
+  <div class="modal">
+    <h3>Novo item de equipamento</h3>
+    <label>Nome</label>
+    <input type="text" id="eqNome" placeholder="Ex: Bola de campo nº5">
+    <label>Categoria</label>
+    <select id="eqCategoria"><option value="consumivel">Consumível/Desgastável</option><option value="especial">Equipamento especial</option></select>
+    <label>Quantidade</label>
+    <input type="number" id="eqQtd" value="1" min="0">
+    <label>Estoque mínimo (alerta)</label>
+    <input type="number" id="eqMin" value="2" min="0">
+    <label>Valor estimado (unidade, R$)</label>
+    <input type="number" id="eqValor" value="0" min="0" step="0.01">
+    <label>Unidade</label>
+    <select id="eqUnidade"><option>Carlos Prates</option><option>Estoril</option></select>
+    <button class="btn btn-primary" onclick="salvarNovoEquipamento()">Salvar</button>
+    <button class="btn btn-outline" onclick="fecharModal('modalEquip')">Cancelar</button>
+  </div>
+</div>
+
+<!-- ===== MODAL: VENDA DE UNIFORME ===== -->
+<div class="modal-bg" id="modalVenda">
+  <div class="modal">
+    <h3>Registrar venda de uniforme</h3>
+    <div id="modalVendaBody"></div>
+    <button class="btn btn-primary" onclick="confirmarVenda()">Confirmar venda</button>
+    <button class="btn btn-outline" onclick="fecharModal('modalVenda')">Cancelar</button>
+  </div>
+</div>
+
+<!-- ===== MODAL: PIN ADMIN ===== -->
+<div class="modal-bg" id="modalPin">
+  <div class="modal" style="text-align:center;">
+    <h3>Acesso Administrador</h3>
+    <div style="font-size:13px; color:var(--ink-soft); margin-top:4px;">Digite o PIN de 4 dígitos</div>
+    <div class="pin-dots" id="pinDots"><span></span><span></span><span></span><span></span></div>
+    <div class="pin-pad" id="pinPad"></div>
+    <button class="btn btn-outline" onclick="fecharModal('modalPin'); document.getElementById('btnModoProfessor').click();">Cancelar</button>
+  </div>
+</div>
+
+<!-- ===== MODAL: TROCA DE UNIDADE ===== -->
+<div class="modal-bg" id="modalUnidade">
+  <div class="modal" style="text-align:center;">
+    <h3>Trocar de unidade</h3>
+    <button class="btn btn-primary" onclick="selecionarUnidade('Carlos Prates')">Carlos Prates</button>
+    <button class="btn btn-primary" onclick="selecionarUnidade('Estoril')">Estoril</button>
+    <button class="btn btn-outline" onclick="fecharModal('modalUnidade')">Cancelar</button>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script>
+/* ============ CONFIG ============ */
+const firebaseConfig = {
+  apiKey: "AIzaSyDmM2m_QnEeRflAKCyb11TzOrZM7iVgLCA",
+  authDomain: "bsa-app-493c3.firebaseapp.com",
+  projectId: "bsa-app-493c3",
+  storageBucket: "bsa-app-493c3.firebasestorage.app",
+  messagingSenderId: "455452879388",
+  appId: "1:455452879388:web:7135d93c116b2fe7cfcdd9"
+};
+const ADMIN_PIN = "2580"; // pode pedir pra trocar quando quiser
+
+const UNIDADES = ['Carlos Prates', 'Estoril'];
+const CORES_UNIFORME = [
+  {id:'vinho', nome:'Vinho'}, {id:'azul', nome:'Azul'}, {id:'dourado', nome:'Dourado'}
+];
+const TAMANHOS_INFANTIL = ['4','6','8','10','12','14'];
+const TAMANHOS_JUVENIL = ['PP','P','M','G','GG'];
+const TIPOS_UNIFORME = [{id:'aluno', nome:'Aluno'}, {id:'comissao', nome:'Comissão Técnica'}];
+const MOTIVOS_DANO = ['Bola furada', 'Colete rasgado', 'Cone quebrado', 'Barreira danificada', 'Outro'];
+
+let db;
+let uniformesCache = [], equipamentosCache = [], movimentacoesCache = [];
+let unidadeAtual = localStorage.getItem('bsaEstoqueUnidade') || 'Carlos Prates';
+let professorNome = localStorage.getItem('bsaEstoqueProfessor') || '';
+let modoAtual = 'professor';
+let telaAdminAtiva = 'screen-dashboard';
+let filtroUnidadeUniformes = unidadeAtual;
+let filtroUnidadeEquip = unidadeAtual;
+let filtroHistorico = 'todos';
+let pinDigitado = '';
+
+/* ============ INIT FIREBASE ============ */
+firebase.initializeApp(firebaseConfig);
+db = firebase.firestore();
+firebase.auth().signInAnonymously().catch(err=> showToast('Erro ao conectar: ' + err.message, true));
+
+db.collection('estoqueUniformes').onSnapshot(snap=>{
+  uniformesCache = [];
+  snap.forEach(doc=> uniformesCache.push(Object.assign({_docId: doc.id}, doc.data())));
+  renderUniformes(); renderDashboard(); renderMovimentoOptionsIfOpen();
+}, err=> showToast('Erro ao carregar uniformes: ' + err.message, true));
+
+db.collection('estoqueEquipamentos').onSnapshot(snap=>{
+  equipamentosCache = [];
+  snap.forEach(doc=> equipamentosCache.push(Object.assign({_docId: doc.id}, doc.data())));
+  renderEquipamentos(); renderDashboard(); renderMovimentoOptionsIfOpen();
+}, err=> showToast('Erro ao carregar equipamentos: ' + err.message, true));
+
+db.collection('movimentacoes').orderBy('data','desc').limit(200).onSnapshot(snap=>{
+  movimentacoesCache = [];
+  snap.forEach(doc=> movimentacoesCache.push(Object.assign({_docId: doc.id}, doc.data())));
+  renderMovimentacoesProfessor(); renderHistorico(); renderDashboard();
+}, err=> showToast('Erro ao carregar histórico: ' + err.message, true));
+
+/* ============ HELPERS ============ */
+function showToast(msg, isErr){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isErr ? ' err' : '');
+  setTimeout(()=> t.className = 'toast', 2600);
+}
+function fecharModal(id){ document.getElementById(id).classList.remove('active'); }
+function abrirModal(id){ document.getElementById(id).classList.add('active'); }
+function fmtMoeda(v){ return 'R$ ' + (Number(v)||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function fmtData(iso){
+  try{ return new Date(iso).toLocaleString('pt-BR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}); }catch(e){ return ''; }
+}
+
+/* ============ UNIDADE ============ */
+function abrirTrocaUnidade(){ abrirModal('modalUnidade'); }
+function selecionarUnidade(u){
+  unidadeAtual = u;
+  filtroUnidadeUniformes = u; filtroUnidadeEquip = u;
+  localStorage.setItem('bsaEstoqueUnidade', u);
+  document.getElementById('unitPill').textContent = u + ' ▾';
+  document.getElementById('unidadeLabelProf').textContent = u;
+  fecharModal('modalUnidade');
+  renderTudo();
+}
+document.getElementById('unitPill').textContent = unidadeAtual + ' ▾';
+document.getElementById('unidadeLabelProf').textContent = unidadeAtual;
+
+/* ============ MODO PROFESSOR / ADMIN ============ */
+document.getElementById('btnModoProfessor').addEventListener('click', ()=>{
+  modoAtual = 'professor';
+  document.getElementById('btnModoProfessor').classList.add('active');
+  document.getElementById('btnModoAdmin').classList.remove('active');
+  document.getElementById('modeSub').textContent = 'Modo Professor';
+  mostrarTela('screen-professor');
+  renderBottomNav();
+});
+document.getElementById('btnModoAdmin').addEventListener('click', ()=>{
+  pinDigitado = '';
+  renderPinDots();
+  abrirModal('modalPin');
+});
+
+function montarPinPad(){
+  const pad = document.getElementById('pinPad');
+  pad.innerHTML = '';
+  const teclas = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
+  teclas.forEach(t=>{
+    const b = document.createElement('button');
+    b.textContent = t;
+    if(t === ''){ b.style.visibility = 'hidden'; }
+    else{
+      b.addEventListener('click', ()=>{
+        if(t === '⌫'){ pinDigitado = pinDigitado.slice(0,-1); }
+        else if(pinDigitado.length < 4){ pinDigitado += t; }
+        renderPinDots();
+        if(pinDigitado.length === 4){
+          setTimeout(()=>{
+            if(pinDigitado === ADMIN_PIN){
+              fecharModal('modalPin');
+              modoAtual = 'admin';
+              document.getElementById('btnModoAdmin').classList.add('active');
+              document.getElementById('btnModoProfessor').classList.remove('active');
+              document.getElementById('modeSub').textContent = 'Modo Administrador';
+              mostrarTela(telaAdminAtiva);
+              renderBottomNav();
+            } else {
+              showToast('PIN incorreto', true);
+              pinDigitado = '';
+              renderPinDots();
+            }
+          }, 150);
+        }
+      });
+    }
+    pad.appendChild(b);
+  });
+}
+montarPinPad();
+function renderPinDots(){
+  const dots = document.querySelectorAll('#pinDots span');
+  dots.forEach((d,i)=> d.classList.toggle('filled', i < pinDigitado.length));
+}
+
+function mostrarTela(id){
+  document.querySelectorAll('.screen').forEach(s=> s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id !== 'screen-professor') telaAdminAtiva = id;
+}
+
+function renderBottomNav(){
+  const nav = document.getElementById('bottomNav');
+  nav.innerHTML = '';
+  let itens;
+  if(modoAtual === 'professor'){
+    itens = [{id:'screen-professor', ic:'👟', lbl:'Início'}];
+  } else {
+    itens = [
+      {id:'screen-dashboard', ic:'📊', lbl:'Dashboard'},
+      {id:'screen-uniformes', ic:'👕', lbl:'Uniformes'},
+      {id:'screen-equipamentos', ic:'⚽', lbl:'Equipamentos'},
+      {id:'screen-movimentacoes', ic:'🔁', lbl:'Movimentações'},
+    ];
+  }
+  itens.forEach(it=>{
+    const b = document.createElement('button');
+    b.innerHTML = '<span class="ic">'+it.ic+'</span><span>'+it.lbl+'</span>';
+    const ativo = document.getElementById(it.id).classList.contains('active');
+    if(ativo) b.classList.add('active');
+    b.addEventListener('click', ()=>{ mostrarTela(it.id); renderBottomNav(); });
+    nav.appendChild(b);
+  });
+}
+renderBottomNav();
+
+/* ============ DASHBOARD ============ */
+function renderDashboard(){
+  let valorTotal = 0;
+  equipamentosCache.forEach(e=> valorTotal += (Number(e.valorEstimado)||0) * (Number(e.quantidade)||0));
+  document.getElementById('valorPatrimonio').textContent = fmtMoeda(valorTotal);
+
+  const totalItens = uniformesCache.reduce((s,u)=> s+(Number(u.quantidade)||0),0) + equipamentosCache.reduce((s,e)=> s+(Number(e.quantidade)||0),0);
+  document.getElementById('totalItens').textContent = totalItens;
+
+  const baixoUniforme = uniformesCache.filter(u=> (Number(u.quantidade)||0) <= (Number(u.estoqueMinimo)||0));
+  const baixoEquip = equipamentosCache.filter(e=> (Number(e.quantidade)||0) <= (Number(e.estoqueMinimo)||0));
+  document.getElementById('totalBaixo').textContent = baixoUniforme.length + baixoEquip.length;
+
+  const danosPendentes = movimentacoesCache.filter(m=> m.tipo === 'dano' && m.status === 'pendente');
+  document.getElementById('totalDanos').textContent = danosPendentes.length;
+
+  const inicioMes = new Date(); inicioMes.setDate(1); inicioMes.setHours(0,0,0,0);
+  const vendasMes = movimentacoesCache.filter(m=> m.tipo === 'venda' && new Date(m.data) >= inicioMes);
+  const totalVendas = vendasMes.reduce((s,v)=> s + (Number(v.valorVenda)||0), 0);
+  document.getElementById('valorVendasMes').textContent = fmtMoeda(totalVendas);
+
+  const listaAlertas = document.getElementById('listaAlertas');
+  const alertaItens = [...baixoUniforme.map(u=> ({nome: nomeUniforme(u), qtd:u.quantidade, min:u.estoqueMinimo, unidade:u.unidade})),
+                        ...baixoEquip.map(e=> ({nome:e.nome, qtd:e.quantidade, min:e.estoqueMinimo, unidade:e.unidade}))];
+  listaAlertas.innerHTML = alertaItens.length === 0 ? '<div class="empty">Nenhum alerta no momento 🎉</div>' :
+    alertaItens.map(a=> `<div class="item-row"><div class="info"><b>${a.nome}</b><span>${a.unidade}</span></div><div class="qty-badge low">${a.qtd}/${a.min}</div></div>`).join('');
+
+  const listaDanos = document.getElementById('listaDanos');
+  listaDanos.innerHTML = danosPendentes.length === 0 ? '<div class="empty">Nenhum dano pendente</div>' :
+    danosPendentes.map(d=> `<div class="item-row"><div class="info"><b>${d.itemNome}</b><span>${d.observacao||''} · ${d.unidade} · ${fmtData(d.data)}</span></div><button class="chip" onclick="resolverDano('${d._docId}')">Resolver</button></div>`).join('');
+}
+
+function resolverDano(id){
+  db.collection('movimentacoes').doc(id).update({status:'resolvido'})
+    .then(()=> showToast('Marcado como resolvido'))
+    .catch(err=> showToast('Erro: ' + err.message, true));
+}
+
+function nomeUniforme(u){
+  const cor = CORES_UNIFORME.find(c=>c.id===u.cor);
+  const tipo = TIPOS_UNIFORME.find(t=>t.id===u.tipo);
+  return 'Kit ' + (cor?cor.nome:u.cor) + ' ' + (tipo?tipo.nome:u.tipo) + ' — Tam. ' + u.tamanho;
+}
+
+/* ============ UNIFORMES (ADMIN) ============ */
+function renderTabsUnidade(containerId, filtroAtualGetter, onSelect){
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  UNIDADES.forEach(u=>{
+    const b = document.createElement('button');
+    b.textContent = u;
+    if(filtroAtualGetter() === u) b.classList.add('active');
+    b.addEventListener('click', ()=>{ onSelect(u); });
+    el.appendChild(b);
+  });
+}
+
+function renderUniformes(){
+  renderTabsUnidade('tabsUniformeUnidade', ()=>filtroUnidadeUniformes, (u)=>{ filtroUnidadeUniformes = u; renderUniformes(); });
+  const lista = document.getElementById('listaUniformes');
+  const filtrados = uniformesCache.filter(u=> u.unidade === filtroUnidadeUniformes)
+    .sort((a,b)=> (a.cor+a.tipo+a.tamanho).localeCompare(b.cor+b.tipo+b.tamanho));
+  if(filtrados.length === 0){
+    lista.innerHTML = '<div class="empty">Nenhum kit cadastrado nessa unidade ainda.<br>Toque em "Gerar grade completa" abaixo.</div>';
+    return;
+  }
+  lista.innerHTML = filtrados.map(u=>{
+    const baixo = (Number(u.quantidade)||0) <= (Number(u.estoqueMinimo)||0);
+    const statusLbl = {disponivel:'Disponível', reservado:'Reservado', producao:'Em produção'}[u.status] || u.status;
+    return `<div class="item-row">
+      <div class="info"><b>${nomeUniforme(u)}</b><span>${statusLbl}<span class="status-pill status-${u.status}"></span></span></div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button class="chip" onclick="ajustarQtdUniforme('${u._docId}', -1)">−</button>
+        <div class="qty-badge ${baixo?'low':''}">${u.quantidade}</div>
+        <button class="chip" onclick="ajustarQtdUniforme('${u._docId}', 1)">+</button>
+        <select onchange="mudarStatusUniforme('${u._docId}', this.value)" style="width:auto; padding:6px 8px; font-size:11.5px;">
+          <option value="disponivel" ${u.status==='disponivel'?'selected':''}>Disponível</option>
+          <option value="reservado" ${u.status==='reservado'?'selected':''}>Reservado</option>
+          <option value="producao" ${u.status==='producao'?'selected':''}>Em produção</option>
+        </select>
+      </div>
+    </div>`;
+  }).join('');
+}
+function ajustarQtdUniforme(id, delta){
+  const u = uniformesCache.find(x=>x._docId===id);
+  if(!u) return;
+  const nova = Math.max(0, (Number(u.quantidade)||0) + delta);
+  db.collection('estoqueUniformes').doc(id).update({quantidade: nova}).catch(err=> showToast('Erro: '+err.message, true));
+}
+function mudarStatusUniforme(id, status){
+  db.collection('estoqueUniformes').doc(id).update({status}).catch(err=> showToast('Erro: '+err.message, true));
+}
+function gerarGradeUniformes(){
+  if(!confirm('Gerar toda a grade de tamanhos (vinho/azul/dourado x infantil/juvenil x aluno/comissão) pra unidade ' + filtroUnidadeUniformes + '?')) return;
+  const existentesChaves = new Set(uniformesCache.filter(u=>u.unidade===filtroUnidadeUniformes).map(u=> u.cor+'|'+u.tipo+'|'+u.tamanho));
+  const lote = db.batch();
+  let criados = 0;
+  CORES_UNIFORME.forEach(cor=>{
+    TIPOS_UNIFORME.forEach(tipo=>{
+      const tamanhos = [...TAMANHOS_INFANTIL, ...TAMANHOS_JUVENIL];
+      tamanhos.forEach(tam=>{
+        const chave = cor.id+'|'+tipo.id+'|'+tam;
+        if(existentesChaves.has(chave)) return;
+        const ref = db.collection('estoqueUniformes').doc();
+        lote.set(ref, {
+          cor: cor.id, tipo: tipo.id, tamanho: tam, unidade: filtroUnidadeUniformes,
+          quantidade: 0, estoqueMinimo: 2, status: 'disponivel', criadoEm: new Date().toISOString()
+        });
+        criados++;
+      });
+    });
+  });
+  if(criados === 0){ showToast('Grade já está completa nessa unidade'); return; }
+  lote.commit().then(()=> showToast(criados + ' kits criados na grade')).catch(err=> showToast('Erro: '+err.message, true));
+}
+
+/* ============ EQUIPAMENTOS (ADMIN) ============ */
+function renderEquipamentos(){
+  renderTabsUnidade('tabsEquipUnidade', ()=>filtroUnidadeEquip, (u)=>{ filtroUnidadeEquip = u; renderEquipamentos(); });
+  const lista = document.getElementById('listaEquipamentos');
+  const filtrados = equipamentosCache.filter(e=> e.unidade === filtroUnidadeEquip);
+  if(filtrados.length === 0){
+    lista.innerHTML = '<div class="empty">Nenhum equipamento cadastrado nessa unidade ainda.</div>';
+    return;
+  }
+  lista.innerHTML = filtrados.map(e=>{
+    const baixo = (Number(e.quantidade)||0) <= (Number(e.estoqueMinimo)||0);
+    const catLbl = e.categoria === 'especial' ? 'Equipamento especial' : 'Consumível';
+    return `<div class="item-row">
+      <div class="info"><b>${e.nome}</b><span>${catLbl}${e.condicao==='manutencao'?' · em manutenção':''}</span></div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button class="chip" onclick="ajustarQtdEquip('${e._docId}', -1)">−</button>
+        <div class="qty-badge ${baixo?'low':''}">${e.quantidade}</div>
+        <button class="chip" onclick="ajustarQtdEquip('${e._docId}', 1)">+</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function ajustarQtdEquip(id, delta){
+  const e = equipamentosCache.find(x=>x._docId===id);
+  if(!e) return;
+  const nova = Math.max(0, (Number(e.quantidade)||0) + delta);
+  db.collection('estoqueEquipamentos').doc(id).update({quantidade: nova}).catch(err=> showToast('Erro: '+err.message, true));
+}
+function abrirNovoEquipamento(){
+  document.getElementById('eqNome').value = '';
+  document.getElementById('eqQtd').value = 1;
+  document.getElementById('eqMin').value = 2;
+  document.getElementById('eqValor').value = 0;
+  document.getElementById('eqUnidade').value = filtroUnidadeEquip;
+  abrirModal('modalEquip');
+}
+function salvarNovoEquipamento(){
+  const nome = document.getElementById('eqNome').value.trim();
+  if(!nome){ showToast('Digite o nome do item', true); return; }
+  db.collection('estoqueEquipamentos').add({
+    nome,
+    categoria: document.getElementById('eqCategoria').value,
+    quantidade: Number(document.getElementById('eqQtd').value) || 0,
+    estoqueMinimo: Number(document.getElementById('eqMin').value) || 0,
+    valorEstimado: Number(document.getElementById('eqValor').value) || 0,
+    condicao: 'boa',
+    unidade: document.getElementById('eqUnidade').value,
+    criadoEm: new Date().toISOString()
+  }).then(()=>{ showToast('Item adicionado'); fecharModal('modalEquip'); })
+    .catch(err=> showToast('Erro: '+err.message, true));
+}
+
+/* ============ MOVIMENTOS: RETIRADA / DEVOLUÇÃO / DANO / TRANSFERÊNCIA ============ */
+let movimentoTipoAtual = null;
+
+function listaItensDisponiveis(){
+  const uniformesUnid = uniformesCache.filter(u=> u.unidade === unidadeAtual && Number(u.quantidade) > 0)
+    .map(u=> ({id:'uniforme_'+u._docId, colecao:'estoqueUniformes', docId:u._docId, nome: nomeUniforme(u), qtd:u.quantidade}));
+  const equipUnid = equipamentosCache.filter(e=> e.unidade === unidadeAtual && Number(e.quantidade) > 0)
+    .map(e=> ({id:'equip_'+e._docId, colecao:'estoqueEquipamentos', docId:e._docId, nome:e.nome, qtd:e.quantidade}));
+  return [...uniformesUnid, ...equipUnid];
+}
+function listaItensParaTransferencia(){
+  const uniformesUnid = uniformesCache.filter(u=> u.unidade === unidadeAtual)
+    .map(u=> ({id:'uniforme_'+u._docId, colecao:'estoqueUniformes', docId:u._docId, nome: nomeUniforme(u), qtd:u.quantidade}));
+  const equipUnid = equipamentosCache.filter(e=> e.unidade === unidadeAtual)
+    .map(e=> ({id:'equip_'+e._docId, colecao:'estoqueEquipamentos', docId:e._docId, nome:e.nome, qtd:e.quantidade}));
+  return [...uniformesUnid, ...equipUnid];
+}
+function listaTodosItens(){
+  const uniformes = uniformesCache.map(u=> ({id:'uniforme_'+u._docId, colecao:'estoqueUniformes', docId:u._docId, nome: nomeUniforme(u)+' ('+u.unidade+')', qtd:u.quantidade}));
+  const equip = equipamentosCache.map(e=> ({id:'equip_'+e._docId, colecao:'estoqueEquipamentos', docId:e._docId, nome:e.nome+' ('+e.unidade+')', qtd:e.quantidade}));
+  return [...uniformes, ...equip];
+}
+
+function abrirMovimento(tipo){
+  movimentoTipoAtual = tipo;
+  const titulo = {retirada:'Retirar material', devolucao:'Devolver material', dano:'Reportar problema', transferencia:'Transferir entre unidades'}[tipo];
+  document.getElementById('modalMovTitulo').textContent = titulo;
+  const body = document.getElementById('modalMovBody');
+
+  let itens;
+  if(tipo === 'retirada') itens = listaItensDisponiveis();
+  else if(tipo === 'transferencia') itens = listaItensParaTransferencia();
+  else itens = listaTodosItens();
+
+  let html = '';
+  html += '<label>Item</label><select id="movItem">' + itens.map(i=> `<option value="${i.id}">${i.nome} (disp: ${i.qtd})</option>`).join('') + '</select>';
+  html += '<label>Quantidade</label><input type="number" id="movQtd" value="1" min="1">';
+
+  if(tipo === 'retirada' || tipo === 'devolucao'){
+    html += '<label>Professor</label><input type="text" id="movProfessor" value="'+professorNome+'" placeholder="Nome de quem está retirando">';
+  }
+  if(tipo === 'dano'){
+    html += '<label>O que aconteceu?</label><div class="chip-row" id="motivoChips">' +
+      MOTIVOS_DANO.map(m=> `<div class="chip" data-m="${m}" onclick="selecionarMotivoDano(this)">${m}</div>`).join('') + '</div>';
+    html += '<label>Observação (opcional)</label><input type="text" id="movObs" placeholder="Detalhes...">';
+    html += '<label>Reportado por</label><input type="text" id="movProfessor" value="'+professorNome+'" placeholder="Seu nome">';
+  }
+  if(tipo === 'transferencia'){
+    const destino = unidadeAtual === 'Carlos Prates' ? 'Estoril' : 'Carlos Prates';
+    html += `<label>De</label><input type="text" value="${unidadeAtual}" disabled>`;
+    html += `<label>Para</label><input type="text" value="${destino}" disabled>`;
+    html += `<input type="hidden" id="movDestino" value="${destino}">`;
+  }
+  body.innerHTML = html;
+  abrirModal('modalMovimento');
+}
+function selecionarMotivoDano(el){
+  document.querySelectorAll('#motivoChips .chip').forEach(c=> c.classList.remove('sel'));
+  el.classList.add('sel');
+}
+function renderMovimentoOptionsIfOpen(){
+  if(document.getElementById('modalMovimento').classList.contains('active') && movimentoTipoAtual){
+    // mantém a tela como está: evita reabrir o formulário no meio da digitação
+  }
+}
+
+document.getElementById('btnConfirmarMov').addEventListener('click', ()=>{
+  const tipo = movimentoTipoAtual;
+  const itemSelect = document.getElementById('movItem');
+  if(!itemSelect || !itemSelect.value){ showToast('Selecione um item', true); return; }
+  const [colecaoCurta, docId] = itemSelect.value.split('_');
+  const colecao = colecaoCurta === 'uniforme' ? 'estoqueUniformes' : 'estoqueEquipamentos';
+  const itemNome = itemSelect.options[itemSelect.selectedIndex].text.replace(/\s*\(disp.*?\)/, '').replace(/\s*\(Carlos.*?\)|\s*\(Estoril.*?\)/, '');
+  const qtd = Number(document.getElementById('movQtd').value) || 1;
+
+  const itemRef = db.collection(colecao).doc(docId);
+
+  if(tipo === 'retirada' || tipo === 'devolucao'){
+    const professor = (document.getElementById('movProfessor')||{}).value || '';
+    if(!professor.trim()){ showToast('Digite o nome do professor', true); return; }
+    professorNome = professor.trim();
+    localStorage.setItem('bsaEstoqueProfessor', professorNome);
+    const delta = tipo === 'retirada' ? -qtd : qtd;
+    itemRef.get().then(doc=>{
+      const atual = Number(doc.data().quantidade) || 0;
+      const nova = Math.max(0, atual + delta);
+      return itemRef.update({quantidade: nova});
+    }).then(()=> db.collection('movimentacoes').add({
+      tipo, itemNome, quantidade: qtd, unidade: unidadeAtual, professor: professorNome, data: new Date().toISOString()
+    })).then(()=>{ showToast(tipo==='retirada' ? 'Retirada registrada' : 'Devolução registrada'); fecharModal('modalMovimento'); })
+      .catch(err=> showToast('Erro: '+err.message, true));
+  }
+
+  else if(tipo === 'dano'){
+    const motivoEl = document.querySelector('#motivoChips .chip.sel');
+    const motivo = motivoEl ? motivoEl.dataset.m : 'Outro';
+    const obs = (document.getElementById('movObs')||{}).value || '';
+    const professor = (document.getElementById('movProfessor')||{}).value || '';
+    professorNome = professor.trim() || professorNome;
+    if(professorNome) localStorage.setItem('bsaEstoqueProfessor', professorNome);
+    itemRef.get().then(doc=>{
+      const atual = Number(doc.data().quantidade) || 0;
+      const nova = Math.max(0, atual - qtd);
+      return itemRef.update({quantidade: nova});
+    }).then(()=> db.collection('movimentacoes').add({
+      tipo:'dano', itemNome, quantidade: qtd, unidade: unidadeAtual, professor: professorNome,
+      observacao: motivo + (obs ? ' — ' + obs : ''), status:'pendente', data: new Date().toISOString()
+    })).then(()=>{ showToast('Problema reportado'); fecharModal('modalMovimento'); })
+      .catch(err=> showToast('Erro: '+err.message, true));
+  }
+
+  else if(tipo === 'transferencia'){
+    const destino = document.getElementById('movDestino').value;
+    itemRef.get().then(doc=>{
+      const dados = doc.data();
+      const atual = Number(dados.quantidade) || 0;
+      if(atual < qtd){ throw new Error('Quantidade insuficiente na unidade de origem'); }
+      const batch = db.batch();
+      batch.update(itemRef, {quantidade: atual - qtd});
+
+      // procura item equivalente na unidade destino
+      let equivalente;
+      if(colecao === 'estoqueUniformes'){
+        equivalente = uniformesCache.find(u=> u.unidade===destino && u.cor===dados.cor && u.tipo===dados.tipo && u.tamanho===dados.tamanho);
+      } else {
+        equivalente = equipamentosCache.find(e=> e.unidade===destino && e.nome===dados.nome);
+      }
+      if(equivalente){
+        batch.update(db.collection(colecao).doc(equivalente._docId), {quantidade: (Number(equivalente.quantidade)||0) + qtd});
+      } else {
+        const novoRef = db.collection(colecao).doc();
+        const novoDados = Object.assign({}, dados, {quantidade: qtd, unidade: destino});
+        delete novoDados._docId;
+        batch.set(novoRef, novoDados);
+      }
+      return batch.commit();
+    }).then(()=> db.collection('movimentacoes').add({
+      tipo:'transferencia', itemNome, quantidade: qtd, unidade: unidadeAtual, unidadeDestino: destino, data: new Date().toISOString()
+    })).then(()=>{ showToast('Transferência concluída'); fecharModal('modalMovimento'); })
+      .catch(err=> showToast('Erro: '+err.message, true));
+  }
+});
+
+/* ============ VENDA DE UNIFORME (ADMIN) ============ */
+function abrirVenda(){
+  const itens = uniformesCache.filter(u=> u.unidade===unidadeAtual && Number(u.quantidade)>0);
+  const body = document.getElementById('modalVendaBody');
+  if(itens.length === 0){
+    body.innerHTML = '<div class="empty">Nenhum kit disponível em estoque nessa unidade.</div>';
+  } else {
+    body.innerHTML =
+      '<label>Kit vendido</label><select id="vendaItem">' + itens.map(u=> `<option value="${u._docId}">${nomeUniforme(u)} (disp: ${u.quantidade})</option>`).join('') + '</select>' +
+      '<label>Comprador</label><input type="text" id="vendaComprador" placeholder="Nome do aluno/família">' +
+      '<label>Valor da venda (R$)</label><input type="number" id="vendaValor" value="0" min="0" step="0.01">';
+  }
+  abrirModal('modalVenda');
+}
+function confirmarVenda(){
+  const select = document.getElementById('vendaItem');
+  if(!select || !select.value){ showToast('Nenhum item disponível', true); return; }
+  const docId = select.value;
+  const u = uniformesCache.find(x=>x._docId===docId);
+  const comprador = document.getElementById('vendaComprador').value.trim();
+  const valor = Number(document.getElementById('vendaValor').value) || 0;
+  db.collection('estoqueUniformes').doc(docId).update({quantidade: Math.max(0, (Number(u.quantidade)||0) - 1)})
+    .then(()=> db.collection('movimentacoes').add({
+      tipo:'venda', itemNome: nomeUniforme(u), quantidade:1, unidade: unidadeAtual, comprador, valorVenda: valor, data: new Date().toISOString()
+    })).then(()=>{ showToast('Venda registrada'); fecharModal('modalVenda'); })
+    .catch(err=> showToast('Erro: '+err.message, true));
+}
+
+/* ============ LISTAS DE HISTÓRICO ============ */
+function renderMovimentacoesProfessor(){
+  const lista = document.getElementById('listaMovProf');
+  const filtradas = movimentacoesCache.filter(m=> m.unidade === unidadeAtual).slice(0, 15);
+  lista.innerHTML = filtradas.length === 0 ? '<div class="empty">Nenhuma movimentação ainda</div>' :
+    filtradas.map(m=> linhaMovimentacao(m)).join('');
+}
+function renderHistorico(){
+  const el = document.getElementById('tabsHistoricoFiltro');
+  const opcoes = [{id:'todos', lbl:'Todos'}, {id:'retirada', lbl:'Retiradas'}, {id:'devolucao', lbl:'Devoluções'}, {id:'transferencia', lbl:'Transferências'}, {id:'dano', lbl:'Danos'}, {id:'venda', lbl:'Vendas'}];
+  el.innerHTML = '';
+  opcoes.forEach(o=>{
+    const b = document.createElement('button');
+    b.textContent = o.lbl;
+    if(filtroHistorico === o.id) b.classList.add('active');
+    b.addEventListener('click', ()=>{ filtroHistorico = o.id; renderHistorico(); });
+    el.appendChild(b);
+  });
+  const lista = document.getElementById('listaHistorico');
+  const filtradas = filtroHistorico === 'todos' ? movimentacoesCache : movimentacoesCache.filter(m=> m.tipo === filtroHistorico);
+  lista.innerHTML = filtradas.length === 0 ? '<div class="empty">Nenhum registro</div>' : filtradas.slice(0,100).map(m=> linhaMovimentacao(m)).join('');
+}
+function linhaMovimentacao(m){
+  const icones = {retirada:'📤', devolucao:'📥', dano:'⚠️', transferencia:'🔁', venda:'💰'};
+  let detalhe = m.unidade || '';
+  if(m.tipo === 'transferencia') detalhe += ' → ' + (m.unidadeDestino||'');
+  if(m.professor) detalhe += ' · ' + m.professor;
+  if(m.comprador) detalhe += ' · ' + m.comprador;
+  if(m.tipo === 'venda') detalhe += ' · ' + fmtMoeda(m.valorVenda);
+  return `<div class="item-row"><div class="info"><b>${icones[m.tipo]||''} ${m.itemNome}</b><span>${detalhe} · ${fmtData(m.data)}</span></div><div class="qty-badge">${m.quantidade}</div></div>`;
+}
+
+function renderTudo(){ renderUniformes(); renderEquipamentos(); renderMovimentacoesProfessor(); renderHistorico(); renderDashboard(); }
+</script>
+</body>
+</html>
