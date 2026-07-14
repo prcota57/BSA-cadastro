@@ -23,7 +23,7 @@
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;}
   input{user-select:text;}
   html,body{margin:0;padding:0;}
-  body{background:var(--pitch-900);color:var(--ink-700);font-family:var(--font-body);line-height:1.5;min-height:100vh;}
+  body{background:var(--pitch-900);color:var(--ink-700);font-family:var(--font-body);line-height:1.5;min-height:100vh;padding-bottom:calc(110px + env(safe-area-inset-bottom));}
   .shell{max-width:440px;margin:0 auto;background:var(--chalk-100);min-height:100vh;display:flex;flex-direction:column;}
   header.bar{background:var(--pitch-800);color:var(--chalk-100);padding:16px 18px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5;}
   header.bar .back{background:none;border:none;color:var(--chalk-100);font-size:22px;line-height:1;cursor:pointer;padding:4px 6px 4px 0;display:none;}
