@@ -40,6 +40,7 @@
   }
   .btn-primary{background:var(--pitch); color:#fff;}
   .btn-primary:disabled{background:var(--line); color:var(--ink-soft);}
+  .btn-outline{background:transparent; border:1.5px solid var(--pitch); color:var(--pitch);}
   .status{font-size:13.5px; color:var(--ink-soft); margin-top:12px; text-align:center; min-height:18px;}
   .stat-row{display:flex; gap:8px; flex-wrap:wrap; margin-top:14px;}
   .stat{flex:1; min-width:90px; text-align:center; background:var(--pitch-soft); border-radius:14px; padding:10px 6px;}
@@ -81,6 +82,16 @@
     <div class="status" id="status"></div>
     <div class="stat-row" id="statRow" style="display:none;"></div>
     <div class="last-backup" id="lastBackup"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Código dos apps</h2>
+    <p>Isso aqui é diferente do backup acima: é a <b>programação</b> dos apps (as telas, os módulos), não os dados dos alunos.</p>
+    <p>O GitHub já guarda tudo com histórico automático, mas se quiser uma cópia extra guardada no seu Drive/iCloud, é só tocar e baixar:</p>
+    <a class="btn btn-outline" style="display:block; text-decoration:none;" href="https://github.com/prcota57/BSA-cadastro/archive/refs/heads/main.zip">📦 BSA Hub, Cadastro, Presença, Finanças e mais</a>
+    <a class="btn btn-outline" style="display:block; text-decoration:none;" href="https://github.com/prcota57/bsa-treino/archive/refs/heads/main.zip">📦 BSA Treino</a>
+    <a class="btn btn-outline" style="display:block; text-decoration:none;" href="https://github.com/prcota57/bsa-cores/archive/refs/heads/main.zip">📦 BSA Cores</a>
+    <a class="btn btn-outline" style="display:block; text-decoration:none;" href="https://github.com/prcota57/bsa-alerta/archive/refs/heads/main.zip">📦 BSA Alerta</a>
   </div>
 </main>
 
