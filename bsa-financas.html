@@ -130,7 +130,7 @@ var firebaseConfig = {
   appId: "1:455452879388:web:7135d93c116b2fe7cfcdd9"
 };
 var db = null;
-var state = { screen:'dashboard', alunos:[], mensalidades:[], search:'', currentAlunoId:null };
+var state = { screen:'dashboard', alunos:[], mensalidades:[], movimentacoes:[], movTab:'entrada', search:'', currentAlunoId:null };
 
 function initFirebase(){
   if(firebaseConfig.apiKey === "COLE_AQUI"){
@@ -190,6 +190,7 @@ async function carregarTudo(){
     });
     await garantirMensalidadesDoMes();
     await carregarMensalidades();
+    await carregarMovimentacoes();
     render();
   }catch(err){
     document.getElementById('app').innerHTML = '<div class="setup-banner"><b>Erro ao carregar</b>'+err.message+'</div>';
@@ -225,6 +226,12 @@ async function carregarMensalidades(){
   var snap = await db.collection('mensalidades').get();
   state.mensalidades = [];
   snap.forEach(function(doc){ state.mensalidades.push(Object.assign({id:doc.id}, doc.data())); });
+}
+
+async function carregarMovimentacoes(){
+  var snap = await db.collection('movimentacoesFinanceiras').get();
+  state.movimentacoes = [];
+  snap.forEach(function(doc){ state.movimentacoes.push(Object.assign({id:doc.id}, doc.data())); });
 }
 
 function statusComputado(m){
@@ -268,6 +275,78 @@ function render(){
   if(state.screen==='recorrentes') return renderRecorrentes(app);
   if(state.screen==='alunos') return renderAlunos(app);
   if(state.screen==='alunoDetail') return renderAlunoDetail(app);
+  if(state.screen==='movimentacoes') return renderMovimentacoes(app);
+}
+
+var CATEGORIAS_ENTRADA = {matricula:'Taxa de matrícula', uniforme:'Uniforme'};
+var CATEGORIAS_SAIDA = {aluguel:'Aluguel', salario:'Salário', material:'Material', uniforme:'Uniforme', outro:'Outro'};
+
+function renderMovimentacoes(app){
+  setHeader('BSA Finanças', 'conectado', false);
+  var mes = mesAtualStr();
+  var doMes = state.movimentacoes.filter(function(x){ return (x.data||'').slice(0,7)===mes; });
+  var entradasMes = doMes.filter(function(x){ return x.tipo==='entrada'; });
+  var saidasMes = doMes.filter(function(x){ return x.tipo==='saida'; });
+  var totalEntradas = entradasMes.reduce(function(s,x){ return s+(Number(x.valor)||0); },0);
+  var totalSaidas = saidasMes.reduce(function(s,x){ return s+(Number(x.valor)||0); },0);
+
+  var html = tabsHtml();
+
+  html += '<div class="stat-row">'
+    + '<div class="stat recebido"><div class="lbl">Entradas extras (mês)</div><div class="num">'+fmtMoeda(totalEntradas)+'</div></div>'
+    + '<div class="stat areceber"><div class="lbl">Saídas (mês)</div><div class="num">'+fmtMoeda(totalSaidas)+'</div></div>'
+    + '</div>';
+
+  html += '<div class="tabs">'
+    + '<button class="tab-btn'+(state.movTab==='entrada'?' active':'')+'" data-action="irMovTabEntrada">Nova entrada</button>'
+    + '<button class="tab-btn'+(state.movTab==='saida'?' active':'')+'" data-action="irMovTabSaida">Nova saída</button>'
+    + '</div>';
+
+  if(state.movTab==='entrada'){
+    var alunosOrdenados = state.alunos.slice().sort(function(a,b){ return a.nome.localeCompare(b.nome); });
+    html += '<div class="panel"><h2>Registrar entrada (matrícula / uniforme)</h2>'
+      + '<div class="field"><label>Aluno</label><select id="movAluno">'
+      + '<option value="">Selecione o aluno</option>'
+      + alunosOrdenados.map(function(a){ return '<option value="'+a.id+'">'+a.nome+'</option>'; }).join('')
+      + '</select></div>'
+      + '<div class="field"><label>Tipo</label><select id="movCategoriaEntrada">'
+      + Object.keys(CATEGORIAS_ENTRADA).map(function(k){ return '<option value="'+k+'">'+CATEGORIAS_ENTRADA[k]+'</option>'; }).join('')
+      + '</select></div>'
+      + '<div class="field"><label>Valor (R$)</label><input type="number" id="movValorEntrada" step="0.01" min="0" placeholder="ex: 150"></div>'
+      + '<div class="field"><label>Data</label><input type="date" id="movDataEntrada" value="'+hojeStr()+'"></div>'
+      + '<div class="field"><label>Observação (opcional)</label><input type="text" id="movDescEntrada" placeholder="ex: tamanho G, 2ª via..."></div>'
+      + '<button class="btn btn-primary" data-action="salvarEntrada">Salvar entrada</button>'
+      + '</div>';
+  } else {
+    html += '<div class="panel"><h2>Registrar saída (o que você pagou)</h2>'
+      + '<div class="field"><label>Categoria</label><select id="movCategoriaSaida">'
+      + Object.keys(CATEGORIAS_SAIDA).map(function(k){ return '<option value="'+k+'">'+CATEGORIAS_SAIDA[k]+'</option>'; }).join('')
+      + '</select></div>'
+      + '<div class="field"><label>Valor (R$)</label><input type="number" id="movValorSaida" step="0.01" min="0" placeholder="ex: 300"></div>'
+      + '<div class="field"><label>Data</label><input type="date" id="movDataSaida" value="'+hojeStr()+'"></div>'
+      + '<div class="field"><label>Descrição (opcional)</label><input type="text" id="movDescSaida" placeholder="ex: aluguel Estoril, salário..."></div>'
+      + '<button class="btn btn-primary" data-action="salvarSaida">Salvar saída</button>'
+      + '</div>';
+  }
+
+  var doMesOrdenado = doMes.slice().sort(function(a,b){ return (b.data||'').localeCompare(a.data||''); });
+  html += '<div class="panel"><h2>Lançamentos do mês</h2>';
+  if(doMesOrdenado.length===0){
+    html += '<div class="empty">Nenhum lançamento neste mês ainda.</div>';
+  } else {
+    doMesOrdenado.forEach(function(x){
+      var label = x.tipo==='entrada' ? (CATEGORIAS_ENTRADA[x.categoria]||x.categoria) : (CATEGORIAS_SAIDA[x.categoria]||x.categoria);
+      var quem = x.tipo==='entrada' ? (x.nomeAluno||'') : (x.descricao||'');
+      html += '<div class="row-card">'
+        + '<div class="info"><div class="name">'+label+(quem?' · '+quem:'')+'</div><div class="meta">'+fmtDataBR(x.data)+'</div></div>'
+        + '<span class="pill '+(x.tipo==='entrada'?'pago':'atrasado')+'">'+(x.tipo==='entrada'?'+':'-')+fmtMoeda(x.valor)+'</span>'
+        + '<button class="btn btn-outline" style="flex:0 0 auto;padding:8px 10px;" data-action="excluirMovimentacao" data-id="'+x.id+'">✕</button>'
+        + '</div>';
+    });
+  }
+  html += '</div>';
+
+  app.innerHTML = html;
 }
 
 function tabsHtml(){
@@ -277,6 +356,7 @@ function tabsHtml(){
     + '<button class="tab-btn'+(state.screen==='inadimplentes'?' active':'')+'" data-action="irInadimplentes">Inadimplentes</button>'
     + '<button class="tab-btn'+(state.screen==='recorrentes'?' active':'')+'" data-action="irRecorrentes">Recorrentes</button>'
     + '<button class="tab-btn'+(state.screen==='alunos'?' active':'')+'" data-action="irAlunos">Alunos</button>'
+    + '<button class="tab-btn'+(state.screen==='movimentacoes'?' active':'')+'" data-action="irMovimentacoes">Mov.</button>'
     + '</div>';
 }
 
@@ -344,6 +424,11 @@ function renderDashboard(app){
     else if(st==='atrasado'){ totalAReceber += Number(m.valor)||0; qtdAtrasado++; }
     else if(st==='pendente'){ totalAReceber += Number(m.valor)||0; qtdPendente++; }
   });
+  var movDoMes = state.movimentacoes.filter(function(x){ return (x.data||'').slice(0,7)===mes; });
+  var totalEntradasExtras = movDoMes.filter(function(x){ return x.tipo==='entrada'; }).reduce(function(s,x){ return s+(Number(x.valor)||0); },0);
+  var totalSaidas = movDoMes.filter(function(x){ return x.tipo==='saida'; }).reduce(function(s,x){ return s+(Number(x.valor)||0); },0);
+  totalRecebido += totalEntradasExtras;
+  var saldoMes = totalRecebido - totalSaidas;
   var totalContas = qtdPago+qtdPendente+qtdAtrasado;
   var taxaInad = totalContas>0 ? Math.round((qtdAtrasado/totalContas)*100) : 0;
 
@@ -367,6 +452,10 @@ function renderDashboard(app){
   html += '<div class="stat-row">'
     + '<div class="stat recebido"><div class="lbl">Recebido no mês</div><div class="num">'+fmtMoeda(totalRecebido)+'</div></div>'
     + '<div class="stat areceber"><div class="lbl">A receber</div><div class="num">'+fmtMoeda(totalAReceber)+'</div></div>'
+    + '</div>';
+  html += '<div class="stat-row">'
+    + '<div class="stat areceber"><div class="lbl">Saídas no mês</div><div class="num">'+fmtMoeda(totalSaidas)+'</div></div>'
+    + '<div class="stat recebido"><div class="lbl">Saldo do mês</div><div class="num">'+fmtMoeda(saldoMes)+'</div></div>'
     + '</div>';
   html += '<div class="stat-row"><div class="stat inadimplencia"><div class="lbl">Taxa de inadimplência</div><div class="num">'+taxaInad+'%</div></div></div>';
 
@@ -552,6 +641,56 @@ var Actions = {
   irInadimplentes:function(){ state.screen='inadimplentes'; render(); },
   irRecorrentes:function(){ state.screen='recorrentes'; render(); },
   irAlunos:function(){ state.screen='alunos'; render(); },
+  irMovimentacoes:function(){ state.screen='movimentacoes'; render(); },
+  irMovTabEntrada:function(){ state.movTab='entrada'; render(); },
+  irMovTabSaida:function(){ state.movTab='saida'; render(); },
+  salvarEntrada:async function(){
+    var alunoId = document.getElementById('movAluno').value;
+    var categoria = document.getElementById('movCategoriaEntrada').value;
+    var valor = parseFloat(document.getElementById('movValorEntrada').value);
+    var data = document.getElementById('movDataEntrada').value;
+    var descricao = document.getElementById('movDescEntrada').value.trim();
+    if(!alunoId){ showToast('Selecione o aluno.'); return; }
+    if(!valor || valor<=0){ showToast('Digite um valor válido.'); return; }
+    if(!data){ showToast('Informe a data.'); return; }
+    var aluno = state.alunos.find(function(x){ return x.id===alunoId; });
+    try{
+      var ref = await db.collection('movimentacoesFinanceiras').add({
+        tipo:'entrada', categoria:categoria, valor:valor, data:data, descricao:descricao,
+        alunoId:alunoId, nomeAluno: aluno?aluno.nome:'', criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      state.movimentacoes.push({id:ref.id, tipo:'entrada', categoria:categoria, valor:valor, data:data, descricao:descricao, alunoId:alunoId, nomeAluno: aluno?aluno.nome:''});
+      showToast('Entrada registrada!');
+      render();
+    }catch(e){ showToast('Não foi possível salvar: '+e.message); }
+  },
+  salvarSaida:async function(){
+    var categoria = document.getElementById('movCategoriaSaida').value;
+    var valor = parseFloat(document.getElementById('movValorSaida').value);
+    var data = document.getElementById('movDataSaida').value;
+    var descricao = document.getElementById('movDescSaida').value.trim();
+    if(!valor || valor<=0){ showToast('Digite um valor válido.'); return; }
+    if(!data){ showToast('Informe a data.'); return; }
+    try{
+      var ref = await db.collection('movimentacoesFinanceiras').add({
+        tipo:'saida', categoria:categoria, valor:valor, data:data, descricao:descricao,
+        alunoId:null, nomeAluno:null, criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      state.movimentacoes.push({id:ref.id, tipo:'saida', categoria:categoria, valor:valor, data:data, descricao:descricao, alunoId:null, nomeAluno:null});
+      showToast('Saída registrada!');
+      render();
+    }catch(e){ showToast('Não foi possível salvar: '+e.message); }
+  },
+  excluirMovimentacao:async function(el){
+    var id = el.dataset.id;
+    if(!confirm('Excluir este lançamento?')) return;
+    try{
+      await db.collection('movimentacoesFinanceiras').doc(id).delete();
+      state.movimentacoes = state.movimentacoes.filter(function(x){ return x.id!==id; });
+      showToast('Lançamento excluído');
+      render();
+    }catch(e){ showToast('Não foi possível excluir: '+e.message); }
+  },
   abrirAluno:function(el){ state.currentAlunoId = el.dataset.id; state.screen='alunoDetail'; render(); },
   voltar:function(){ state.screen='alunos'; render(); },
   marcarPago:async function(el){
