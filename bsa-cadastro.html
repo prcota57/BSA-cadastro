@@ -418,6 +418,17 @@
       </div>
     </div>
 
+    <div class="field-row">
+      <div class="field">
+        <label>Banco de pagamento</label>
+        <select id="fBanco">
+          <option value="">Selecione</option>
+          <option value="C6">C6 Bank</option>
+          <option value="Nubank">Nubank</option>
+        </select>
+      </div>
+    </div>
+
     <div class="field">
       <label>Observações (opcional)</label>
       <textarea id="fObs" placeholder="Alergias, restrições, observações gerais..."></textarea>
@@ -951,6 +962,7 @@ function resetForm(){
   document.getElementById('fRespWhats').value = '';
   document.getElementById('fStatusMens').value = 'ativo';
   document.getElementById('fMatricula').value = new Date().toISOString().slice(0,10);
+  document.getElementById('fBanco').value = '';
   document.getElementById('fObs').value = '';
   document.getElementById('photoPreview').innerHTML = '📷';
 }
@@ -986,6 +998,7 @@ document.getElementById('btnSalvar').addEventListener('click', async ()=>{
     responsavelWhatsapp: document.getElementById('fRespWhats').value.trim(),
     statusMensalidade: document.getElementById('fStatusMens').value,
     dataMatricula: document.getElementById('fMatricula').value,
+    bancoPagamento: document.getElementById('fBanco').value || '',
     observacoes: document.getElementById('fObs').value.trim(),
     statusGeral: 'ativo',
     atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
@@ -1204,6 +1217,10 @@ function abrirDetalhe(docId){
       <div class="hint" style="margin-top:6px;">WhatsApp</div>
       <b>${a.responsavelWhatsapp || '—'}</b>
     </div>
+    <div class="card" style="display:block; margin-bottom:16px;">
+      <div class="hint">Banco de pagamento</div>
+      <b>${a.bancoPagamento || '—'}</b>
+    </div>
     ${a.observacoes ? `<div class="card" style="display:block; margin-bottom:16px;"><div class="hint">Observações</div>${a.observacoes}</div>` : ''}
     <button class="btn btn-primary btn-block" onclick="editarAluno('${docId}')">Editar</button>
     <button class="btn btn-outline btn-block" onclick="toggleAtivo('${docId}')">${a.statusGeral === 'inativo' ? 'Reativar aluno' : 'Marcar como inativo'}</button>
@@ -1240,6 +1257,7 @@ function editarAluno(docId){
   document.getElementById('fRespWhats').value = a.responsavelWhatsapp || '';
   document.getElementById('fStatusMens').value = a.statusMensalidade;
   document.getElementById('fMatricula').value = a.dataMatricula || '';
+  document.getElementById('fBanco').value = a.bancoPagamento || '';
   document.getElementById('fObs').value = a.observacoes || '';
   document.getElementById('photoPreview').innerHTML = a.foto ? `<img src="${a.foto}">` : '📷';
 }
@@ -1254,10 +1272,20 @@ async function toggleAtivo(docId){
 }
 
 async function excluirAluno(docId){
-  if(!confirm('Tem certeza que deseja excluir este cadastro? Essa ação não pode ser desfeita.')) return;
-  await db.collection('alunos').doc(docId).delete();
-  showToast('Cadastro excluído');
-  fecharDetalhe();
+  if(!confirm('Tem certeza que deseja excluir este cadastro? Essa ação não pode ser desfeita. Todas as mensalidades e débitos deste aluno também serão excluídos.')) return;
+  try{
+    const mensalidadesSnap = await db.collection('mensalidades').where('alunoId','==',docId).get();
+    if(!mensalidadesSnap.empty){
+      const lote = db.batch();
+      mensalidadesSnap.forEach(doc => lote.delete(doc.ref));
+      await lote.commit();
+    }
+    await db.collection('alunos').doc(docId).delete();
+    showToast('Cadastro e débitos excluídos');
+    fecharDetalhe();
+  }catch(err){
+    showToast('Erro ao excluir: ' + err.message);
+  }
 }
 
 /* ---------- Importação de planilha ---------- */
