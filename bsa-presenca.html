@@ -61,6 +61,11 @@
   .presenca-item .info{flex:1; min-width:0;}
   .presenca-item .name{font-weight:600; font-size:14px;}
   .presenca-item .time{font-size:11.5px; color:var(--ink-soft);}
+  .presenca-item .btn-excluir{flex:0 0 auto; background:none; border:none; font-size:19px; padding:6px; cursor:pointer; opacity:.55; line-height:1;}
+  .presenca-item .btn-excluir:active{opacity:1;}
+  .history-datefilter{display:flex; align-items:center; gap:8px; margin-bottom:10px;}
+  .history-datefilter input[type="date"]{font-family:'Inter',sans-serif; font-size:13px; padding:7px 9px; border-radius:8px; border:1px solid var(--line); background:#fff;}
+  .history-datefilter button{font-size:12.5px; padding:7px 10px; border-radius:8px; border:1px solid var(--line); background:#fff; cursor:pointer;}
   .empty{text-align:center; padding:30px 20px; color:var(--ink-soft); font-size:13.5px;}
 
   /* Camera overlay */
@@ -210,9 +215,13 @@
   </div>
 
   <div class="panel" id="historyPanel" style="display:none;">
-    <h2>Presenças de hoje <span id="historyUnitLabel" style="color:var(--ink-soft); font-weight:500;"></span></h2>
+    <h2 id="historyTitulo">Presenças de hoje <span id="historyUnitLabel" style="color:var(--ink-soft); font-weight:500;"></span></h2>
+    <div class="history-datefilter">
+      <input type="date" id="historyDateFilter">
+      <button id="btnHistoryHoje" type="button">Hoje</button>
+    </div>
     <div id="historyList"></div>
-    <div class="empty" id="historyEmpty">Nenhuma presença registrada ainda hoje.</div>
+    <div class="empty" id="historyEmpty">Nenhuma presença registrada nesse dia.</div>
   </div>
 
   <div class="panel" id="faltantesPanel" style="display:none;">
@@ -589,22 +598,50 @@ function formatarHorarioAluno(aluno){
 }
 
 let presentesHojeIds = new Set();
+let unsubHistorico = null;
+let dataHistoricoAtual = dataHojeISO();
 
 function listenHistoricoHoje(){
+  dataHistoricoAtual = dataHojeISO();
+  document.getElementById('historyDateFilter').value = dataHistoricoAtual;
+  listenHistorico(dataHistoricoAtual);
+}
+
+function listenHistorico(dataISO){
   if(!unidadeAtual) return;
-  db.collection('presencas')
+  dataHistoricoAtual = dataISO;
+  if(unsubHistorico) unsubHistorico();
+  const ehHoje = dataISO === dataHojeISO();
+  document.getElementById('historyTitulo').innerHTML = (ehHoje ? 'Presenças de hoje' : 'Presenças de ' + dataISO.split('-').reverse().join('/')) + ' <span id="historyUnitLabel" style="color:var(--ink-soft); font-weight:500;">· ' + unidadeAtual + '</span>';
+  unsubHistorico = db.collection('presencas')
     .where('unidade', '==', unidadeAtual)
-    .where('data', '==', dataHojeISO())
+    .where('data', '==', dataISO)
     .onSnapshot(snap=>{
       const itens = [];
-      snap.forEach(doc=> itens.push(doc.data()));
+      snap.forEach(doc=> itens.push({ _docId: doc.id, ...doc.data() }));
       itens.sort((a,b)=> (b.horaTimestamp||0) - (a.horaTimestamp||0));
-      presentesHojeIds = new Set(itens.map(i=>i.alunoId));
+      if(ehHoje) presentesHojeIds = new Set(itens.map(i=>i.alunoId));
       renderHistorico(itens);
-      renderFaltantes();
+      if(ehHoje) renderFaltantes();
     }, err=>{
       console.error(err);
     });
+}
+
+document.getElementById('historyDateFilter').addEventListener('change', e=>{
+  if(e.target.value) listenHistorico(e.target.value);
+});
+document.getElementById('btnHistoryHoje').addEventListener('click', ()=> listenHistoricoHoje());
+
+async function excluirPresenca(docId, nome){
+  if(!confirm('Remover a presença de ' + nome + '?')) return;
+  try{
+    await db.collection('presencas').doc(docId).delete();
+    toast('Presença de ' + nome + ' removida');
+  }catch(err){
+    console.error(err);
+    toast('Erro ao remover. Tente de novo.');
+  }
 }
 
 function gerarLinkWhatsApp(numero, mensagem){
@@ -672,8 +709,11 @@ function renderHistorico(itens){
     const selo = p.tipoRegistro === 'reposicao' ? ' <span class="badge-repo">reposição</span>'
       : (p.tipoRegistro === 'fora_horario' ? ' <span class="badge-alerta">fora do horário</span>' : '');
     const seloManual = p.origemRegistro === 'manual' ? ' <span class="badge-repo">manual</span>' : '';
-    return `<div class="presenca-item">${foto}<div class="info"><div class="name">${p.nome}${selo}${seloManual}</div><div class="time">${p.hora}</div></div></div>`;
+    return `<div class="presenca-item">${foto}<div class="info"><div class="name">${p.nome}${selo}${seloManual}</div><div class="time">${p.hora}</div></div><button class="btn-excluir" data-docid="${p._docId}" data-nome="${(p.nome||'').replace(/"/g,'&quot;')}" title="Remover presença">🗑️</button></div>`;
   }).join('');
+  cont.querySelectorAll('.btn-excluir').forEach(btn=>{
+    btn.addEventListener('click', ()=> excluirPresenca(btn.dataset.docid, btn.dataset.nome));
+  });
 }
 
 document.getElementById('btnIniciar').addEventListener('click', iniciarCamera);
