@@ -130,7 +130,7 @@ var firebaseConfig = {
   appId: "1:455452879388:web:7135d93c116b2fe7cfcdd9"
 };
 var db = null;
-var state = { screen:'dashboard', alunos:[], mensalidades:[], movimentacoes:[], movTab:'entrada', search:'', currentAlunoId:null };
+var state = { screen:'dashboard', alunos:[], todosAlunoIds:[], mensalidades:[], movimentacoes:[], movTab:'entrada', search:'', searchInad:'', currentAlunoId:null, filaLista:[], filaIndex:0 };
 
 function initFirebase(){
   if(firebaseConfig.apiKey === "COLE_AQUI"){
@@ -173,12 +173,25 @@ function calcularDataVencimento(mesStr, dia){
   return ano+'-'+pad(mes)+'-'+pad(diaFinal);
 }
 
+var CONTAS_FIXAS = [
+  {nome:'Aluguel Mauro', valor:2000, diaVencimento:1},
+  {nome:'Salário Iasmin', valor:1600, diaVencimento:10},
+  {nome:'Fatura cartão', valor:1000, diaVencimento:15}
+];
+function diasParaVencerFixa(dia){
+  var venc = calcularDataVencimento(mesAtualStr(), dia);
+  var d1 = new Date(venc+'T00:00:00'), d2 = new Date(hojeStr()+'T00:00:00');
+  return Math.round((d1-d2)/86400000);
+}
+
 async function carregarTudo(){
   try{
     var alunosSnap = await db.collection('alunos').get();
     state.alunos = [];
+    state.todosAlunoIds = [];
     alunosSnap.forEach(function(doc){
       var d = doc.data();
+      state.todosAlunoIds.push(doc.id);
       if(d.statusGeral === 'inativo') return;
       state.alunos.push({
         id: doc.id, nome: d.nome||'(sem nome)', unidade: d.unidade||'',
@@ -200,26 +213,37 @@ async function carregarTudo(){
 async function garantirMensalidadesDoMes(){
   var mes = mesAtualStr();
   var existentesSnap = await db.collection('mensalidades').where('mesReferencia','==',mes).get();
-  var existentesIds = {};
-  existentesSnap.forEach(function(doc){ existentesIds[doc.id] = true; });
+  var existentesPorId = {};
+  existentesSnap.forEach(function(doc){ existentesPorId[doc.id] = Object.assign({id:doc.id}, doc.data()); });
 
   var batch = db.batch();
-  var algumNovo = false;
+  var algumaAlteracao = false;
   state.alunos.forEach(function(a){
     if(!a.valorMensalidade || !a.diaVencimento) return;
     var id = a.id + '_' + mes;
-    if(existentesIds[id]) return;
-    var ref = db.collection('mensalidades').doc(id);
-    batch.set(ref, {
-      alunoId: a.id, nomeAluno: a.nome, unidade: a.unidade,
-      responsavelNome: a.responsavelNome, responsavelWhatsapp: a.responsavelWhatsapp,
-      mesReferencia: mes, valor: a.valorMensalidade, diaVencimento: a.diaVencimento,
-      dataVencimento: calcularDataVencimento(mes, a.diaVencimento),
-      dataPagamento: null, statusPagamento: 'pendente'
-    });
-    algumNovo = true;
+    var existente = existentesPorId[id];
+    if(!existente){
+      var ref = db.collection('mensalidades').doc(id);
+      batch.set(ref, {
+        alunoId: a.id, nomeAluno: a.nome, unidade: a.unidade,
+        responsavelNome: a.responsavelNome, responsavelWhatsapp: a.responsavelWhatsapp,
+        mesReferencia: mes, valor: a.valorMensalidade, diaVencimento: a.diaVencimento,
+        dataVencimento: calcularDataVencimento(mes, a.diaVencimento),
+        dataPagamento: null, statusPagamento: 'pendente'
+      });
+      algumaAlteracao = true;
+    } else if(existente.statusPagamento !== 'pago' && (existente.valor !== a.valorMensalidade || existente.diaVencimento !== a.diaVencimento)){
+      // Aluno já tem mensalidade do mês gerada, mas o cadastro mudou o valor/dia depois — sincroniza (só se ainda não foi paga)
+      var ref2 = db.collection('mensalidades').doc(id);
+      batch.update(ref2, {
+        valor: a.valorMensalidade, diaVencimento: a.diaVencimento,
+        dataVencimento: calcularDataVencimento(mes, a.diaVencimento),
+        nomeAluno: a.nome, responsavelNome: a.responsavelNome, responsavelWhatsapp: a.responsavelWhatsapp
+      });
+      algumaAlteracao = true;
+    }
   });
-  if(algumNovo) await batch.commit();
+  if(algumaAlteracao) await batch.commit();
 }
 
 async function carregarMensalidades(){
@@ -257,7 +281,7 @@ function msgLembreteVespera(a){
   return 'Olá, '+a.responsavelNome+'! Passando para avisar que amanhã vence a mensalidade do(a) '+a.nome+' na BSA. Assim vocês já se programam com antecedência. Qualquer dúvida, estamos à disposição por aqui. Um abraço da equipe BSA!';
 }
 function msgCobranca(a){
-  return 'Olá, '+a.responsavelNome+', tudo bem? Não identificamos o recebimento da mensalidade do(a) '+a.nome+' referente a este mês. Sabemos da rotina corrida e que imprevistos acontecem. Se precisar da segunda via ou do código Pix, estamos à disposição por aqui para ajudar a regularizar. Um abraço da equipe BSA!';
+  return 'Olá! 👋🏻⚽\n\nNotamos que a mensalidade da escola de futebol do seu filho está em atraso.\nEsta é uma mensagem automática do nosso sistema apenas para lembrar do pagamento.\nCaso já tenha sido efetuado, desconsidere, pedimos que envie o comprovante para este número.\n\nQualquer dúvida, estamos à disposição! 🙏🏻';
 }
 
 function setHeader(title, sub, showBack){
@@ -272,6 +296,7 @@ function render(){
   if(state.screen==='dashboard') return renderDashboard(app);
   if(state.screen==='hoje') return renderHoje(app);
   if(state.screen==='inadimplentes') return renderInadimplentes(app);
+  if(state.screen==='filaCobranca') return renderFilaCobranca(app);
   if(state.screen==='recorrentes') return renderRecorrentes(app);
   if(state.screen==='alunos') return renderAlunos(app);
   if(state.screen==='alunoDetail') return renderAlunoDetail(app);
@@ -449,6 +474,18 @@ function renderDashboard(app){
     html += '<div class="banner" data-action="irHoje" style="cursor:pointer;">🔔 '+hojeQtd+' vencendo hoje e '+amanhaQtd+' vencendo amanhã — toque para ver e enviar os avisos na aba "Hoje".</div>';
   }
 
+  var totalFixas = CONTAS_FIXAS.reduce(function(s,c){ return s+c.valor; },0);
+  CONTAS_FIXAS.forEach(function(c){
+    var dp = diasParaVencerFixa(c.diaVencimento);
+    if(dp <= 10){
+      var txt = dp >= 0 ? ('vence em '+dp+'d (dia '+c.diaVencimento+')') : ('venceu há '+(-dp)+'d (dia '+c.diaVencimento+')');
+      html += '<div class="banner">💸 '+c.nome+' — '+fmtMoeda(c.valor)+' — '+txt+'</div>';
+    }
+  });
+
+  var idsExistentes = state.todosAlunoIds || [];
+  var orfaos = doMes.filter(function(m){ return idsExistentes.indexOf(m.alunoId) === -1; });
+
   html += '<div class="stat-row">'
     + '<div class="stat recebido"><div class="lbl">Recebido no mês</div><div class="num">'+fmtMoeda(totalRecebido)+'</div></div>'
     + '<div class="stat areceber"><div class="lbl">A receber</div><div class="num">'+fmtMoeda(totalAReceber)+'</div></div>'
@@ -459,6 +496,8 @@ function renderDashboard(app){
     + '</div>';
   html += '<div class="stat-row"><div class="stat inadimplencia"><div class="lbl">Taxa de inadimplência</div><div class="num">'+taxaInad+'%</div></div></div>';
 
+  html += '<div class="stat-row"><div class="stat areceber"><div class="lbl">Despesas fixas previstas (mês)</div><div class="num">'+fmtMoeda(totalFixas)+'</div></div></div>';
+
   html += '<div class="panel"><h2>Situação do mês</h2><div class="pie-wrap">'
     + '<div class="pie" style="background:'+(totalContas>0?conic:'var(--line)')+';"></div>'
     + '<div class="legend">'
@@ -467,18 +506,40 @@ function renderDashboard(app){
     + '<div class="legend-row"><span class="legend-dot" style="background:var(--danger);"></span>Atrasado<span class="n">'+qtdAtrasado+'</span></div>'
     + '</div></div></div>';
 
+  if(orfaos.length>0){
+    html += '<div class="panel"><h2>⚠ Lançamentos de alunos excluídos ('+orfaos.length+')</h2>'
+      + '<p class="meta" style="font-size:12px;color:var(--ink-soft);margin-bottom:8px;">Esses valores estão entrando nas contas do mês mas o cadastro do aluno já não existe mais. Confira e apague se não fizer mais sentido.</p>';
+    orfaos.forEach(function(m){
+      html += '<div class="row-card">'
+        + '<div class="info"><div class="name">'+m.nomeAluno+'</div><div class="meta">'+fmtMoeda(m.valor)+' · '+({pago:'Pago',pendente:'Pendente',atrasado:'Atrasado',isento:'Isento'}[statusComputado(m)])+'</div></div>'
+        + '<button class="btn btn-outline" style="flex:0 0 auto;padding:8px 10px;" data-action="excluirMensalidadeOrfa" data-id="'+m.id+'">✕</button>'
+        + '</div>';
+    });
+    html += '</div>';
+  }
+
   app.innerHTML = html;
 }
 
 function renderInadimplentes(app){
   setHeader('BSA Finanças', 'conectado', false);
   var mes = mesAtualStr();
-  var atrasados = state.mensalidades.filter(function(m){ return m.mesReferencia===mes && statusComputado(m)==='atrasado'; })
+  var todosAtrasados = state.mensalidades.filter(function(m){ return m.mesReferencia===mes && statusComputado(m)==='atrasado'; })
     .sort(function(a,b){ return diasAtraso(b)-diasAtraso(a); });
 
   var html = tabsHtml();
+  html += '<input class="search-box" id="searchInadInput" placeholder="Buscar aluno..." value="'+state.searchInad.replace(/"/g,'&quot;')+'">';
+
+  var atrasados = todosAtrasados.filter(function(m){
+    return m.nomeAluno.toLowerCase().indexOf(state.searchInad.toLowerCase()) !== -1;
+  });
+
+  if(todosAtrasados.length>0){
+    html += '<button class="btn btn-primary btn-block" style="margin-bottom:14px;" data-action="iniciarFilaCobranca">📲 Disparar cobrança em massa ('+todosAtrasados.length+')</button>';
+  }
+
   if(atrasados.length===0){
-    html += '<div class="empty">Nenhum inadimplente este mês. Tudo em dia! 🎉</div>';
+    html += '<div class="empty">'+(state.searchInad ? 'Nenhum aluno encontrado.' : 'Nenhum inadimplente este mês. Tudo em dia! 🎉')+'</div>';
   } else {
     atrasados.forEach(function(m){
       var a = state.alunos.find(function(x){return x.id===m.alunoId;});
@@ -495,6 +556,37 @@ function renderInadimplentes(app){
         + '</div></div>';
     });
   }
+  app.innerHTML = html;
+  var si = document.getElementById('searchInadInput');
+  si.addEventListener('input', function(e){ state.searchInad = e.target.value; renderInadimplentes(document.getElementById('app')); si.focus(); si.setSelectionRange(si.value.length, si.value.length); });
+}
+
+function renderFilaCobranca(app){
+  setHeader('BSA Finanças', 'conectado', true);
+  var html = '';
+  if(state.filaLista.length===0){
+    html += '<div class="empty">Nenhum inadimplente para cobrar.</div>';
+    app.innerHTML = html;
+    return;
+  }
+  if(state.filaIndex >= state.filaLista.length){
+    html += '<div class="panel"><h2>Concluído! ✅</h2><p class="meta">Cobrança aberta para todos os '+state.filaLista.length+' inadimplentes.</p>'
+      + '<button class="btn btn-primary btn-block" data-action="voltarInadimplentes" style="margin-top:12px;">Voltar para Inadimplentes</button></div>';
+    app.innerHTML = html;
+    return;
+  }
+  var m = state.filaLista[state.filaIndex];
+  var a = state.alunos.find(function(x){return x.id===m.alunoId;});
+  var foto = a && a.foto ? '<img class="avatar" src="'+a.foto+'">' : '<div class="avatar">'+iniciais(m.nomeAluno)+'</div>';
+  html += '<p class="meta" style="margin:2px 0 14px;font-size:12px;color:var(--ink-soft);">Cobrança '+(state.filaIndex+1)+' de '+state.filaLista.length+' — toque no botão abaixo pra abrir o WhatsApp já com a mensagem pronta, aí é só mandar. Depois volta aqui pra avançar pro próximo.</p>';
+  html += '<div class="panel">'
+    + '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">'
+    + foto
+    + '<div class="info"><div class="name">'+m.nomeAluno+'</div><div class="meta">Responsável: '+m.responsavelNome+' · '+fmtMoeda(m.valor)+' · '+diasAtraso(m)+'d atraso</div></div>'
+    + '</div>'
+    + '<a class="btn btn-primary btn-block" style="text-decoration:none;text-align:center;display:block;" target="_blank" data-action="avancarFilaCobranca" href="'+waLink(m.responsavelWhatsapp, msgCobranca({responsavelNome:m.responsavelNome, nome:m.nomeAluno}))+'">Abrir WhatsApp e ir pro próximo</a>'
+    + '<button class="btn btn-outline" style="margin-top:8px;width:100%;" data-action="pularFilaCobranca">Pular este</button>'
+    + '</div>';
   app.innerHTML = html;
 }
 
@@ -639,6 +731,17 @@ var Actions = {
   irDashboard:function(){ state.screen='dashboard'; render(); },
   irHoje:function(){ state.screen='hoje'; render(); },
   irInadimplentes:function(){ state.screen='inadimplentes'; render(); },
+  iniciarFilaCobranca:function(){
+    var mes = mesAtualStr();
+    state.filaLista = state.mensalidades.filter(function(m){ return m.mesReferencia===mes && statusComputado(m)==='atrasado'; })
+      .sort(function(a,b){ return diasAtraso(b)-diasAtraso(a); });
+    state.filaIndex = 0;
+    state.screen = 'filaCobranca';
+    render();
+  },
+  avancarFilaCobranca:function(){ state.filaIndex++; render(); },
+  pularFilaCobranca:function(){ state.filaIndex++; render(); },
+  voltarInadimplentes:function(){ state.screen='inadimplentes'; render(); },
   irRecorrentes:function(){ state.screen='recorrentes'; render(); },
   irAlunos:function(){ state.screen='alunos'; render(); },
   irMovimentacoes:function(){ state.screen='movimentacoes'; render(); },
@@ -702,6 +805,16 @@ var Actions = {
       showToast('Marcado como pago!');
       render();
     }catch(e){ showToast('Não foi possível salvar: '+e.message); }
+  },
+  excluirMensalidadeOrfa:async function(el){
+    var id = el.dataset.id;
+    if(!confirm('Excluir este lançamento? O cadastro do aluno já não existe mais.')) return;
+    try{
+      await db.collection('mensalidades').doc(id).delete();
+      state.mensalidades = state.mensalidades.filter(function(x){ return x.id!==id; });
+      showToast('Lançamento excluído');
+      render();
+    }catch(e){ showToast('Não foi possível excluir: '+e.message); }
   },
   salvarConfig:async function(el){
     var id = el.dataset.id;
