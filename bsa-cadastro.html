@@ -427,6 +427,13 @@
           <option value="Nubank">Nubank</option>
         </select>
       </div>
+      <div class="field">
+        <label>Status do aluno</label>
+        <select id="fStatusGeral">
+          <option value="ativo">Ativo</option>
+          <option value="inativo">Inativo</option>
+        </select>
+      </div>
     </div>
 
     <div class="field">
@@ -963,6 +970,7 @@ function resetForm(){
   document.getElementById('fStatusMens').value = 'ativo';
   document.getElementById('fMatricula').value = new Date().toISOString().slice(0,10);
   document.getElementById('fBanco').value = '';
+  document.getElementById('fStatusGeral').value = 'ativo';
   document.getElementById('fObs').value = '';
   document.getElementById('photoPreview').innerHTML = '📷';
 }
@@ -1000,7 +1008,7 @@ document.getElementById('btnSalvar').addEventListener('click', async ()=>{
     dataMatricula: document.getElementById('fMatricula').value,
     bancoPagamento: document.getElementById('fBanco').value || '',
     observacoes: document.getElementById('fObs').value.trim(),
-    statusGeral: 'ativo',
+    statusGeral: document.getElementById('fStatusGeral').value || 'ativo',
     atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
   };
   if(capturedPhoto) dados.foto = capturedPhoto;
@@ -1258,6 +1266,7 @@ function editarAluno(docId){
   document.getElementById('fStatusMens').value = a.statusMensalidade;
   document.getElementById('fMatricula').value = a.dataMatricula || '';
   document.getElementById('fBanco').value = a.bancoPagamento || '';
+  document.getElementById('fStatusGeral').value = a.statusGeral === 'inativo' ? 'inativo' : 'ativo';
   document.getElementById('fObs').value = a.observacoes || '';
   document.getElementById('photoPreview').innerHTML = a.foto ? `<img src="${a.foto}">` : '📷';
 }
@@ -1332,9 +1341,9 @@ function parseDiasHorarios(v){
       const dia = IMPORT_DIA_MAP[diaMatch];
       if(!dias.includes(dia)) dias.push(dia);
     }
-    const horaMatch = p.match(/(\d{1,2})[h:](\d{2})?/i);
+    const horaMatch = p.match(/(\d{1,2})\s*[h:]\s*(\d{2})?/i);
     if(horaMatch){
-      const hora = horaMatch[2] ? `${horaMatch[1]}:${horaMatch[2]}` : `${horaMatch[1]}h`;
+      const hora = horaMatch[2] ? `${horaMatch[1].padStart(2,'0')}:${horaMatch[2]}` : `${horaMatch[1].padStart(2,'0')}:00`;
       if(!horarios.includes(hora)) horarios.push(hora);
     }
   });
