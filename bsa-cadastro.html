@@ -1311,6 +1311,47 @@ function cleanPhone(v){
   }
   return s;
 }
+const IMPORT_DIA_MAP = {
+  'domingo':'dom', 'dom':'dom',
+  'segunda':'seg', 'segunda-feira':'seg', 'seg':'seg',
+  'terca':'ter', 'terça':'ter', 'terca-feira':'ter', 'ter':'ter',
+  'quarta':'qua', 'quarta-feira':'qua', 'qua':'qua',
+  'quinta':'qui', 'quinta-feira':'qui', 'qui':'qui',
+  'sexta':'sex', 'sexta-feira':'sex', 'sex':'sex',
+  'sabado':'sab', 'sábado':'sab', 'sab':'sab'
+};
+function parseDiasHorarios(v){
+  if(v === null || v === undefined || v === '') return {dias:[], horario:''};
+  const partes = String(v).split(',').map(p=>p.trim()).filter(Boolean);
+  const dias = [];
+  const horarios = [];
+  partes.forEach(p=>{
+    const norm = p.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+    const diaMatch = Object.keys(IMPORT_DIA_MAP).find(k => norm.startsWith(k.normalize('NFD').replace(/[\u0300-\u036f]/g,'')));
+    if(diaMatch){
+      const dia = IMPORT_DIA_MAP[diaMatch];
+      if(!dias.includes(dia)) dias.push(dia);
+    }
+    const horaMatch = p.match(/(\d{1,2})[h:](\d{2})?/i);
+    if(horaMatch){
+      const hora = horaMatch[2] ? `${horaMatch[1]}:${horaMatch[2]}` : `${horaMatch[1]}h`;
+      if(!horarios.includes(hora)) horarios.push(hora);
+    }
+  });
+  return {dias, horario: horarios.join(' / ')};
+}
+function parseMoeda(v){
+  if(v === null || v === undefined || v === '') return null;
+  if(typeof v === 'number') return v;
+  const s = String(v).trim().replace(/[^\d,.-]/g,'').replace(',', '.');
+  const n = parseFloat(s);
+  return isNaN(n) ? null : n;
+}
+function parseDiaVencimento(v){
+  if(v === null || v === undefined || v === '') return null;
+  const n = parseInt(String(v).replace(/\D/g,''), 10);
+  return isNaN(n) ? null : n;
+}
 function parseDateCell(v){
   if(v === null || v === undefined || v === '') return '';
   if(v instanceof Date){
@@ -1356,7 +1397,10 @@ document.getElementById('btnAnalisar').addEventListener('click', async ()=>{
       nome: findColIndex(headersNorm, ['nome completo do aluno','nome do aluno','nome aluno']),
       nascimento: findColIndex(headersNorm, ['data de nascimento','nascimento']),
       responsavel: findColIndex(headersNorm, ['nome completo do responsavel','nome do responsavel','responsavel']),
-      whatsapp: findColIndex(headersNorm, ['whatsapp','numero do whatsapp','telefone'])
+      whatsapp: findColIndex(headersNorm, ['whatsapp','numero do whatsapp','telefone']),
+      diasHorarios: findColIndex(headersNorm, ['dias e horarios fixos de treino','dias e horarios de treino','horarios fixos de treino']),
+      mensalidade: findColIndex(headersNorm, ['valor da mensalidade','mensalidade']),
+      vencimento: findColIndex(headersNorm, ['dia de vencimento','vencimento'])
     };
     if(col.nome === -1){
       preview.innerHTML = '<div class="hint">Não consegui encontrar a coluna de nome do aluno nessa planilha. Confira se é o arquivo certo.</div>';
@@ -1367,11 +1411,16 @@ document.getElementById('btnAnalisar').addEventListener('click', async ()=>{
       const r = rows[i];
       const nome = (r[col.nome] || '').toString().trim();
       if(!nome) continue;
+      const horarioInfo = col.diasHorarios !== -1 ? parseDiasHorarios(r[col.diasHorarios]) : {dias:[], horario:''};
       importRows.push({
         nome,
         dataNascimento: col.nascimento !== -1 ? parseDateCell(r[col.nascimento]) : '',
         responsavelNome: col.responsavel !== -1 ? (r[col.responsavel]||'').toString().trim() : '',
-        responsavelWhatsapp: col.whatsapp !== -1 ? cleanPhone(r[col.whatsapp]) : ''
+        responsavelWhatsapp: col.whatsapp !== -1 ? cleanPhone(r[col.whatsapp]) : '',
+        diasTreino: horarioInfo.dias,
+        horarioTreino: horarioInfo.horario,
+        valorMensalidade: col.mensalidade !== -1 ? parseMoeda(r[col.mensalidade]) : null,
+        diaVencimento: col.vencimento !== -1 ? parseDiaVencimento(r[col.vencimento]) : null
       });
     }
     if(importRows.length === 0){
@@ -1401,10 +1450,15 @@ async function confirmarImportacao(){
   const btn = document.getElementById('btnConfirmarImport');
   const progress = document.getElementById('impProgress');
   btn.disabled = true;
-  let sucesso = 0, falha = 0;
+  let sucesso = 0, falha = 0, duplicados = 0;
   for(let i=0; i<importRows.length; i++){
     const r = importRows[i];
     progress.textContent = `Importando ${i+1}/${importRows.length}...`;
+    const jaExiste = alunosCache.some(a => a.unidade === unidade && normalizeNome(a.nome) === normalizeNome(r.nome));
+    if(jaExiste){
+      duplicados++;
+      continue;
+    }
     try{
       const id = await gerarProximoId();
       const dados = {
@@ -1414,6 +1468,10 @@ async function confirmarImportacao(){
         categoria: r.dataNascimento ? calcCategoria(r.dataNascimento) : '',
         unidade,
         foto: null,
+        diasTreino: r.diasTreino || [],
+        horarioTreino: r.horarioTreino || '',
+        valorMensalidade: r.valorMensalidade,
+        diaVencimento: r.diaVencimento,
         responsavelNome: r.responsavelNome || '',
         responsavelWhatsapp: r.responsavelWhatsapp || '',
         statusMensalidade: 'ativo',
@@ -1424,12 +1482,13 @@ async function confirmarImportacao(){
         atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
       };
       await db.collection('alunos').add(dados);
+      alunosCache.push(dados);
       sucesso++;
     }catch(err){
       falha++;
     }
   }
-  progress.textContent = `Concluído: ${sucesso} alunos importados${falha > 0 ? ', ' + falha + ' falharam' : ''}.`;
+  progress.textContent = `Concluído: ${sucesso} alunos importados${duplicados > 0 ? ', ' + duplicados + ' já existiam e foram ignorados' : ''}${falha > 0 ? ', ' + falha + ' falharam' : ''}.`;
   showToast(`${sucesso} alunos importados`);
   btn.disabled = false;
   btn.textContent = 'Importação concluída';
