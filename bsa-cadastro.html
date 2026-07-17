@@ -1017,6 +1017,7 @@ document.getElementById('btnSalvar').addEventListener('click', async ()=>{
   try{
     if(editingId){
       await db.collection('alunos').doc(editingId).update(dados);
+      if(dados.statusGeral === 'inativo') await zerarPendenciasFinanceiras(editingId);
       showToast('Aluno atualizado');
     }else{
       dados.id = await gerarProximoId();
@@ -1271,12 +1272,29 @@ function editarAluno(docId){
   document.getElementById('photoPreview').innerHTML = a.foto ? `<img src="${a.foto}">` : '📷';
 }
 
+async function zerarPendenciasFinanceiras(alunoId){
+  try{
+    const snap = await db.collection('mensalidades').where('alunoId','==',alunoId).get();
+    const pendentes = snap.docs.filter(doc => {
+      const st = doc.data().statusPagamento;
+      return st === 'pendente' || st === 'atrasado';
+    });
+    if(pendentes.length === 0) return;
+    const lote = db.batch();
+    pendentes.forEach(doc => lote.update(doc.ref, {statusPagamento:'isento'}));
+    await lote.commit();
+  }catch(err){
+    console.error('Erro ao zerar pendências financeiras:', err);
+  }
+}
+
 async function toggleAtivo(docId){
   const a = alunosCache.find(x=>x._docId === docId);
   if(!a) return;
   const novoStatus = a.statusGeral === 'inativo' ? 'ativo' : 'inativo';
   await db.collection('alunos').doc(docId).update({statusGeral: novoStatus});
-  showToast(novoStatus === 'inativo' ? 'Aluno marcado como inativo' : 'Aluno reativado');
+  if(novoStatus === 'inativo') await zerarPendenciasFinanceiras(docId);
+  showToast(novoStatus === 'inativo' ? 'Aluno marcado como inativo e pendências financeiras zeradas' : 'Aluno reativado');
   fecharDetalhe();
 }
 
@@ -1490,6 +1508,7 @@ async function confirmarImportacao(){
         if(r.statusAluno) upd.statusGeral = r.statusAluno;
         await db.collection('alunos').doc(existente._docId).update(upd);
         Object.assign(existente, upd);
+        if(upd.statusGeral === 'inativo') await zerarPendenciasFinanceiras(existente._docId);
         atualizados++;
       }else{
         const id = await gerarProximoId();
