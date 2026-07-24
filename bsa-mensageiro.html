@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<title>BSA Mensageiro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F6F8F4;
+    --surface:#FFFFFF;
+    --pitch:#0F5C3D;
+    --pitch-dark:#0B4530;
+    --pitch-soft:#E4EFE8;
+    --gold:#FFC800;
+    --gold-soft:#FFF3CC;
+    --coral:#FF5A36;
+    --coral-soft:#FFE4DC;
+    --ink:#142B20;
+    --ink-soft:#5C7268;
+    --line:#DCE5DD;
+    --radius:18px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif; height:100%;}
+  body{padding-bottom:calc(40px + env(safe-area-inset-bottom)); padding-top:env(safe-area-inset-top);}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+
+  header.top{
+    position:sticky; top:0; z-index:20;
+    background:var(--pitch); color:#fff; padding:18px 20px 16px;
+    border-radius:0 0 22px 22px; box-shadow:0 6px 18px rgba(15,92,61,0.18);
+  }
+  header.top .row{display:flex; align-items:center; justify-content:space-between;}
+  header.top h1{font-family:'Space Grotesk',sans-serif; font-size:20px; font-weight:700; margin:0; letter-spacing:0.2px;}
+  header.top .sub{font-size:12.5px; opacity:0.8; margin-top:2px;}
+  header.top .titlewrap{display:flex; align-items:center; flex:1; min-width:0;}
+  .btn-back{
+    display:flex; align-items:center; justify-content:center;
+    width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,0.15);
+    color:#fff; font-size:18px; text-decoration:none; flex:0 0 auto; margin-right:10px;
+  }
+  .badge-count{
+    background:var(--gold); color:var(--pitch-dark); font-family:'Space Grotesk';
+    font-weight:700; font-size:13px; padding:5px 11px; border-radius:20px;
+  }
+
+  main{padding:4px 16px 30px; max-width:560px; margin:0 auto;}
+  .screen{display:none;}
+  .screen.active{display:block;}
+
+  .fab-row{padding:16px 0 4px;}
+  .btn{
+    border:none; border-radius:14px; padding:13px 18px; font-family:'Space Grotesk';
+    font-weight:600; font-size:14.5px; cursor:pointer; text-align:center;
+  }
+  .btn-primary{background:var(--pitch); color:#fff; width:100%;}
+  .btn-primary:active{background:var(--pitch-dark);}
+  .btn-gold{background:var(--gold); color:var(--pitch-dark);}
+  .btn-outline{background:transparent; border:1.5px solid var(--pitch); color:var(--pitch);}
+  .btn-outline-sm{background:transparent; border:1.5px solid var(--line); color:var(--ink-soft); padding:8px 12px; font-size:12.5px; border-radius:12px;}
+  .btn-danger{background:var(--coral-soft); color:#B23A20;}
+  .btn-block{width:100%; margin-top:8px;}
+  .btn[disabled]{opacity:0.45; pointer-events:none;}
+
+  .section-title{font-family:'Space Grotesk'; font-size:15.5px; font-weight:700; margin:22px 2px 10px;}
+
+  .card{
+    background:var(--surface); border-radius:var(--radius); padding:13px 14px;
+    margin-bottom:10px; box-shadow:0 2px 8px rgba(20,43,32,0.05); border:1px solid var(--line);
+  }
+  .card:active{background:var(--pitch-soft);}
+  .report-card .top-row{display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
+  .report-card .date{font-family:'Space Grotesk'; font-weight:700; font-size:13.5px; color:var(--pitch-dark);}
+  .report-card .count{font-family:'IBM Plex Mono'; font-size:12px; font-weight:600; background:var(--pitch-soft); color:var(--pitch-dark); padding:3px 9px; border-radius:10px; white-space:nowrap;}
+  .report-card .count.parcial{background:var(--coral-soft); color:#B23A20;}
+  .report-card .msg{font-size:13.5px; color:var(--ink-soft); margin-top:6px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+  .report-card .meta{font-size:11.5px; color:var(--ink-soft); margin-top:7px; opacity:0.85;}
+
+  .empty{text-align:center; padding:50px 20px; color:var(--ink-soft);}
+  .empty .big{font-size:44px; margin-bottom:8px;}
+  .empty .cta{font-family:'Space Grotesk'; font-weight:600; color:var(--pitch); margin-top:10px;}
+
+  /* Compose screen */
+  .formwrap{padding-top:6px;}
+  .field{margin-bottom:18px;}
+  .field label{display:block; font-size:13px; font-weight:600; color:var(--ink-soft); margin-bottom:8px;}
+  .toggle2{display:flex; gap:8px;}
+  .toggle2 button{
+    flex:1; border:1.5px solid var(--line); background:var(--surface); color:var(--ink-soft);
+    border-radius:14px; padding:12px 8px; font-family:'Space Grotesk'; font-weight:600; font-size:13.5px; cursor:pointer;
+  }
+  .toggle2 button.active{background:var(--pitch); border-color:var(--pitch); color:#fff;}
+
+  .msg-toolbar{display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap;}
+  textarea#txtMensagem{
+    width:100%; border:1px solid var(--line); border-radius:14px; padding:13px 14px;
+    font-size:15px; font-family:'Inter'; background:var(--surface); color:var(--ink);
+    min-height:120px; resize:vertical;
+  }
+  .hint{font-size:12px; color:var(--ink-soft); margin-top:6px; line-height:1.4;}
+  .preview-box{
+    margin-top:10px; background:var(--gold-soft); border-radius:12px; padding:10px 12px;
+    font-size:13px; color:#6b5300; line-height:1.4;
+  }
+  .preview-box b{display:block; font-size:11px; text-transform:uppercase; letter-spacing:0.03em; margin-bottom:3px; opacity:0.8;}
+
+  .chipsrow{display:flex; gap:8px; overflow-x:auto; padding:2px 0 4px; scrollbar-width:none;}
+  .chipsrow::-webkit-scrollbar{display:none;}
+  .chip{
+    flex:0 0 auto; padding:9px 16px; border-radius:20px; font-size:13.5px; font-weight:600;
+    background:var(--surface); color:var(--ink-soft); border:1px solid var(--line); cursor:pointer; white-space:nowrap;
+  }
+  .chip.active{background:var(--pitch); color:#fff; border-color:var(--pitch);}
+
+  .publico-summary{font-size:12.5px; color:var(--ink-soft); margin-top:8px;}
+  .publico-summary b{color:var(--ink);}
+
+  /* Envio screen */
+  .progress-wrap{background:var(--surface); border-radius:var(--radius); padding:14px; margin-bottom:14px; border:1px solid var(--line);}
+  .progress-top{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
+  .progress-top .lbl{font-family:'Space Grotesk'; font-weight:700; font-size:14px;}
+  .progress-top .count{font-family:'IBM Plex Mono'; font-size:13px; color:var(--pitch-dark); font-weight:600;}
+  .progress-bar{height:8px; background:var(--pitch-soft); border-radius:6px; overflow:hidden;}
+  .progress-bar .fill{height:100%; background:var(--pitch); transition:width 0.25s;}
+  .msg-preview-mini{font-size:12.5px; color:var(--ink-soft); margin-top:10px; padding-top:10px; border-top:1px dashed var(--line); line-height:1.4;}
+
+  .contato-card{
+    display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:14px;
+    margin-bottom:9px; cursor:pointer; border:1.5px solid transparent;
+  }
+  .contato-card.pendente{background:var(--coral-soft); border-color:rgba(178,58,32,0.15);}
+  .contato-card.enviado{background:var(--pitch-soft); border-color:rgba(15,92,61,0.15);}
+  .contato-card .dot-status{width:12px; height:12px; border-radius:50%; flex:0 0 auto;}
+  .contato-card.pendente .dot-status{background:var(--coral);}
+  .contato-card.enviado .dot-status{background:var(--pitch);}
+  .contato-card .info{flex:1; min-width:0;}
+  .contato-card .info .name{font-weight:600; font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .contato-card .info .sub{font-size:12px; color:var(--ink-soft); margin-top:1px;}
+  .contato-card .chk{font-size:18px; flex:0 0 auto;}
+  .contato-card.pendente .chk{color:var(--coral);}
+  .contato-card.enviado .chk{color:var(--pitch);}
+
+  /* Modal */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(10,20,15,0.45); z-index:90; display:none;
+    align-items:flex-end; justify-content:center;
+  }
+  .modal-overlay.active{display:flex;}
+  .modal-sheet{
+    background:var(--bg); width:100%; max-width:520px; border-radius:24px 24px 0 0;
+    max-height:88vh; overflow-y:auto; padding:8px 0 24px; display:flex; flex-direction:column;
+    animation:slideup 0.22s ease-out;
+  }
+  @keyframes slideup{from{transform:translateY(24px); opacity:0.6;} to{transform:translateY(0); opacity:1;}}
+  .modal-handle{width:36px; height:4px; background:var(--line); border-radius:3px; margin:10px auto 4px;}
+  .modal-close-row{display:flex; justify-content:space-between; align-items:center; padding:0 16px; margin-bottom:6px;}
+  .modal-close-row h3{font-family:'Space Grotesk'; font-size:16px; margin:0;}
+  .modal-close-btn{
+    border:none; background:var(--pitch-soft); color:var(--pitch-dark);
+    width:34px; height:34px; border-radius:50%; font-size:18px; font-weight:700;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .modal-body{padding:0 16px; overflow-y:auto;}
+  .modal-searchbar{padding:0 16px 10px;}
+  .modal-searchbar input{
+    width:100%; border:none; border-radius:14px; padding:12px 14px; font-size:15px;
+    background:var(--surface); color:var(--ink); font-family:'Inter'; box-shadow:0 2px 6px rgba(20,43,32,0.06);
+  }
+  .aluno-row{display:flex; align-items:center; gap:12px; padding:11px 4px; border-bottom:1px solid var(--line);}
+  .aluno-row:last-child{border-bottom:none;}
+  .aluno-row .chk-box{
+    width:22px; height:22px; border-radius:7px; border:2px solid var(--line); flex:0 0 auto;
+    display:flex; align-items:center; justify-content:center; font-size:14px; color:#fff;
+  }
+  .aluno-row.checked .chk-box{background:var(--pitch); border-color:var(--pitch);}
+  .aluno-row .info{flex:1; min-width:0;}
+  .aluno-row .info .name{font-weight:600; font-size:14.5px;}
+  .aluno-row .info .sub{font-size:12px; color:var(--ink-soft);}
+  .aluno-row .sem-whats{font-size:11px; color:#B23A20; background:var(--coral-soft); padding:2px 7px; border-radius:8px; flex:0 0 auto;}
+  .modal-footer{padding:10px 16px 0;}
+
+  .tpl-row{padding:12px; background:var(--surface); border-radius:14px; margin-bottom:9px; border:1px solid var(--line); cursor:pointer; font-size:13.5px; line-height:1.4;}
+  .tpl-row:active{background:var(--pitch-soft);}
+  .tpl-row .tpl-date{font-size:11px; color:var(--ink-soft); margin-bottom:4px; font-family:'IBM Plex Mono';}
+
+  .toast{
+    position:fixed; bottom:30px; left:50%; transform:translateX(-50%);
+    background:var(--pitch-dark); color:#fff; padding:11px 20px; border-radius:30px;
+    font-size:13.5px; font-weight:600; z-index:200; opacity:0; transition:opacity 0.25s;
+    box-shadow:0 6px 16px rgba(0,0,0,0.2); pointer-events:none; white-space:nowrap;
+  }
+  .toast.show{opacity:1;}
+
+  .setup-banner{
+    margin:14px 0; padding:14px; background:var(--coral-soft); border-radius:14px;
+    color:#8A2E19; font-size:13px; line-height:1.5;
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="row">
+    <div class="titlewrap">
+      <a class="btn-back" href="https://prcota57.github.io/BSA-cadastro/" title="Voltar ao início">←</a>
+      <div>
+        <h1>BSA Mensageiro</h1>
+        <div class="sub" id="statusLine">conectando...</div>
+      </div>
+    </div>
+    <div class="badge-count mono" id="countBadge">0</div>
+  </div>
+</header>
+
+<main>
+
+  <!-- HOME / RELATÓRIO -->
+  <section class="screen active" id="screen-home">
+    <div class="fab-row">
+      <button class="btn btn-primary btn-block" onclick="abrirCompose()">✉️ Nova mensagem em massa</button>
+    </div>
+    <div class="section-title">Relatório de envios</div>
+    <div id="listaCampanhas"></div>
+  </section>
+
+  <!-- COMPOSE -->
+  <section class="screen" id="screen-compose">
+    <div class="formwrap">
+      <div class="field">
+        <label>Mensagem direcionada a</label>
+        <div class="toggle2">
+          <button id="btnDirAluno" onclick="setDirecionado('aluno')">🧒 Aluno</button>
+          <button id="btnDirResponsavel" onclick="setDirecionado('responsavel')">🧑 Responsável</button>
+        </div>
+        <div class="hint">Define quem o texto "{nome}" vai chamar automaticamente pelo primeiro nome. O WhatsApp é sempre enviado para o número do responsável.</div>
+      </div>
+
+      <div class="field">
+        <label>Mensagem</label>
+        <div class="msg-toolbar">
+          <button class="btn-outline-sm" onclick="inserirNomeToken()">+ inserir {nome}</button>
+          <button class="btn-outline-sm" onclick="abrirTemplates()">📋 Usar mensagem salva</button>
+        </div>
+        <textarea id="txtMensagem" placeholder="Ex: Olá, tudo bem com o(a) {nome}? Passando pra avisar que..." oninput="atualizarPreview()"></textarea>
+        <div class="preview-box" id="previewBox" style="display:none;">
+          <b>Pré-visualização</b><span id="previewTexto"></span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Público</label>
+        <div class="chipsrow" id="publicoChips">
+          <div class="chip" data-tipo="todos">Todos</div>
+          <div class="chip" data-tipo="unidade" data-label="Carlos Prates">Carlos Prates</div>
+          <div class="chip" data-tipo="unidade" data-label="Estoril">Estoril</div>
+          <div class="chip" data-tipo="selecionados">Selecionados</div>
+        </div>
+        <div class="publico-summary" id="publicoSummary">Nenhum público escolhido ainda.</div>
+      </div>
+
+      <button class="btn btn-primary btn-block" id="btnGerarLista" onclick="gerarListaEnvio()" disabled>Gerar lista de envio</button>
+      <button class="btn btn-outline btn-block" onclick="voltarHome()">Cancelar</button>
+    </div>
+  </section>
+
+  <!-- ENVIO -->
+  <section class="screen" id="screen-envio">
+    <div class="progress-wrap">
+      <div class="progress-top">
+        <span class="lbl">Progresso do envio</span>
+        <span class="count" id="progressoTexto">0/0</span>
+      </div>
+      <div class="progress-bar"><div class="fill" id="progressoFill" style="width:0%"></div></div>
+      <div class="msg-preview-mini" id="envioMsgTemplate"></div>
+    </div>
+    <div class="hint" style="margin-bottom:12px;">Toque em cada contato para abrir o WhatsApp já com a mensagem pronta. Ele fica verde assim que você envia.</div>
+    <div id="listaContatos"></div>
+    <button class="btn btn-outline btn-block" style="margin-top:8px;" onclick="voltarHome()">‹ Voltar para o início</button>
+  </section>
+
+</main>
+
+<!-- MODAL SELECIONADOS -->
+<div class="modal-overlay" id="modalSelecionados">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-close-row">
+      <h3>Escolher alunos</h3>
+      <button class="modal-close-btn" onclick="fecharModalSelecionados()">✕</button>
+    </div>
+    <div class="modal-searchbar"><input type="text" id="buscaSelecionados" placeholder="Buscar aluno por nome..." oninput="renderModalSelecionados()"></div>
+    <div class="chipsrow" id="unitChipsModal" style="padding:0 16px 10px;">
+      <div class="chip active" data-unit="todas">Todas unidades</div>
+      <div class="chip" data-unit="Carlos Prates">Carlos Prates</div>
+      <div class="chip" data-unit="Estoril">Estoril</div>
+    </div>
+    <div class="modal-body" id="listaSelecionaveis"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary btn-block" id="btnConfirmarSelecionados" onclick="confirmarSelecionados()">Confirmar seleção (0)</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL TEMPLATES -->
+<div class="modal-overlay" id="modalTemplates">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-close-row">
+      <h3>Mensagens já enviadas</h3>
+      <button class="modal-close-btn" onclick="fecharModalTemplates()">✕</button>
+    </div>
+    <div class="modal-body" id="listaTemplates" style="padding-bottom:16px;">
+      <div class="empty"><span class="mono">carregando...</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- =========================================================
+     Preencha com os dados do SEU projeto (ver guia enviado).
+     ========================================================= -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDmM2m_QnEeRflAKCyb11TzOrZM7iVgLCA",
+  authDomain: "bsa-app-493c3.firebaseapp.com",
+  projectId: "bsa-app-493c3",
+  storageBucket: "bsa-app-493c3.firebasestorage.app",
+  messagingSenderId: "455452879388",
+  appId: "1:455452879388:web:7135d93c116b2fe7cfcdd9"
+};
+
+let db, auth;
+let alunosCache = [];
+let state = {
+  direcionadoA: 'responsavel',
+  publicoTipo: null,
+  publicoLabel: '',
+  selecionadosIds: new Set()
+};
+let unitFiltroModal = 'todas';
+let currentCampaignId = null;
+let currentCampaignData = null;
+let unsubEnvio = null;
+
+try{
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  auth = firebase.auth();
+  auth.signInAnonymously().catch(err=>{
+    document.getElementById('statusLine').textContent = 'erro de login: ' + err.message;
+  });
+  auth.onAuthStateChanged(user=>{
+    if(user){
+      document.getElementById('statusLine').textContent = 'conectado';
+      carregarAlunos();
+      carregarCampanhas();
+    }
+  });
+}catch(err){
+  document.getElementById('statusLine').textContent = 'erro de configuração';
+  const banner = document.createElement('div');
+  banner.className = 'setup-banner';
+  banner.innerHTML = '<b>Configuração pendente</b>Verifique o firebaseConfig deste arquivo.';
+  document.querySelector('main').prepend(banner);
+}
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+function switchScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function cleanPhone(v){
+  if(v === null || v === undefined || v === '') return '';
+  return String(v).trim();
+}
+
+function gerarLinkWhatsApp(numero, mensagem){
+  let n = (numero||'').toString().replace(/\D/g,'');
+  if(n && !n.startsWith('55')) n = '55' + n;
+  return 'https://wa.me/' + n + '?text=' + encodeURIComponent(mensagem);
+}
+
+function primeiroNome(nomeCompleto){
+  return (nomeCompleto || '').trim().split(' ')[0] || '';
+}
+
+/* ============ ALUNOS ============ */
+function carregarAlunos(){
+  db.collection('alunos').orderBy('nome').onSnapshot(snap=>{
+    alunosCache = [];
+    snap.forEach(doc=>{
+      const a = doc.data();
+      alunosCache.push({
+        id: doc.id,
+        nome: a.nome || '',
+        unidade: a.unidade || '',
+        statusGeral: a.statusGeral || 'ativo',
+        responsavelNome: a.responsavelNome || '',
+        responsavelWhatsapp: cleanPhone(a.responsavelWhatsapp)
+      });
+    });
+    document.getElementById('countBadge').textContent = alunosCache.filter(a=>a.statusGeral !== 'inativo').length;
+    atualizarPublicoSummary();
+  }, err=>{
+    document.getElementById('statusLine').textContent = 'erro ao carregar alunos';
+  });
+}
+
+function alunosAtivos(){
+  return alunosCache.filter(a=>a.statusGeral !== 'inativo');
+}
+
+/* ============ COMPOSE ============ */
+function abrirCompose(){
+  document.getElementById('txtMensagem').value = '';
+  document.getElementById('previewBox').style.display = 'none';
+  state.publicoTipo = null;
+  state.publicoLabel = '';
+  state.selecionadosIds = new Set();
+  document.querySelectorAll('#publicoChips .chip').forEach(c=>c.classList.remove('active'));
+  setDirecionado('responsavel');
+  atualizarPublicoSummary();
+  switchScreen('screen-compose');
+}
+
+function voltarHome(){
+  if(unsubEnvio){ unsubEnvio(); unsubEnvio = null; }
+  switchScreen('screen-home');
+}
+
+function setDirecionado(tipo){
+  state.direcionadoA = tipo;
+  document.getElementById('btnDirAluno').classList.toggle('active', tipo === 'aluno');
+  document.getElementById('btnDirResponsavel').classList.toggle('active', tipo === 'responsavel');
+  atualizarPreview();
+}
+
+function inserirNomeToken(){
+  const ta = document.getElementById('txtMensagem');
+  const start = ta.selectionStart, end = ta.selectionEnd;
+  const val = ta.value;
+  ta.value = val.slice(0,start) + '{nome}' + val.slice(end);
+  ta.focus();
+  ta.selectionStart = ta.selectionEnd = start + 6;
+  atualizarPreview();
+}
+
+function atualizarPreview(){
+  const texto = document.getElementById('txtMensagem').value.trim();
+  const box = document.getElementById('previewBox');
+  if(!texto){ box.style.display = 'none'; return; }
+  const contatosExemplo = contatosDoPublicoAtual();
+  let nomeExemplo = state.direcionadoA === 'aluno' ? 'João' : 'Sr(a). Maria';
+  if(contatosExemplo.length){
+    const c = contatosExemplo[0];
+    nomeExemplo = primeiroNome(state.direcionadoA === 'aluno' ? c.nome : (c.responsavelNome || c.nome));
+  }
+  document.getElementById('previewTexto').textContent = texto.replace(/\{nome\}/g, nomeExemplo);
+  box.style.display = 'block';
+}
+
+document.querySelectorAll('#publicoChips .chip').forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    const tipo = chip.dataset.tipo;
+    if(tipo === 'selecionados'){
+      abrirModalSelecionados();
+      return;
+    }
+    document.querySelectorAll('#publicoChips .chip').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    state.publicoTipo = tipo;
+    state.publicoLabel = tipo === 'todos' ? 'Todos' : chip.dataset.label;
+    atualizarPublicoSummary();
+  });
+});
+
+function contatosDoPublicoAtual(){
+  const ativos = alunosAtivos();
+  let base = [];
+  if(state.publicoTipo === 'todos') base = ativos;
+  else if(state.publicoTipo === 'unidade') base = ativos.filter(a=>a.unidade === state.publicoLabel);
+  else if(state.publicoTipo === 'selecionados') base = alunosCache.filter(a=>state.selecionadosIds.has(a.id));
+  return base;
+}
+
+function atualizarPublicoSummary(){
+  const el = document.getElementById('publicoSummary');
+  const btn = document.getElementById('btnGerarLista');
+  if(!state.publicoTipo){
+    el.textContent = 'Nenhum público escolhido ainda.';
+    btn.disabled = true;
+    return;
+  }
+  const base = contatosDoPublicoAtual();
+  const comWhats = base.filter(a=>a.responsavelWhatsapp);
+  const semWhats = base.length - comWhats.length;
+  el.innerHTML = '<b>' + state.publicoLabel + '</b> · ' + comWhats.length + ' contato(s) com WhatsApp' + (semWhats > 0 ? ' · ' + semWhats + ' sem WhatsApp (serão ignorados)' : '');
+  btn.disabled = comWhats.length === 0;
+}
+
+function gerarListaEnvio(){
+  const mensagem = document.getElementById('txtMensagem').value.trim();
+  if(!mensagem){ toast('Escreva a mensagem primeiro.'); return; }
+  if(!state.publicoTipo){ toast('Escolha o público.'); return; }
+  const base = contatosDoPublicoAtual().filter(a=>a.responsavelWhatsapp);
+  if(base.length === 0){ toast('Nenhum contato com WhatsApp encontrado.'); return; }
+
+  const contatos = base.map(a=>({
+    alunoId: a.id,
+    nomeAluno: a.nome,
+    nomeResponsavel: a.responsavelNome || '',
+    whatsapp: a.responsavelWhatsapp,
+    status: 'pendente',
+    enviadoEm: null
+  }));
+
+  const publicoLabelFinal = state.publicoTipo === 'selecionados' ? ('Selecionados (' + contatos.length + ')') : state.publicoLabel;
+
+  db.collection('mensageiroCampanhas').add({
+    criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+    direcionadoA: state.direcionadoA,
+    publicoTipo: state.publicoTipo,
+    publicoLabel: publicoLabelFinal,
+    mensagemTemplate: mensagem,
+    contatos: contatos,
+    total: contatos.length,
+    enviados: 0
+  }).then(ref=>{
+    abrirEnvio(ref.id);
+  }).catch(err=>{
+    toast('Erro ao criar lista: ' + err.message);
+  });
+}
+
+/* ============ SELECIONADOS MODAL ============ */
+function abrirModalSelecionados(){
+  unitFiltroModal = 'todas';
+  document.querySelectorAll('#unitChipsModal .chip').forEach(c=>c.classList.toggle('active', c.dataset.unit === 'todas'));
+  document.getElementById('buscaSelecionados').value = '';
+  renderModalSelecionados();
+  document.getElementById('modalSelecionados').classList.add('active');
+}
+function fecharModalSelecionados(){
+  document.getElementById('modalSelecionados').classList.remove('active');
+}
+document.querySelectorAll('#unitChipsModal .chip').forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    document.querySelectorAll('#unitChipsModal .chip').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    unitFiltroModal = chip.dataset.unit;
+    renderModalSelecionados();
+  });
+});
+function renderModalSelecionados(){
+  const busca = document.getElementById('buscaSelecionados').value.trim().toLowerCase();
+  let lista = alunosAtivos();
+  if(unitFiltroModal !== 'todas') lista = lista.filter(a=>a.unidade === unitFiltroModal);
+  if(busca) lista = lista.filter(a=>a.nome.toLowerCase().includes(busca));
+
+  const cont = document.getElementById('listaSelecionaveis');
+  if(lista.length === 0){
+    cont.innerHTML = '<div class="empty"><span class="big">🔍</span>Nenhum aluno encontrado</div>';
+  }else{
+    cont.innerHTML = lista.map(a=>{
+      const checked = state.selecionadosIds.has(a.id);
+      const semWhats = !a.responsavelWhatsapp;
+      return '<div class="aluno-row ' + (checked ? 'checked' : '') + '" onclick="toggleSelecionado(\'' + a.id + '\')">' +
+        '<div class="chk-box">' + (checked ? '✓' : '') + '</div>' +
+        '<div class="info"><div class="name">' + a.nome + '</div><div class="sub">' + (a.unidade || '') + (a.responsavelNome ? ' · ' + a.responsavelNome : '') + '</div></div>' +
+        (semWhats ? '<div class="sem-whats">sem WhatsApp</div>' : '') +
+      '</div>';
+    }).join('');
+  }
+  document.getElementById('btnConfirmarSelecionados').textContent = 'Confirmar seleção (' + state.selecionadosIds.size + ')';
+}
+function toggleSelecionado(id){
+  const aluno = alunosCache.find(a=>a.id === id);
+  if(aluno && !aluno.responsavelWhatsapp){ toast('Este aluno não tem WhatsApp do responsável cadastrado.'); }
+  if(state.selecionadosIds.has(id)) state.selecionadosIds.delete(id);
+  else state.selecionadosIds.add(id);
+  renderModalSelecionados();
+}
+function confirmarSelecionados(){
+  if(state.selecionadosIds.size === 0){ toast('Selecione ao menos um aluno.'); return; }
+  document.querySelectorAll('#publicoChips .chip').forEach(c=>c.classList.remove('active'));
+  document.querySelector('#publicoChips .chip[data-tipo="selecionados"]').classList.add('active');
+  state.publicoTipo = 'selecionados';
+  state.publicoLabel = 'Selecionados (' + state.selecionadosIds.size + ')';
+  atualizarPublicoSummary();
+  atualizarPreview();
+  fecharModalSelecionados();
+}
+
+/* ============ TEMPLATES MODAL ============ */
+function abrirTemplates(){
+  document.getElementById('modalTemplates').classList.add('active');
+  db.collection('mensageiroCampanhas').orderBy('criadoEm','desc').limit(30).get().then(snap=>{
+    const vistos = new Set();
+    const itens = [];
+    snap.forEach(doc=>{
+      const d = doc.data();
+      if(!d.mensagemTemplate || vistos.has(d.mensagemTemplate)) return;
+      vistos.add(d.mensagemTemplate);
+      itens.push(d);
+      if(itens.length >= 15) return;
+    });
+    const cont = document.getElementById('listaTemplates');
+    if(itens.length === 0){
+      cont.innerHTML = '<div class="empty"><span class="big">📋</span>Nenhuma mensagem salva ainda</div>';
+      return;
+    }
+    cont.innerHTML = itens.map(d=>{
+      const data = d.criadoEm && d.criadoEm.toDate ? formatarData(d.criadoEm.toDate()) : '';
+      return '<div class="tpl-row" onclick="usarTemplate(' + JSON.stringify(d.mensagemTemplate).replace(/"/g,'&quot;') + ')">' +
+        '<div class="tpl-date">' + data + '</div>' + escapeHtml(d.mensagemTemplate) + '</div>';
+    }).join('');
+  });
+}
+function fecharModalTemplates(){
+  document.getElementById('modalTemplates').classList.remove('active');
+}
+function usarTemplate(texto){
+  document.getElementById('txtMensagem').value = texto;
+  atualizarPreview();
+  fecharModalTemplates();
+}
+function escapeHtml(s){
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+/* ============ ENVIO ============ */
+function abrirEnvio(campaignId){
+  switchScreen('screen-envio');
+  if(unsubEnvio) unsubEnvio();
+  unsubEnvio = db.collection('mensageiroCampanhas').doc(campaignId).onSnapshot(doc=>{
+    currentCampaignId = doc.id;
+    currentCampaignData = doc.data();
+    renderEnvio();
+  });
+}
+function renderEnvio(){
+  if(!currentCampaignData) return;
+  const d = currentCampaignData;
+  document.getElementById('progressoTexto').textContent = d.enviados + '/' + d.total;
+  document.getElementById('progressoFill').style.width = (d.total ? (d.enviados/d.total*100) : 0) + '%';
+  document.getElementById('envioMsgTemplate').textContent = '"' + d.mensagemTemplate + '"';
+
+  const cont = document.getElementById('listaContatos');
+  cont.innerHTML = d.contatos.map((c,idx)=>{
+    const enviado = c.status === 'enviado';
+    const nomePrincipal = d.direcionadoA === 'aluno' ? c.nomeAluno : (c.nomeResponsavel || c.nomeAluno);
+    const nomeSecundario = d.direcionadoA === 'aluno' ? (c.nomeResponsavel || '') : c.nomeAluno;
+    return '<div class="contato-card ' + (enviado ? 'enviado' : 'pendente') + '" onclick="' + (enviado ? '' : 'enviarParaContato(' + idx + ')') + '">' +
+      '<div class="dot-status"></div>' +
+      '<div class="info"><div class="name">' + nomePrincipal + '</div><div class="sub">' + nomeSecundario + '</div></div>' +
+      '<div class="chk">' + (enviado ? '✓' : '›') + '</div>' +
+    '</div>';
+  }).join('');
+}
+function enviarParaContato(idx){
+  const d = currentCampaignData;
+  const c = d.contatos[idx];
+  if(c.status === 'enviado') return;
+  const nomeAlvo = d.direcionadoA === 'aluno' ? c.nomeAluno : (c.nomeResponsavel || c.nomeAluno);
+  const mensagemFinal = d.mensagemTemplate.replace(/\{nome\}/g, primeiroNome(nomeAlvo));
+  const link = gerarLinkWhatsApp(c.whatsapp, mensagemFinal);
+  window.open(link, '_blank');
+
+  const novosContatos = d.contatos.slice();
+  novosContatos[idx] = Object.assign({}, c, {status:'enviado', enviadoEm: new Date().toISOString()});
+  const novoEnviados = novosContatos.filter(x=>x.status === 'enviado').length;
+  db.collection('mensageiroCampanhas').doc(currentCampaignId).update({
+    contatos: novosContatos,
+    enviados: novoEnviados
+  });
+}
+
+/* ============ CAMPANHAS / RELATÓRIO ============ */
+function carregarCampanhas(){
+  db.collection('mensageiroCampanhas').orderBy('criadoEm','desc').limit(50).onSnapshot(snap=>{
+    const cont = document.getElementById('listaCampanhas');
+    if(snap.empty){
+      cont.innerHTML = '<div class="empty"><span class="big">✉️</span>Nenhuma mensagem enviada ainda<div class="cta">Toque em "Nova mensagem em massa" para começar</div></div>';
+      return;
+    }
+    let html = '';
+    snap.forEach(doc=>{
+      const d = doc.data();
+      const dataStr = d.criadoEm && d.criadoEm.toDate ? formatarData(d.criadoEm.toDate()) : 'agora há pouco';
+      const parcial = d.enviados < d.total;
+      html += '<div class="card report-card" onclick="abrirEnvio(\'' + doc.id + '\')">' +
+        '<div class="top-row"><span class="date">' + dataStr + '</span><span class="count ' + (parcial ? 'parcial' : '') + '">' + d.enviados + '/' + d.total + ' enviadas</span></div>' +
+        '<div class="msg">' + escapeHtml(d.mensagemTemplate) + '</div>' +
+        '<div class="meta">' + (d.publicoLabel || '') + ' · direcionada ao ' + (d.direcionadoA === 'aluno' ? 'aluno' : 'responsável') + '</div>' +
+      '</div>';
+    });
+    cont.innerHTML = html;
+  });
+}
+function formatarData(dt){
+  const dia = String(dt.getDate()).padStart(2,'0');
+  const mes = String(dt.getMonth()+1).padStart(2,'0');
+  const hora = String(dt.getHours()).padStart(2,'0');
+  const min = String(dt.getMinutes()).padStart(2,'0');
+  return dia + '/' + mes + '/' + dt.getFullYear() + ' às ' + hora + ':' + min;
+}
+</script>
+</body>
+</html>
