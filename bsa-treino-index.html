@@ -5,7 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<!-- BUILD: 2026-07-04-v6 -->
+<!-- BUILD: 2026-07-25-v8 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -21,25 +21,49 @@ body { display: flex; flex-direction: column; background: #111; transition: back
   padding-bottom: 14px; padding-left: 18px; padding-right: 18px;
   background: rgba(0,0,0,0.45);
   -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); z-index: 100;
+  transition: opacity 0.25s ease, transform 0.25s ease;
 }
+body.immersive #topbar { opacity: 0; pointer-events: none; transform: translateY(-100%); }
 .lbl { font-size: 13px; font-weight: 800; color: rgba(255,255,255,0.6); min-width: 22px; text-align: center; }
 #slider { flex: 1; height: 7px; border-radius: 10px; -webkit-appearance: none; appearance: none; background: rgba(255,255,255,0.25); outline: none; }
 #slider::-webkit-slider-thumb { -webkit-appearance: none; width: 34px; height: 34px; border-radius: 50%; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
 #speed-display { font-size: 20px; font-weight: 900; color: #fff; min-width: 40px; text-align: center; }
+.icon-btn { width: 42px; height: 42px; border-radius: 50%; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.4); display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; font-size: 18px; }
+.icon-btn:active { transform: scale(0.92); }
 #btn-parar { width: 46px; height: 46px; border-radius: 50%; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.4); display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
-#arena { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 16px; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+#arena { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 16px; padding-bottom: max(20px, env(safe-area-inset-bottom)); min-height: 0; }
 #idle { display: flex; flex-direction: column; align-items: center; gap: 20px; }
 #idle-emoji { font-size: 72px; line-height: 1; }
 #idle-title { font-size: 28px; font-weight: 900; color: rgba(255,255,255,0.9); }
 #idle-sub { font-size: 15px; color: rgba(255,255,255,0.4); font-weight: 500; }
 #btn-iniciar { margin-top: 8px; width: 200px; height: 64px; border-radius: 32px; background: #fff; border: none; outline: none; font-size: 22px; font-weight: 900; color: #111; cursor: pointer; -webkit-appearance: none; appearance: none; }
 #btn-iniciar:active { transform: scale(0.96); }
-#equip-card { display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; width: 100%; height: 100%; }
+#equip-card { display: none; flex-direction: column; align-items: center; justify-content: center; gap: 6px; width: 100%; height: 100%; min-height: 0; }
 #equip-card.visible { display: flex; }
-#equip-svg-wrap { width: min(90vw, 420px); height: min(90vw, 420px); display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 16px 48px rgba(0,0,0,0.55)); }
-#equip-svg-wrap svg { width: 100%; height: 100%; }
-#equip-label { font-size: min(10vw, 48px); font-weight: 900; color: rgba(255,255,255,0.95); letter-spacing: 2px; text-transform: uppercase; text-align: center; text-shadow: 0 2px 16px rgba(0,0,0,0.4); }
-#equip-acao { font-size: 19px; font-weight: 700; color: rgba(255,255,255,0.5); text-align: center; }
+#equip-svg-wrap { flex: 1 1 auto; width: 100%; min-height: 0; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 16px 48px rgba(0,0,0,0.55)); }
+#equip-svg-wrap svg { max-width: 100%; max-height: 100%; width: auto; height: auto; }
+#equip-label { flex-shrink: 0; font-size: clamp(28px, 9vw, 84px); font-weight: 900; color: rgba(255,255,255,0.95); letter-spacing: 2px; text-transform: uppercase; text-align: center; text-shadow: 0 2px 16px rgba(0,0,0,0.4); }
+#equip-acao { flex-shrink: 0; font-size: clamp(14px, 3.2vw, 22px); font-weight: 700; color: rgba(255,255,255,0.5); text-align: center; }
+body.immersive #equip-label,
+body.immersive #equip-acao { display: none; }
+
+#settings-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 500; align-items: center; justify-content: center; }
+#settings-overlay.visible { display: flex; }
+#settings-panel { width: min(88vw, 380px); background: #1c1c1e; border-radius: 20px; padding: 22px; display: flex; flex-direction: column; gap: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
+.settings-title { font-size: 18px; font-weight: 900; color: #fff; text-align: center; margin-bottom: 4px; }
+.settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.settings-row span { font-size: 15px; color: rgba(255,255,255,0.85); font-weight: 600; }
+.switch { position: relative; display: inline-block; width: 50px; height: 30px; flex-shrink: 0; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider-switch { position: absolute; cursor: pointer; inset: 0; background: rgba(255,255,255,0.25); border-radius: 30px; transition: 0.2s; }
+.slider-switch::before { content: ""; position: absolute; height: 24px; width: 24px; left: 3px; top: 3px; background: white; border-radius: 50%; transition: 0.2s; }
+.switch input:checked + .slider-switch { background: #34C759; }
+.switch input:checked + .slider-switch::before { transform: translateX(20px); }
+.settings-btn { width: 100%; height: 50px; border-radius: 14px; background: rgba(255,255,255,0.1); border: none; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; -webkit-appearance: none; appearance: none; }
+.settings-btn:active { background: rgba(255,255,255,0.18); }
+.settings-btn-close { background: #fff; color: #111; margin-top: 4px; }
+#toast { position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%); background: rgba(20,20,20,0.95); color: #fff; padding: 10px 18px; border-radius: 12px; font-size: 14px; font-weight: 600; z-index: 600; opacity: 0; pointer-events: none; transition: opacity 0.25s ease; }
+#toast.visible { opacity: 1; }
 </style>
 </head>
 <body>
@@ -47,6 +71,8 @@ body { display: flex; flex-direction: column; background: #111; transition: back
   <span class="lbl">1s</span>
   <input type="range" id="slider" min="1" max="10" value="3" step="1">
   <span id="speed-display">3s</span>
+  <div id="btn-fullscreen" class="icon-btn">⛶</div>
+  <div id="btn-settings" class="icon-btn">⚙️</div>
   <div id="btn-parar">
     <svg width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" rx="2.5" fill="white"/></svg>
   </div>
@@ -65,10 +91,26 @@ body { display: flex; flex-direction: column; background: #111; transition: back
   </div>
 </div>
 
+<div id="settings-overlay">
+  <div id="settings-panel">
+    <div class="settings-title">Configurações</div>
+    <div class="settings-row">
+      <span>Manter tela sempre acesa</span>
+      <label class="switch">
+        <input type="checkbox" id="chk-wakelock">
+        <span class="slider-switch"></span>
+      </label>
+    </div>
+    <button id="btn-testar-som" class="settings-btn" type="button">🔊 Testar som</button>
+    <button id="btn-atualizar" class="settings-btn" type="button">🔄 Verificar atualização (precisa de internet)</button>
+    <button id="btn-fechar-settings" class="settings-btn settings-btn-close" type="button">Fechar</button>
+  </div>
+</div>
+<div id="toast"></div>
+
 <script>
 var SVGS = {
 
-// ── COLCHÃO AMARELO em perspectiva, fiel à foto ──────────────────────────
 colchao: `<svg viewBox="0 0 440 360" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="cTop" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -84,23 +126,12 @@ colchao: `<svg viewBox="0 0 440 360" xmlns="http://www.w3.org/2000/svg">
       <stop offset="100%" stop-color="#FBC02D"/>
     </linearGradient>
   </defs>
-  <!-- sombra no chão -->
   <ellipse cx="240" cy="348" rx="175" ry="14" fill="rgba(0,0,0,0.35)"/>
-
-  <!-- FACE SUPERIOR (paralelogramo) -->
   <polygon points="60,80 380,40 420,180 100,220" fill="url(#cTop)"/>
-  <!-- brilho na face superior -->
   <polygon points="80,90 340,55 370,120 110,155" fill="rgba(255,255,255,0.22)"/>
-
-  <!-- FACE FRONTAL (trapézio) -->
   <polygon points="100,220 420,180 420,290 100,330" fill="url(#cFront)"/>
-  <!-- linha de costura horizontal na frente -->
   <line x1="110" y1="255" x2="415" y2="235" stroke="rgba(0,0,0,0.12)" stroke-width="2.5" stroke-dasharray="14,9"/>
-
-  <!-- FACE LATERAL ESQUERDA -->
   <polygon points="60,80 100,220 100,330 60,190" fill="url(#cSide)"/>
-
-  <!-- bordas/arestas -->
   <line x1="60" y1="80" x2="380" y2="40" stroke="rgba(0,0,0,0.15)" stroke-width="2"/>
   <line x1="380" y1="40" x2="420" y2="180" stroke="rgba(0,0,0,0.15)" stroke-width="2"/>
   <line x1="420" y1="180" x2="420" y2="290" stroke="rgba(0,0,0,0.2)" stroke-width="2"/>
@@ -108,15 +139,12 @@ colchao: `<svg viewBox="0 0 440 360" xmlns="http://www.w3.org/2000/svg">
   <line x1="60" y1="80" x2="60" y2="190" stroke="rgba(0,0,0,0.18)" stroke-width="2"/>
   <line x1="60" y1="190" x2="100" y2="330" stroke="rgba(0,0,0,0.18)" stroke-width="2"/>
   <line x1="100" y1="330" x2="420" y2="290" stroke="rgba(0,0,0,0.18)" stroke-width="2"/>
-
-  <!-- arredondamento dos cantos com pequenos arcos brancos -->
   <circle cx="60" cy="80" r="10" fill="#FFF176" opacity="0.6"/>
   <circle cx="380" cy="40" r="10" fill="#FFF176" opacity="0.6"/>
   <circle cx="420" cy="290" r="10" fill="#FBC02D" opacity="0.5"/>
   <circle cx="100" cy="330" r="10" fill="#FBC02D" opacity="0.5"/>
 </svg>`,
 
-// ── BOLA AZUL LISA — fiel à foto: azul royal sólido, reflexo grande ──────
 bolaazul: `<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <radialGradient id="gBall" cx="34%" cy="28%" r="70%">
@@ -126,20 +154,13 @@ bolaazul: `<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
       <stop offset="100%" stop-color="#000E5A"/>
     </radialGradient>
   </defs>
-  <!-- sombra -->
   <ellipse cx="200" cy="392" rx="148" ry="13" fill="rgba(0,0,0,0.4)"/>
-  <!-- bola azul lisa -->
   <circle cx="200" cy="196" r="182" fill="url(#gBall)"/>
-  <!-- reflexo principal grande (como na foto) -->
   <ellipse cx="148" cy="108" rx="78" ry="44" fill="rgba(255,255,255,0.28)" transform="rotate(-30,148,108)"/>
-  <!-- reflexo secundário menor -->
   <ellipse cx="110" cy="78" rx="34" ry="18" fill="rgba(255,255,255,0.22)" transform="rotate(-30,110,78)"/>
-  <!-- ponto de luz central pequeno -->
   <circle cx="128" cy="92" r="10" fill="rgba(255,255,255,0.35)"/>
 </svg>`,
 
-// ── BOLA BRANCA COM GOMOS PRETOS — exata como a foto ────────────────────
-// Técnica: círculo branco + gomos pretos com stroke branco entre eles
 bolabranca: `<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <radialGradient id="gW2" cx="35%" cy="28%" r="72%">
@@ -151,39 +172,18 @@ bolabranca: `<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
       <circle cx="200" cy="200" r="182"/>
     </clipPath>
   </defs>
-  <!-- sombra -->
   <ellipse cx="200" cy="392" rx="148" ry="13" fill="rgba(0,0,0,0.35)"/>
-  <!-- base branca -->
   <circle cx="200" cy="200" r="182" fill="url(#gW2)"/>
-
-  <!-- GOMOS PRETOS dentro do clip -->
   <g clip-path="url(#circ)">
-    <!-- pentágono TOPO -->
-    <polygon points="200,28 248,72 228,130 172,130 152,72"
-      fill="#111" stroke="white" stroke-width="6" stroke-linejoin="round"/>
-    <!-- pentágono CENTRO -->
-    <polygon points="200,172 248,208 230,266 170,266 152,208"
-      fill="#111" stroke="white" stroke-width="6" stroke-linejoin="round"/>
-    <!-- pentágono ESQUERDA SUPERIOR -->
-    <polygon points="50,110 108,90 130,148 88,188 38,162"
-      fill="#111" stroke="white" stroke-width="6" stroke-linejoin="round"/>
-    <!-- pentágono DIREITA SUPERIOR -->
-    <polygon points="350,110 362,162 312,188 270,148 292,90"
-      fill="#111" stroke="white" stroke-width="6" stroke-linejoin="round"/>
-    <!-- pentágono ESQUERDA INFERIOR -->
-    <polygon points="30,238 80,218 118,268 96,326 36,314"
-      fill="#111" stroke="white" stroke-width="6" stroke-linejoin="round"/>
-    <!-- pentágono DIREITA INFERIOR -->
-    <polygon points="370,238 364,314 304,326 282,268 320,218"
-      fill="#111" stroke="white" stroke-width="6" stroke-linejoin="round"/>
-    <!-- pentágono BASE -->
-    <polygon points="200,344 156,314 162,268 238,268 244,314"
-      fill="#111" stroke="white" stroke-width="6" stroke-linejoin="round"/>
+    <polygon points="200,28 248,72 228,130 172,130 152,72" fill="#111" stroke="white" stroke-width="6" stroke-linejoin="round"/>
+    <polygon points="200,172 248,208 230,266 170,266 152,208" fill="#111" stroke="white" stroke-width="6" stroke-linejoin="round"/>
+    <polygon points="50,110 108,90 130,148 88,188 38,162" fill="#111" stroke="white" stroke-width="6" stroke-linejoin="round"/>
+    <polygon points="350,110 362,162 312,188 270,148 292,90" fill="#111" stroke="white" stroke-width="6" stroke-linejoin="round"/>
+    <polygon points="30,238 80,218 118,268 96,326 36,314" fill="#111" stroke="white" stroke-width="6" stroke-linejoin="round"/>
+    <polygon points="370,238 364,314 304,326 282,268 320,218" fill="#111" stroke="white" stroke-width="6" stroke-linejoin="round"/>
+    <polygon points="200,344 156,314 162,268 238,268 244,314" fill="#111" stroke="white" stroke-width="6" stroke-linejoin="round"/>
   </g>
-
-  <!-- borda da bola -->
   <circle cx="200" cy="200" r="182" fill="none" stroke="#CCCCCC" stroke-width="3"/>
-  <!-- reflexo -->
   <ellipse cx="148" cy="130" rx="54" ry="30" fill="rgba(255,255,255,0.55)" transform="rotate(-25,148,130)"/>
   <ellipse cx="122" cy="108" rx="22" ry="12" fill="rgba(255,255,255,0.4)" transform="rotate(-25,122,108)"/>
 </svg>`
@@ -195,29 +195,83 @@ var EQUIPS = [
   { id:'bolabranca', label:'BOLA BRANCA', acao:'Cabeceie a bola!',  bg:'#1A1A2A', freq:700, tipo:'square',   dur:0.28 }
 ];
 
-var atual = -1, timer = null, rodando = false, audioCtx = null;
+var atual = -1, timer = null, rodando = false, audioCtx = null, wakeLock = null;
+var masterGain = null, limiter = null;
+var manterTela = true;
+try { var salvo = localStorage.getItem('bsaColchaoWakeLock'); if (salvo !== null) manterTela = salvo === '1'; } catch(e) {}
+
 function getAC() {
-  if (!audioCtx || audioCtx.state === 'closed') audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (!audioCtx || audioCtx.state === 'closed') {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // limitador (compressor) pra segurar o pico e evitar distorção quando o volume é aumentado
+    limiter = audioCtx.createDynamicsCompressor();
+    limiter.threshold.value = -8;
+    limiter.knee.value = 0;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0.001;
+    limiter.release.value = 0.15;
+    // ganho geral bem mais alto — o limitador acima evita estourar o som
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 4.0;
+    masterGain.connect(limiter);
+    limiter.connect(audioCtx.destination);
+  }
   if (audioCtx.state === 'suspended') audioCtx.resume();
   return audioCtx;
+}
+function desbloquearAudio() {
+  try {
+    var ac = getAC();
+    var buffer = ac.createBuffer(1, 1, 22050);
+    var src = ac.createBufferSource();
+    src.buffer = buffer; src.connect(ac.destination); src.start(0);
+  } catch(e) {}
 }
 function tocar(eq) {
   try {
     var ac = getAC(), now = ac.currentTime;
     var o = ac.createOscillator(), g = ac.createGain();
     o.type = eq.tipo; o.frequency.value = eq.freq;
-    g.gain.setValueAtTime(0.0, now);
-    g.gain.linearRampToValueAtTime(0.3, now + 0.02);
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.linearRampToValueAtTime(0.9, now + 0.02);
     g.gain.exponentialRampToValueAtTime(0.001, now + eq.dur);
-    o.connect(g); g.connect(ac.destination);
-    o.start(now); o.stop(now + eq.dur);
+    o.connect(g); g.connect(masterGain);
+    o.start(now); o.stop(now + eq.dur + 0.05);
+  } catch(e) { console.warn('erro ao tocar som', e); }
+}
+
+function mostrarToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('visible');
+  clearTimeout(t._timeout);
+  t._timeout = setTimeout(function() { t.classList.remove('visible'); }, 2200);
+}
+
+async function pedirWakeLock() {
+  if (!manterTela) return;
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', function() { wakeLock = null; });
+    }
   } catch(e) {}
 }
+function liberarWakeLock() {
+  if (wakeLock) { try { wakeLock.release(); } catch(e) {} wakeLock = null; }
+}
+
 var elBody=document.body, elSlider=document.getElementById('slider'),
     elSpeed=document.getElementById('speed-display'), elParar=document.getElementById('btn-parar'),
     elIniciar=document.getElementById('btn-iniciar'), elIdle=document.getElementById('idle'),
     elCard=document.getElementById('equip-card'), elSVG=document.getElementById('equip-svg-wrap'),
-    elLabel=document.getElementById('equip-label'), elAcao=document.getElementById('equip-acao');
+    elLabel=document.getElementById('equip-label'), elAcao=document.getElementById('equip-acao'),
+    elFullscreen=document.getElementById('btn-fullscreen'), elSettingsBtn=document.getElementById('btn-settings'),
+    elSettingsOverlay=document.getElementById('settings-overlay'), elFecharSettings=document.getElementById('btn-fechar-settings'),
+    elChkWakelock=document.getElementById('chk-wakelock'), elTestarSom=document.getElementById('btn-testar-som'),
+    elAtualizar=document.getElementById('btn-atualizar');
+
+elChkWakelock.checked = manterTela;
 
 elSlider.addEventListener('input', function() {
   elSpeed.textContent = elSlider.value + 's';
@@ -233,14 +287,18 @@ function trocar() {
   tocar(eq);
 }
 function iniciar() {
-  getAC(); rodando = true;
+  desbloquearAudio();
+  rodando = true;
   elIdle.style.display = 'none'; elCard.classList.add('visible');
   trocar(); timer = setInterval(trocar, elSlider.value * 1000);
+  pedirWakeLock();
 }
 function parar() {
   rodando = false; clearInterval(timer); atual = -1;
   elBody.style.background = '#111';
   elIdle.style.display = 'flex'; elCard.classList.remove('visible');
+  elBody.classList.remove('immersive');
+  liberarWakeLock();
 }
 function addTap(el, fn) {
   el.addEventListener('touchend', function(e) { e.preventDefault(); fn(); });
@@ -248,9 +306,63 @@ function addTap(el, fn) {
 }
 addTap(elIniciar, function() { if (!rodando) iniciar(); });
 addTap(elParar,   function() { if (rodando)  parar();  });
-document.addEventListener('visibilitychange', function() {
-  if (!document.hidden && audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+
+function toggleImersivo() {
+  elBody.classList.toggle('immersive');
+}
+addTap(elFullscreen, function() {
+  var el = document.documentElement;
+  var req = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (!document.fullscreenElement && !document.webkitFullscreenElement && req) {
+    try { req.call(el).catch(function(){}); } catch(e) {}
+  }
+  toggleImersivo();
 });
+addTap(elCard, function() { if (rodando) toggleImersivo(); });
+
+addTap(elSettingsBtn, function() { elSettingsOverlay.classList.add('visible'); });
+addTap(elFecharSettings, function() { elSettingsOverlay.classList.remove('visible'); });
+elChkWakelock.addEventListener('change', function() {
+  manterTela = elChkWakelock.checked;
+  try { localStorage.setItem('bsaColchaoWakeLock', manterTela ? '1' : '0'); } catch(e) {}
+  if (manterTela && rodando) pedirWakeLock();
+  else liberarWakeLock();
+});
+addTap(elTestarSom, function() {
+  desbloquearAudio();
+  tocar(EQUIPS[0]);
+  mostrarToast('🔊 Tocando som de teste...');
+});
+addTap(elAtualizar, function() {
+  mostrarToast('Atualizando... (precisa de internet)');
+  var limpar = [];
+  if ('serviceWorker' in navigator) {
+    limpar.push(navigator.serviceWorker.getRegistrations().then(function(regs) {
+      return Promise.all(regs.map(function(r) { return r.unregister(); }));
+    }));
+  }
+  if ('caches' in window) {
+    limpar.push(caches.keys().then(function(keys) {
+      return Promise.all(keys.map(function(k) { return caches.delete(k); }));
+    }));
+  }
+  Promise.all(limpar).finally(function() {
+    setTimeout(function() { location.reload(); }, 400);
+  });
+});
+
+document.addEventListener('visibilitychange', function() {
+  if (!document.hidden) {
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    if (rodando && manterTela && !wakeLock) pedirWakeLock();
+  }
+});
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('sw-colchao.js').catch(function() {});
+  });
+}
 </script>
 </body>
 </html>
