@@ -288,7 +288,7 @@
       }));
     }
     Promise.all(tasks).finally(function(){
-      setTimeout(function(){ location.reload(); }, 500);
+      setTimeout(function(){ location.href = location.pathname + '?upd=' + Date.now(); }, 500);
     });
   });
 </script>
