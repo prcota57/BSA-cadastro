@@ -286,7 +286,7 @@
 <!-- LISTA -->
 <section class="screen active" id="screen-lista">
   <div class="searchbar">
-    <input type="text" id="searchInput" placeholder="Buscar aluno por nome...">
+    <input type="text" id="searchInput" placeholder="Buscar por nome do aluno ou do responsável...">
   </div>
   <div style="padding:0 16px 8px;">
     <button class="btn btn-outline btn-block" id="btnIdentificar" type="button">📷 Identificar aluno (sem lançar presença)</button>
@@ -1058,7 +1058,11 @@ function renderLista(){
   let lista = alunosCache.filter(a=>{
     if(filterUnit !== 'todas' && a.unidade !== filterUnit) return false;
     if(filterStatus !== 'todos' && a.statusMensalidade !== filterStatus) return false;
-    if(term && !a.nome.toLowerCase().includes(term)) return false;
+    if(term){
+      const nomeMatch = a.nome && a.nome.toLowerCase().includes(term);
+      const respMatch = a.responsavelNome && a.responsavelNome.toLowerCase().includes(term);
+      if(!nomeMatch && !respMatch) return false;
+    }
     return true;
   });
   document.getElementById('countBadge').textContent = alunosCache.length;
