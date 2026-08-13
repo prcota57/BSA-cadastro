@@ -57,6 +57,11 @@
   }
   .saved-toast.show{opacity:1;}
   .exit-hint{position:fixed; bottom:calc(16px + env(safe-area-inset-bottom)); left:0; right:0; text-align:center; font-size:12px; color:var(--ink-soft);}
+  .lista-quick-btn{
+    position:fixed; top:calc(14px + env(safe-area-inset-top)); right:14px; z-index:40;
+    background:rgba(15,92,61,0.9); color:#fff; border:none; border-radius:20px; padding:9px 14px;
+    font-family:'Space Grotesk'; font-weight:700; font-size:12.5px; box-shadow:0 4px 14px rgba(0,0,0,0.2);
+  }
 
   /* ---- Lista ---- */
   .tabs{display:flex; gap:6px; margin-bottom:14px; overflow-x:auto;}
@@ -143,10 +148,11 @@
 
   <!-- TELA CAPTURA -->
   <section class="screen" id="screen-captura">
+    <button class="lista-quick-btn" onclick="irPara('lista')">📋 Lista</button>
     <div class="capture-wrap">
       <div class="mic-circle off" id="micCircle">🎤</div>
       <div class="capture-status" id="captureStatus">Toque no microfone pra começar</div>
-      <div class="capture-hint">Diga a tarefa. Pode falar "prioridade um/dois/três" e "Ronaldo" ou "Iasmin" em qualquer parte da frase.</div>
+      <div class="capture-hint">Diga a tarefa. Pode falar "prioridade um/dois/três" e "Ronaldo" ou "Iasmin" em qualquer parte da frase. Pra parar: fale "encerrar", toque no microfone, ou fique 8s em silêncio.</div>
       <div class="live-transcript" id="liveTranscript"></div>
       <div class="saved-toast" id="savedToast">✅ Tarefa salva</div>
     </div>
@@ -279,6 +285,9 @@ if(new URLSearchParams(location.search).get('modo')==='captura'){
 let recognition = null;
 let escutando = false;
 let saindoTaps = 0, saindoTimer = null;
+let silenceTimer = null;
+const SILENCE_MS = 8000; // para sozinho após 8s sem fala nova
+const COMANDOS_PARAR = /^(encerrar|pronto|terminar|para|parar|pausa|pausar)[\.\!]?$/i;
 
 function getRecognition(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -308,9 +317,16 @@ function iniciarEscuta(){
     for(let i=event.resultIndex; i<event.results.length; i++){
       const res = event.results[i];
       if(res.isFinal){
+        const falaLimpa = res[0].transcript.trim();
+        if(COMANDOS_PARAR.test(falaLimpa)){
+          pararEscutaManual();
+          return;
+        }
         processarFala(res[0].transcript);
+        resetSilenceTimer();
       } else {
         interim += res[0].transcript;
+        resetSilenceTimer();
       }
     }
     document.getElementById('liveTranscript').textContent = interim;
@@ -322,10 +338,19 @@ function iniciarEscuta(){
     if(escutando){ try{ recognition.start(); }catch(e){} } // reinicia sozinho (iOS corta após pausas)
   };
   try{ recognition.start(); }catch(e){}
+  resetSilenceTimer();
+}
+
+function resetSilenceTimer(){
+  clearTimeout(silenceTimer);
+  silenceTimer = setTimeout(()=>{
+    if(escutando) pararEscutaAuto();
+  }, SILENCE_MS);
 }
 
 function pararEscuta(){
   escutando = false;
+  clearTimeout(silenceTimer);
   if(recognition){ try{ recognition.stop(); }catch(e){} }
   document.getElementById('micCircle').classList.remove('listening');
   document.getElementById('micCircle').classList.add('off');
@@ -334,9 +359,23 @@ function pararEscuta(){
   document.getElementById('liveTranscript').textContent = '';
 }
 
+// para sozinho depois de alguns segundos sem fala (silêncio) — mic não fica ligado à toa
+function pararEscutaAuto(){
+  pararEscuta();
+  document.getElementById('captureStatus').textContent = 'Parou de ouvir (sem fala) — toque pra continuar';
+  if(navigator.vibrate) navigator.vibrate(50);
+}
+
+// para por comando de voz ("encerrar"/"pronto"/"parar") ou toque no microfone
+function pararEscutaManual(){
+  pararEscuta();
+  document.getElementById('captureStatus').textContent = 'Escuta encerrada — toque pra continuar';
+  if(navigator.vibrate) navigator.vibrate([50,40,50]);
+}
+
 document.getElementById('micCircle').addEventListener('click', ()=>{
-  if(escutando) return;
-  iniciarEscuta();
+  if(escutando){ pararEscutaManual(); }
+  else{ iniciarEscuta(); }
 });
 
 // 2 toques em qualquer lugar da tela de captura pra sair (padrão dos apps de treino)
