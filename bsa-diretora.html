@@ -760,7 +760,7 @@ function abrirModalRevisao(pendenteId){
     ${p.foto ? `<img class="foto-rev" src="${p.foto}">` : ''}
     <h3>Revisar cadastro</h3>
     <div class="sub" style="margin-bottom:14px;">Confira e complete antes de aprovar</div>
-    <div class="rev-obs">👤 <b>${p.responsavelNome||'?'}</b> · 📱 ${p.responsavelWhatsapp||'?'}${p.observacoes ? '<br>📝 '+p.observacoes : ''}${dias.length ? '<br>📅 Preferência: '+dias.map(d=>DIA_LABEL[d]||d).join(', ')+(p.horarioPreferido?' · '+p.horarioPreferido:'') : ''}</div>
+    <div class="rev-obs">👤 <b>${p.responsavelNome||'?'}</b> · 📱 ${p.responsavelWhatsapp||'?'}${p.turmaLabel ? '<br>⚽ Turma: '+p.turmaLabel : ''}${p.observacoes ? '<br>📝 '+p.observacoes : ''}</div>
 
     <div class="rev-field"><label>Nome do aluno</label><input id="revNome" value="${(p.nome||'').replace(/"/g,'&quot;')}"></div>
     <div class="rev-row">
@@ -778,8 +778,10 @@ function abrirModalRevisao(pendenteId){
       <div class="rev-field"><label>Dia vencimento</label>
         <select id="revVencimento">
           <option value="">Selecione</option>
-          <option value="5">Dia 5</option><option value="10">Dia 10</option>
-          <option value="15">Dia 15</option><option value="20">Dia 20</option>
+          <option value="5" ${p.diaVencimentoPreferido==='5'?'selected':''}>Dia 5</option>
+          <option value="10" ${p.diaVencimentoPreferido==='10'?'selected':''}>Dia 10</option>
+          <option value="15" ${p.diaVencimentoPreferido==='15'?'selected':''}>Dia 15</option>
+          <option value="20" ${p.diaVencimentoPreferido==='20'?'selected':''}>Dia 20</option>
         </select>
       </div>
     </div>
