@@ -147,6 +147,16 @@
   .comp-table td{padding:7px 0; border-top:1px solid rgba(255,255,255,0.06);}
   .comp-table td.num{text-align:right; font-weight:700;}
 
+  .sug-card{
+    display:flex; gap:12px; padding:15px; border-radius:14px; margin-bottom:10px;
+    background:var(--board-line); border-left:4px solid var(--gold);
+  }
+  .sug-card .ico{flex:none; font-size:22px; width:30px; text-align:center; padding-top:1px;}
+  .sug-card .titulo{font-weight:700; font-size:14px; margin-bottom:4px;}
+  .sug-card .texto{font-size:12.5px; color:var(--chalk-dim); line-height:1.45;}
+  .sug-empty{text-align:center; padding:40px 20px; color:var(--chalk-dim); font-size:13px;}
+  .sug-intro{font-size:12px; color:var(--chalk-dim); margin-bottom:16px; line-height:1.4;}
+
   .resumo-chips{display:flex; gap:8px; margin-bottom:14px;}
   .resumo-chips .chip{
     flex:1; display:flex; flex-direction:column; align-items:center; gap:2px;
@@ -207,6 +217,7 @@
   <div class="top-tabs">
     <button data-tab="pendencias" class="active">Pendências</button>
     <button data-tab="geral">Visão Geral</button>
+    <button data-tab="sugestoes">Sugestões</button>
   </div>
 
   <div id="painelPendencias">
@@ -244,6 +255,11 @@
 
     <div class="section-divider"><span class="label">Comparativo entre unidades</span><span class="rule"></span></div>
     <div class="panel-box" id="compBox">carregando…</div>
+  </div>
+
+  <div id="painelSugestoes" style="display:none;">
+    <div class="sug-intro">Leituras automáticas em cima dos seus próprios dados — não é mágica, é padrão. Vale sua análise antes de agir.</div>
+    <div id="sugestoesLista"></div>
   </div>
 </main>
 
@@ -394,6 +410,7 @@ async function carregarTudo(){
   document.getElementById('horaAtualizacao').textContent = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   computarERenderizar();
   computarVisaoGeral();
+  computarSugestoes();
 }
 
 // ---------- cálculo das pendências ----------
@@ -949,11 +966,131 @@ document.querySelectorAll('.top-tabs button').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.top-tabs button').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
-    const geral = btn.dataset.tab === 'geral';
-    document.getElementById('painelPendencias').style.display = geral ? 'none' : 'block';
-    document.getElementById('painelGeral').style.display = geral ? 'block' : 'none';
+    const tab = btn.dataset.tab;
+    document.getElementById('painelPendencias').style.display = tab === 'pendencias' ? 'block' : 'none';
+    document.getElementById('painelGeral').style.display = tab === 'geral' ? 'block' : 'none';
+    document.getElementById('painelSugestoes').style.display = tab === 'sugestoes' ? 'block' : 'none';
   });
 });
+
+// ---------- SUGESTÕES DE ADMINISTRAÇÃO ----------
+function taxaPresencaTurma(unidade, horario, alunosTurma){
+  let esperados = 0, presentes = 0;
+  for(let i=0; i<=14; i++){
+    const dataISO = i===0 ? dataHojeISO() : dataISOOffset(i);
+    const dia = diaSemanaDe(dataISO);
+    alunosTurma.forEach(a=>{
+      if(!a.diasTreino || !a.diasTreino.includes(dia)) return;
+      esperados++;
+      if(presencasCache.some(p=> p.alunoId===a.id && p.data===dataISO)) presentes++;
+    });
+  }
+  return esperados >= 6 ? Math.round((presentes/esperados)*100) : null;
+}
+
+function computarSugestoes(){
+  const sugestoes = [];
+
+  // 1. Caixa negativo previsto
+  const mes = mesAtualDiretora();
+  const doMes = mensalidadesCache.filter(m=> m.mesReferencia===mes && m.statusPagamento!=='isento');
+  const recebido = doMes.filter(m=>m.statusPagamento==='pago').reduce((s,m)=>s+(Number(m.valor)||0),0);
+  const aReceber = doMes.filter(m=>m.statusPagamento!=='pago').reduce((s,m)=>s+(Number(m.valor)||0),0);
+  const totalDespesas = DESPESAS_FIXAS.reduce((s,d)=>s+d.valor,0);
+  const saldoPrevisto = recebido + aReceber - totalDespesas;
+  if(saldoPrevisto < 0){
+    sugestoes.push({ ico:'⚠️', titulo:'Caixa previsto no vermelho este mês', texto:`Mesmo somando tudo que ainda falta receber, o saldo previsto fica em ${fmtMoeda(saldoPrevisto)}. Vale acelerar a cobrança de atrasados ou revisar despesas antes do fim do mês.` });
+  }
+
+  // 2. Inadimplência muito desigual entre unidades
+  const inadCP = taxaInadimplencia('Carlos Prates');
+  const inadES = taxaInadimplencia('Estoril');
+  if(inadCP !== null && inadES !== null && Math.abs(inadCP - inadES) >= 15){
+    const pior = inadCP > inadES ? 'Carlos Prates' : 'Estoril';
+    const melhor = pior === 'Carlos Prates' ? 'Estoril' : 'Carlos Prates';
+    sugestoes.push({ ico:'💸', titulo:`Inadimplência bem mais alta em ${pior}`, texto:`${pior} está com inadimplência bem acima de ${melhor} (${inadCP}% vs ${inadES}%). Pode valer revisar a rotina de cobrança ou de comunicação nessa unidade especificamente.` });
+  }
+
+  // 3. Vários alunos em risco de evasão ao mesmo tempo
+  const riscoTotal = alunosEmRisco(null);
+  if(riscoTotal >= 3){
+    sugestoes.push({ ico:'🚨', titulo:`${riscoTotal} alunos com risco de evasão agora`, texto:'Vários alunos acumulando faltas seguidas ao mesmo tempo pode ser coincidência de calendário (feriado, chuva) ou sinal de algo na rotina da turma. Vale um contato pessoal, não só a mensagem automática.' });
+  }
+
+  // 4. Turma com presença historicamente baixa
+  const hoje = diaSemanaHoje();
+  const turmasVistas = {};
+  alunosCache.forEach(a=>{
+    if(!a.horarioTreino) return;
+    (a.diasTreino||[]).forEach(dia=>{
+      const key = a.unidade+'|'+a.horarioTreino;
+      if(!turmasVistas[key]) turmasVistas[key] = { unidade:a.unidade, horario:a.horarioTreino, alunos:[] };
+      if(!turmasVistas[key].alunos.some(x=>x.id===a.id)) turmasVistas[key].alunos.push(a);
+    });
+  });
+  Object.values(turmasVistas).forEach(t=>{
+    const taxa = taxaPresencaTurma(t.unidade, t.horario, t.alunos);
+    if(taxa !== null && taxa < 55){
+      sugestoes.push({ ico:'📉', titulo:`Presença baixa — turma das ${t.horario} (${t.unidade})`, texto:`Essa turma está com taxa de presença de ${taxa}% nas últimas 2 semanas, bem abaixo do ideal. Pode valer entender o motivo — horário difícil, época do ano, ou algo pontual — antes de virar padrão.` });
+    }
+  });
+
+  // 5. Tarefas acumuladas
+  const agoraMs = Date.now();
+  const tarefasVelhas = tarefasCache.filter(t=> t.criadoEm && t.criadoEm.toMillis && (agoraMs - t.criadoEm.toMillis()) > 5*86400000);
+  if(tarefasVelhas.length >= 3){
+    sugestoes.push({ ico:'🗒️', titulo:`${tarefasVelhas.length} tarefas paradas há mais de 5 dias`, texto:'Uma lista de tarefas que só cresce tende a ser ignorada. Vale separar 15 minutos pra resolver ou cancelar as que não fazem mais sentido.' });
+  }
+
+  // 6. Aluno destaque do mês (maior evolução) — oportunidade de retenção/marketing
+  const porAluno = {};
+  avaliacoesCache.forEach(ev=>{ if(!porAluno[ev.alunoId]) porAluno[ev.alunoId]=[]; porAluno[ev.alunoId].push(ev); });
+  let melhorDelta = null;
+  Object.keys(porAluno).forEach(id=>{
+    const evs = porAluno[id].slice().sort((a,b)=> (a.date||'')<(b.date||'')?-1:1);
+    if(evs.length < 2) return;
+    const delta = (evs[evs.length-1].score||0) - (evs[evs.length-2].score||0);
+    if(delta > 0 && (!melhorDelta || delta > melhorDelta.delta)) melhorDelta = { nome: evs[evs.length-1].nome, delta };
+  });
+  if(melhorDelta && melhorDelta.delta >= 10){
+    sugestoes.push({ ico:'🌟', titulo:`${melhorDelta.nome} teve a maior evolução do mês`, texto:`Subiu ${melhorDelta.delta} pontos de score. É um bom momento pra elogiar publicamente (grupo de pais, redes sociais) — reforça retenção e serve de prova social pra captação.` });
+  }
+
+  // 7. Muitos danos/uniformes pendentes acumulados
+  if(danosCache.length >= 5){
+    sugestoes.push({ ico:'👕', titulo:`${danosCache.length} itens de estoque pendentes de resolução`, texto:'Já acumulou bastante coisa pra resolver no estoque. Pode valer um mutirão rápido pra zerar tudo de uma vez, em vez de ir resolvendo um por um.' });
+  }
+
+  // 8. Saúde geral baixa
+  const totalComTreino = alunosCache.filter(a=> a.diasTreino && a.diasTreino.length).length || 1;
+  const presenca = taxaPresenca14dias(null);
+  const inadGeral = taxaInadimplencia(null);
+  const partesValidas = [];
+  if(presenca !== null) partesValidas.push(presenca * 0.4);
+  if(inadGeral !== null) partesValidas.push((100-inadGeral) * 0.35);
+  partesValidas.push((100 - clamp((riscoTotal/totalComTreino)*100, 0, 100)) * 0.25);
+  const somaPesos = (presenca!==null?0.4:0) + (inadGeral!==null?0.35:0) + 0.25;
+  const saudeGeral = somaPesos > 0 ? Math.round(partesValidas.reduce((a,b)=>a+b,0) / somaPesos) : null;
+  if(saudeGeral !== null && saudeGeral < 60){
+    sugestoes.push({ ico:'🩺', titulo:'Saúde geral da BSA abaixo do ideal', texto:`O indicador combinado (presença, inadimplência e risco de evasão) está em ${saudeGeral}%. Vale olhar a aba Visão Geral pra entender qual das três frentes está puxando o número pra baixo.` });
+  }
+
+  renderSugestoes(sugestoes);
+}
+
+function renderSugestoes(lista){
+  const cont = document.getElementById('sugestoesLista');
+  if(lista.length === 0){
+    cont.innerHTML = '<div class="sug-empty">Nenhum padrão preocupante ou digno de destaque encontrado nos dados de hoje. 👍</div>';
+    return;
+  }
+  cont.innerHTML = lista.map(s=>`
+    <div class="sug-card">
+      <div class="ico">${s.ico}</div>
+      <div class="body"><div class="titulo">${s.titulo}</div><div class="texto">${s.texto}</div></div>
+    </div>
+  `).join('');
+}
 
 // ---------- comando por voz (captura rápida de tarefa) ----------
 let micRecognition = null;
