@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>Cadastro de Aluno — BSA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F6F8F4; --surface:#FFFFFF; --pitch:#0F5C3D; --pitch-dark:#0B4530; --pitch-soft:#E4EFE8;
+    --gold:#FFC800; --gold-soft:#FFF3CC; --coral:#FF5A36; --ink:#142B20; --ink-soft:#5C7268;
+    --line:#DCE5DD; --radius:18px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif;}
+  body{padding-bottom:calc(40px + env(safe-area-inset-bottom)); padding-top:env(safe-area-inset-top);}
+  .display{font-family:'Space Grotesk',sans-serif;}
+
+  header.top{
+    background:var(--pitch); color:#fff; padding:26px 20px 22px;
+    border-radius:0 0 22px 22px; box-shadow:0 6px 18px rgba(15,92,61,0.18); text-align:center;
+  }
+  header.top h1{font-family:'Space Grotesk',sans-serif; font-size:21px; font-weight:700; margin:0;}
+  header.top .sub{font-size:13px; opacity:0.85; margin-top:6px; line-height:1.4;}
+
+  main{max-width:520px; margin:0 auto; padding:18px 16px 30px;}
+
+  .step{display:none;}
+  .step.active{display:block;}
+
+  .photo-box{
+    background:var(--surface); border-radius:var(--radius); padding:16px; margin-bottom:14px;
+    display:flex; align-items:center; gap:14px; box-shadow:0 2px 8px rgba(20,43,32,0.06);
+  }
+  .photo-preview{
+    width:74px; height:74px; border-radius:50%; background:var(--pitch-soft); display:flex;
+    align-items:center; justify-content:center; font-size:28px; flex:none; overflow:hidden; border:2px solid var(--gold);
+  }
+  .photo-preview img{width:100%; height:100%; object-fit:cover;}
+  .btn{
+    border:none; border-radius:14px; padding:13px 16px; font-size:14.5px; font-weight:700;
+    font-family:'Inter'; width:100%; text-align:center;
+  }
+  .btn-gold{background:var(--gold); color:var(--pitch-dark);}
+  .btn-pitch{background:var(--pitch); color:#fff;}
+  .btn:active{transform:scale(0.98);}
+  .hint{font-size:11.5px; color:var(--ink-soft); margin-top:4px; line-height:1.4;}
+
+  .field{background:var(--surface); border-radius:14px; padding:12px 14px; margin-bottom:10px; box-shadow:0 2px 6px rgba(20,43,32,0.05);}
+  .field label{display:block; font-size:12px; font-weight:600; color:var(--ink-soft); margin-bottom:5px;}
+  .field input, .field select, .field textarea{
+    width:100%; border:none; font-size:15.5px; font-family:'Inter'; color:var(--ink); padding:0; background:transparent;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus{outline:none;}
+  .field textarea{resize:vertical; min-height:60px;}
+  .field-row{display:flex; gap:10px;}
+  .field-row .field{flex:1;}
+
+  .day-chips{display:flex; gap:6px; flex-wrap:wrap; margin-top:2px;}
+  .day-chip{
+    background:var(--pitch-soft); color:var(--pitch-dark); font-size:12.5px; font-weight:700;
+    padding:8px 12px; border-radius:20px; border:1.5px solid transparent;
+  }
+  .day-chip.sel{background:var(--pitch); color:#fff; border-color:var(--gold);}
+
+  .section-title{font-family:'Space Grotesk'; font-size:14px; font-weight:700; color:var(--pitch-dark); margin:20px 2px 8px;}
+
+  .footer-btn{position:sticky; bottom:0; padding-top:14px;}
+
+  .status-msg{font-size:13px; text-align:center; margin-top:10px; color:var(--coral); min-height:16px;}
+
+  .success{text-align:center; padding:50px 20px;}
+  .success .emoji{font-size:56px;}
+  .success h2{font-family:'Space Grotesk'; color:var(--pitch-dark); margin:16px 0 8px;}
+  .success p{color:var(--ink-soft); font-size:14px; line-height:1.5;}
+
+  .spinner{display:inline-block; width:16px; height:16px; border:2px solid rgba(11,69,48,0.3); border-top-color:var(--pitch-dark); border-radius:50%; animation:spin 0.7s linear infinite; vertical-align:middle; margin-right:6px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <h1>⚽ BSA — Cadastro de Aluno</h1>
+  <div class="sub">Brazilian Skills Academy<br>Preencha os dados abaixo. Nossa equipe vai revisar e confirmar a matrícula em breve.</div>
+</header>
+
+<main>
+  <div class="step active" id="stepForm">
+
+    <div class="photo-box">
+      <div class="photo-preview" id="photoPreview">📷</div>
+      <div style="flex:1;">
+        <button class="btn btn-gold" id="btnFoto" type="button">Tirar/enviar foto do aluno</button>
+        <div class="hint">De frente, boa luz. Ajuda na identificação na escolinha.</div>
+      </div>
+    </div>
+    <input type="file" id="fotoInput" accept="image/*" capture="environment" style="display:none;">
+
+    <div class="section-title">Dados do aluno</div>
+
+    <div class="field">
+      <label>Nome completo do aluno</label>
+      <input type="text" id="fNome" placeholder="Nome completo">
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Data de nascimento</label>
+        <input type="date" id="fNascimento">
+      </div>
+      <div class="field">
+        <label>Unidade desejada</label>
+        <select id="fUnidade">
+          <option value="Carlos Prates">Carlos Prates</option>
+          <option value="Estoril">Estoril</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Dias de preferência para treinar</label>
+      <div class="day-chips" id="diaChips">
+        <div class="day-chip" data-dia="dom">Dom</div>
+        <div class="day-chip" data-dia="seg">Seg</div>
+        <div class="day-chip" data-dia="ter">Ter</div>
+        <div class="day-chip" data-dia="qua">Qua</div>
+        <div class="day-chip" data-dia="qui">Qui</div>
+        <div class="day-chip" data-dia="sex">Sex</div>
+        <div class="day-chip" data-dia="sab">Sáb</div>
+      </div>
+      <div class="hint">Toque nos dias. A equipe confirma o horário exato com você.</div>
+    </div>
+
+    <div class="field">
+      <label>Horário de preferência (opcional)</label>
+      <input type="text" id="fHorario" placeholder="ex: manhã, 9h, à tarde...">
+    </div>
+
+    <div class="section-title">Responsável</div>
+
+    <div class="field">
+      <label>Nome do responsável</label>
+      <input type="text" id="fRespNome" placeholder="Pai/mãe/responsável">
+    </div>
+
+    <div class="field">
+      <label>WhatsApp do responsável</label>
+      <input type="tel" id="fRespWhats" placeholder="(31) 9....">
+    </div>
+
+    <div class="field">
+      <label>Observações (opcional)</label>
+      <textarea id="fObs" placeholder="Alguma informação importante? (saúde, restrição, etc.)"></textarea>
+    </div>
+
+    <div class="footer-btn">
+      <button class="btn btn-pitch" id="btnEnviar" type="button">Enviar cadastro</button>
+      <div class="status-msg" id="statusMsg"></div>
+    </div>
+  </div>
+
+  <div class="step" id="stepSucesso">
+    <div class="success">
+      <div class="emoji">✅</div>
+      <h2>Cadastro enviado!</h2>
+      <p>Recebemos os dados de <b id="sucNome"></b>. Nossa equipe vai revisar e confirmar a matrícula em breve pelo WhatsApp. Obrigado! 💚⚽</p>
+    </div>
+  </div>
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDmM2m_QnEeRflAKCyb11TzOrZM7iVgLCA",
+  authDomain: "bsa-app-493c3.firebaseapp.com",
+  projectId: "bsa-app-493c3",
+  storageBucket: "bsa-app-493c3.firebasestorage.app",
+  messagingSenderId: "455452879388",
+  appId: "1:455452879388:web:7135d93c116b2fe7cfcdd9"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+auth.signInAnonymously().catch(()=>{});
+
+let diasSelecionados = [];
+let fotoBase64 = null;
+
+document.querySelectorAll('.day-chip').forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    const dia = chip.dataset.dia;
+    if(diasSelecionados.includes(dia)){
+      diasSelecionados = diasSelecionados.filter(d=>d!==dia);
+      chip.classList.remove('sel');
+    }else{
+      diasSelecionados.push(dia);
+      chip.classList.add('sel');
+    }
+  });
+});
+
+document.getElementById('btnFoto').addEventListener('click', ()=>{
+  document.getElementById('fotoInput').click();
+});
+
+document.getElementById('fotoInput').addEventListener('change', (ev)=>{
+  const file = ev.target.files[0];
+  if(!file) return;
+  const img = new Image();
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    img.onload = ()=>{
+      const size = 480;
+      const canvas = document.createElement('canvas');
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const scale = Math.max(size/img.width, size/img.height);
+      const w = img.width*scale, h = img.height*scale;
+      ctx.drawImage(img, (size-w)/2, (size-h)/2, w, h);
+      fotoBase64 = canvas.toDataURL('image/jpeg', 0.7);
+      document.getElementById('photoPreview').innerHTML = `<img src="${fotoBase64}">`;
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+function limparWhats(v){ return (v||'').replace(/\D/g,''); }
+
+document.getElementById('btnEnviar').addEventListener('click', async ()=>{
+  const nome = document.getElementById('fNome').value.trim();
+  const nascimento = document.getElementById('fNascimento').value;
+  const unidade = document.getElementById('fUnidade').value;
+  const horario = document.getElementById('fHorario').value.trim();
+  const respNome = document.getElementById('fRespNome').value.trim();
+  const respWhats = document.getElementById('fRespWhats').value.trim();
+  const obs = document.getElementById('fObs').value.trim();
+  const statusEl = document.getElementById('statusMsg');
+
+  if(!nome || !respNome || limparWhats(respWhats).length < 10){
+    statusEl.textContent = 'Preencha ao menos o nome do aluno, o nome do responsável e um WhatsApp válido.';
+    return;
+  }
+
+  const btn = document.getElementById('btnEnviar');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Enviando...';
+  statusEl.textContent = '';
+
+  try{
+    await db.collection('cadastrosPendentes').add({
+      nome, dataNascimento: nascimento, unidade,
+      diasPreferidos: diasSelecionados, horarioPreferido: horario,
+      responsavelNome: respNome, responsavelWhatsapp: respWhats,
+      observacoes: obs, foto: fotoBase64 || null,
+      status: 'pendente',
+      criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    document.getElementById('sucNome').textContent = nome;
+    document.getElementById('stepForm').classList.remove('active');
+    document.getElementById('stepSucesso').classList.add('active');
+  }catch(err){
+    statusEl.textContent = 'Não foi possível enviar agora. Verifique sua internet e tente de novo.';
+    btn.disabled = false;
+    btn.textContent = 'Enviar cadastro';
+  }
+});
+</script>
+</body>
+</html>
