@@ -96,6 +96,57 @@
 
   .status-line{font-size:12px; color:var(--chalk-dim); text-align:center; margin-top:22px;}
 
+  .top-tabs{display:flex; gap:8px; margin-bottom:14px;}
+  .top-tabs button{
+    flex:1; background:transparent; border:none; color:var(--chalk-dim);
+    padding:8px 4px; font-size:13px; font-weight:700; letter-spacing:0.02em;
+    border-bottom:2px solid rgba(255,255,255,0.1);
+  }
+  .top-tabs button.active{color:var(--gold); border-bottom-color:var(--gold);}
+
+  .mic-fab{
+    position:fixed; right:18px; bottom:calc(22px + env(safe-area-inset-bottom)); z-index:40;
+    width:58px; height:58px; border-radius:50%; background:var(--gold); border:none;
+    font-size:24px; box-shadow:0 6px 18px rgba(0,0,0,0.4);
+  }
+  .mic-fab:active{transform:scale(0.94);}
+  .mic-fab.listening{background:var(--red); animation:pulse 1.2s infinite;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,92,122,0.5);} 70%{box-shadow:0 0 0 14px rgba(255,92,122,0);} 100%{box-shadow:0 0 0 0 rgba(255,92,122,0);}}
+
+  .mic-modal{position:fixed; inset:0; background:#000000CC; z-index:55; display:none; align-items:center; justify-content:center; padding:24px;}
+  .mic-modal.active{display:flex;}
+  .mic-modal .box{background:var(--board); border:1px solid rgba(255,255,255,0.14); border-radius:18px; padding:28px 22px; text-align:center; max-width:340px; width:100%;}
+  .mic-modal .circle{width:70px; height:70px; border-radius:50%; background:rgba(255,200,51,0.15); border:2px solid var(--gold); display:flex; align-items:center; justify-content:center; font-size:28px; margin:0 auto 14px;}
+  .mic-modal .circle.listening{border-color:var(--red); background:rgba(255,92,122,0.15); animation:pulse 1.2s infinite;}
+  .mic-modal .transcript{font-size:14px; color:var(--chalk-dim); min-height:20px; margin:10px 0 18px;}
+  .mic-modal .fechar{background:transparent; border:1px solid rgba(255,255,255,0.3); color:var(--chalk); padding:9px 18px; border-radius:20px; font-size:13px;}
+
+  .panel-box{background:var(--board-line); border-radius:14px; padding:18px; margin-bottom:14px;}
+  .radar-num{font-family:'Anton'; font-size:54px; color:var(--gold); line-height:1; text-align:center;}
+  .radar-lbl{text-align:center; font-size:11px; color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.08em; margin-top:4px;}
+  .radar-breakdown{display:flex; justify-content:space-between; margin-top:16px; gap:8px;}
+  .radar-breakdown .item{flex:1; text-align:center;}
+  .radar-breakdown .item .v{font-weight:700; font-size:16px;}
+  .radar-breakdown .item .l{font-size:10.5px; color:var(--chalk-dim); margin-top:2px;}
+
+  .caixa-row{display:flex; justify-content:space-between; padding:8px 0; font-size:13.5px; border-bottom:1px solid rgba(255,255,255,0.06);}
+  .caixa-row:last-child{border-bottom:none; font-weight:700; padding-top:12px; margin-top:4px; border-top:1px solid rgba(255,255,255,0.14);}
+  .caixa-row .neg{color:var(--red);}
+  .caixa-row .pos{color:var(--green);}
+
+  .rank-row{display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.06);}
+  .rank-row:last-child{border-bottom:none;}
+  .rank-row .pos-n{font-family:'Anton'; font-size:16px; color:var(--gold); width:22px; flex:none;}
+  .rank-row .info{flex:1;}
+  .rank-row .nome{font-size:13.5px; font-weight:600;}
+  .rank-row .det{font-size:11.5px; color:var(--chalk-dim);}
+  .rank-row .delta{font-weight:700; font-size:13px; color:var(--green);}
+
+  .comp-table{width:100%; border-collapse:collapse; font-size:13px;}
+  .comp-table th{text-align:left; color:var(--chalk-dim); font-weight:600; font-size:11px; text-transform:uppercase; padding-bottom:8px;}
+  .comp-table td{padding:7px 0; border-top:1px solid rgba(255,255,255,0.06);}
+  .comp-table td.num{text-align:right; font-weight:700;}
+
   /* câmera modal */
   .cam-overlay{position:fixed; inset:0; background:#000; z-index:50; display:none; flex-direction:column;}
   .cam-overlay.active{display:flex;}
@@ -123,6 +174,12 @@
 </header>
 
 <main>
+  <div class="top-tabs">
+    <button data-tab="pendencias" class="active">Pendências</button>
+    <button data-tab="geral">Visão Geral</button>
+  </div>
+
+  <div id="painelPendencias">
   <div class="unit-tabs">
     <button data-u="todas" class="active">Ambas</button>
     <button data-u="Carlos Prates">Carlos Prates</button>
@@ -134,7 +191,40 @@
   <div id="lista"></div>
 
   <div class="status-line">Atualizado às <span id="horaAtualizacao">—</span> · toque em "Ambas" pra atualizar</div>
+  </div>
+
+  <div id="painelGeral" style="display:none;">
+    <div class="panel-box">
+      <div class="radar-num" id="radarNum">—</div>
+      <div class="radar-lbl">Saúde da BSA</div>
+      <div class="radar-breakdown">
+        <div class="item"><div class="v" id="radarPresenca">—</div><div class="l">Presença 14d</div></div>
+        <div class="item"><div class="v" id="radarInadimplencia">—</div><div class="l">Inadimplência</div></div>
+        <div class="item"><div class="v" id="radarRisco">—</div><div class="l">Alunos em risco</div></div>
+      </div>
+    </div>
+
+    <div class="section-divider"><span class="label">Previsão de caixa — este mês</span><span class="rule"></span></div>
+    <div class="panel-box" id="caixaBox">carregando…</div>
+
+    <div class="section-divider"><span class="label">Ranking de evolução</span><span class="rule"></span></div>
+    <div class="panel-box" id="rankingBox">carregando…</div>
+
+    <div class="section-divider"><span class="label">Comparativo entre unidades</span><span class="rule"></span></div>
+    <div class="panel-box" id="compBox">carregando…</div>
+  </div>
 </main>
+
+<button class="mic-fab" id="btnMic" title="Registrar tarefa por voz">🎙️</button>
+
+<div class="mic-modal" id="micModal">
+  <div class="box">
+    <div class="circle" id="micCircle">🎙️</div>
+    <div id="micStatus" style="font-size:14px;">Toque no microfone e fale a tarefa</div>
+    <div class="transcript" id="micTranscript"></div>
+    <button class="fechar" id="btnFecharMic">Fechar</button>
+  </div>
+</div>
 
 <div class="cam-overlay" id="camOverlay">
   <div class="cam-hint">Aponte a câmera para o rosto do aluno</div>
@@ -206,6 +296,7 @@ let presentesHojeSet = new Set();
 let mensalidadesCache = [];
 let danosCache = [];
 let tarefasCache = [];
+let avaliacoesCache = [];
 let unidadeFiltro = 'todas';
 let itensAtuais = [];
 let itensResolvidosNestaSessao = new Set();
@@ -226,12 +317,13 @@ async function init(){
 
 async function carregarTudo(){
   document.getElementById('subStatus').textContent = 'atualizando…';
-  const [alunosSnap, presencasSnap, mensalidadesSnap, danosSnap, tarefasSnap] = await Promise.all([
+  const [alunosSnap, presencasSnap, mensalidadesSnap, danosSnap, tarefasSnap, avaliacoesSnap] = await Promise.all([
     db.collection('alunos').get(),
     db.collection('presencas').where('data','>=', dataISOOffset(40)).get(),
     db.collection('mensalidades').get(),
     db.collection('movimentacoes').where('tipo','==','dano').where('status','==','pendente').get(),
-    db.collection('tarefas').where('concluido','==', false).get()
+    db.collection('tarefas').where('concluido','==', false).get(),
+    db.collection('avaliacoesFisicas').get()
   ]);
 
   alunosCache = [];
@@ -264,8 +356,12 @@ async function carregarTudo(){
   tarefasCache = [];
   tarefasSnap.forEach(doc=> tarefasCache.push({ id: doc.id, ...doc.data() }));
 
+  avaliacoesCache = [];
+  avaliacoesSnap.forEach(doc=> avaliacoesCache.push(doc.data()));
+
   document.getElementById('horaAtualizacao').textContent = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   computarERenderizar();
+  computarVisaoGeral();
 }
 
 // ---------- cálculo das pendências ----------
@@ -645,6 +741,223 @@ document.getElementById('btnCapturar').addEventListener('click', async ()=>{
     computarERenderizar();
   };
 });
+
+// ---------- VISÃO GERAL ----------
+const DESPESAS_FIXAS = [
+  { nome:'Aluguel Mauro', valor:2000 },
+  { nome:'Salário Iasmin', valor:1600 },
+  { nome:'Fatura cartão', valor:1000 }
+];
+
+function taxaPresenca14dias(unidadeAlvo){
+  let esperados = 0, presentes = 0;
+  const base = unidadeAlvo ? alunosCache.filter(a=>a.unidade===unidadeAlvo) : alunosCache;
+  for(let i=0; i<=14; i++){
+    const dataISO = i===0 ? dataHojeISO() : dataISOOffset(i);
+    const dia = diaSemanaDe(dataISO);
+    base.forEach(a=>{
+      if(!a.diasTreino || !a.diasTreino.includes(dia)) return;
+      esperados++;
+      if(presencasCache.some(p=> p.alunoId===a.id && p.data===dataISO)) presentes++;
+    });
+  }
+  return esperados > 0 ? Math.round((presentes/esperados)*100) : null;
+}
+
+function taxaInadimplencia(unidadeAlvo){
+  const hoje = dataHojeISO();
+  const mes = mesAtualDiretora();
+  const doMes = mensalidadesCache.filter(m=> m.mesReferencia===mes && m.statusPagamento!=='isento' && (!unidadeAlvo || m.unidade===unidadeAlvo));
+  if(doMes.length === 0) return null;
+  const atrasadas = doMes.filter(m=> m.statusPagamento!=='pago' && m.dataVencimento < hoje).length;
+  return Math.round((atrasadas/doMes.length)*100);
+}
+
+function alunosEmRisco(unidadeAlvo){
+  const base = unidadeAlvo ? alunosCache.filter(a=>a.unidade===unidadeAlvo) : alunosCache;
+  return base.filter(a=> a.diasTreino && a.diasTreino.length && contarFaltasSeguidas(a) >= 2).length;
+}
+
+function mesAtualDiretora(){ const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+
+function computarVisaoGeral(){
+  // Radar de saúde
+  const presenca = taxaPresenca14dias(null);
+  const inadimplencia = taxaInadimplencia(null);
+  const risco = alunosEmRisco(null);
+  const totalComTreino = alunosCache.filter(a=> a.diasTreino && a.diasTreino.length).length || 1;
+
+  const partesValidas = [];
+  if(presenca !== null) partesValidas.push(presenca * 0.4);
+  if(inadimplencia !== null) partesValidas.push((100-inadimplencia) * 0.35);
+  partesValidas.push((100 - clamp((risco/totalComTreino)*100, 0, 100)) * 0.25);
+  const somaPesos = (presenca!==null?0.4:0) + (inadimplencia!==null?0.35:0) + 0.25;
+  const saude = somaPesos > 0 ? Math.round(partesValidas.reduce((a,b)=>a+b,0) / somaPesos) : null;
+
+  document.getElementById('radarNum').textContent = saude !== null ? saude + '%' : '—';
+  document.getElementById('radarPresenca').textContent = presenca !== null ? presenca+'%' : '—';
+  document.getElementById('radarInadimplencia').textContent = inadimplencia !== null ? inadimplencia+'%' : '—';
+  document.getElementById('radarRisco').textContent = risco;
+
+  // Previsão de caixa
+  const mes = mesAtualDiretora();
+  const doMes = mensalidadesCache.filter(m=> m.mesReferencia===mes && m.statusPagamento!=='isento');
+  const recebido = doMes.filter(m=>m.statusPagamento==='pago').reduce((s,m)=>s+(Number(m.valor)||0),0);
+  const aReceber = doMes.filter(m=>m.statusPagamento!=='pago').reduce((s,m)=>s+(Number(m.valor)||0),0);
+  const totalDespesas = DESPESAS_FIXAS.reduce((s,d)=>s+d.valor,0);
+  const saldoPrevisto = recebido + aReceber - totalDespesas;
+  document.getElementById('caixaBox').innerHTML = `
+    <div class="caixa-row"><span>Recebido este mês</span><span class="pos">${fmtMoeda(recebido)}</span></div>
+    <div class="caixa-row"><span>A receber (pendente)</span><span>${fmtMoeda(aReceber)}</span></div>
+    ${DESPESAS_FIXAS.map(d=>`<div class="caixa-row"><span>${d.nome}</span><span class="neg">- ${fmtMoeda(d.valor)}</span></div>`).join('')}
+    <div class="caixa-row"><span>Saldo previsto</span><span class="${saldoPrevisto>=0?'pos':'neg'}">${fmtMoeda(saldoPrevisto)}</span></div>
+  `;
+
+  // Ranking de evolução
+  const porAluno = {};
+  avaliacoesCache.forEach(ev=>{
+    if(!porAluno[ev.alunoId]) porAluno[ev.alunoId] = [];
+    porAluno[ev.alunoId].push(ev);
+  });
+  const evolucoes = [];
+  Object.keys(porAluno).forEach(id=>{
+    const evs = porAluno[id].slice().sort((a,b)=> (a.date||'') < (b.date||'') ? -1 : 1);
+    if(evs.length < 2) return;
+    const ultimo = evs[evs.length-1], anterior = evs[evs.length-2];
+    const delta = (ultimo.score||0) - (anterior.score||0);
+    if(delta <= 0) return;
+    const aluno = alunosCache.find(a=>a.id===id);
+    evolucoes.push({ nome: ultimo.nome || (aluno?aluno.nome:'?'), unidade: ultimo.unidade || (aluno?aluno.unidade:''), delta, score: ultimo.score, medal: ultimo.medal });
+  });
+  evolucoes.sort((a,b)=> b.delta - a.delta);
+  const top5 = evolucoes.slice(0,5);
+  document.getElementById('rankingBox').innerHTML = top5.length === 0
+    ? '<div style="font-size:13px;color:var(--chalk-dim);">Ainda não há avaliações suficientes pra montar o ranking (precisa de pelo menos 2 avaliações por aluno).</div>'
+    : top5.map((e,i)=>`<div class="rank-row">
+        <div class="pos-n">${i+1}º</div>
+        <div class="info"><div class="nome">${e.nome}</div><div class="det">${e.unidade} · score atual ${e.score}</div></div>
+        <div class="delta">+${e.delta}</div>
+      </div>`).join('');
+
+  // Comparativo entre unidades
+  const unidades = ['Carlos Prates','Estoril'];
+  const linhas = unidades.map(u=>{
+    const p = taxaPresenca14dias(u);
+    const inad = taxaInadimplencia(u);
+    const r = alunosEmRisco(u);
+    const total = alunosCache.filter(a=>a.unidade===u).length;
+    return `<tr><td>${u}</td><td class="num">${total}</td><td class="num">${p!==null?p+'%':'—'}</td><td class="num">${inad!==null?inad+'%':'—'}</td><td class="num">${r}</td></tr>`;
+  }).join('');
+  document.getElementById('compBox').innerHTML = `
+    <table class="comp-table">
+      <thead><tr><th>Unidade</th><th style="text-align:right;">Alunos</th><th style="text-align:right;">Presença</th><th style="text-align:right;">Inadimpl.</th><th style="text-align:right;">Risco</th></tr></thead>
+      <tbody>${linhas}</tbody>
+    </table>`;
+}
+
+document.querySelectorAll('.top-tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.top-tabs button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const geral = btn.dataset.tab === 'geral';
+    document.getElementById('painelPendencias').style.display = geral ? 'none' : 'block';
+    document.getElementById('painelGeral').style.display = geral ? 'block' : 'none';
+  });
+});
+
+// ---------- comando por voz (captura rápida de tarefa) ----------
+let micRecognition = null;
+let micEscutando = false;
+let micSilenceTimer = null;
+const MIC_SILENCE_MS = 3500;
+
+function getMicRecognition(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR) return null;
+  const r = new SR();
+  r.lang = 'pt-BR';
+  r.continuous = true;
+  r.interimResults = true;
+  return r;
+}
+
+function processarFalaRapida(original){
+  const lower = original.toLowerCase();
+  let prioridade = null;
+  if(/\bprioridade\s*(um|1)\b/.test(lower)) prioridade = 1;
+  else if(/\bprioridade\s*(dois|2)\b/.test(lower)) prioridade = 2;
+  else if(/\bprioridade\s*(tr[eê]s|3)\b/.test(lower)) prioridade = 3;
+
+  let responsavel = null;
+  if(/\bronaldo\b/.test(lower)) responsavel = 'Ronaldo';
+  else if(/\b(iasmin|yasmin|jasmin|iasmim)\b/.test(lower)) responsavel = 'Iasmin';
+
+  let limpo = original
+    .replace(/prioridade\s*(um|1|dois|2|tr[eê]s|3)/gi, '')
+    .replace(/\bronaldo\b/gi, '')
+    .replace(/\b(iasmin|yasmin|jasmin|iasmim)\b/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  limpo = limpo.charAt(0).toUpperCase() + limpo.slice(1);
+  if(!limpo) limpo = original;
+
+  db.collection('tarefas').add({
+    texto: limpo, textoOriginal: original, prioridade, responsavel,
+    unidade: unidadeFiltro !== 'todas' ? unidadeFiltro : null,
+    criadoPor: 'Diretora (voz)', criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+    concluido:false, concluidoPor:null, concluidoEm:null
+  }).catch(()=>{});
+  if(navigator.vibrate) navigator.vibrate(120);
+  document.getElementById('micStatus').textContent = 'Tarefa registrada ✓';
+  setTimeout(fecharMic, 1100);
+}
+
+function abrirMic(){
+  document.getElementById('micModal').classList.add('active');
+  document.getElementById('micTranscript').textContent = '';
+  document.getElementById('micStatus').textContent = 'Toque no microfone e fale a tarefa';
+  document.getElementById('micCircle').classList.remove('listening');
+}
+function fecharMic(){
+  micEscutando = false;
+  clearTimeout(micSilenceTimer);
+  if(micRecognition){ try{ micRecognition.stop(); }catch(e){} }
+  document.getElementById('micModal').classList.remove('active');
+  document.getElementById('btnMic').classList.remove('listening');
+}
+function iniciarEscutaMic(){
+  micRecognition = getMicRecognition();
+  if(!micRecognition){
+    document.getElementById('micStatus').textContent = 'Reconhecimento de voz não disponível neste navegador';
+    return;
+  }
+  micEscutando = true;
+  document.getElementById('micCircle').classList.add('listening');
+  document.getElementById('btnMic').classList.add('listening');
+  document.getElementById('micStatus').textContent = 'Ouvindo…';
+
+  micRecognition.onresult = (event)=>{
+    let interim = '';
+    for(let i=event.resultIndex; i<event.results.length; i++){
+      const res = event.results[i];
+      if(res.isFinal){
+        processarFalaRapida(res[0].transcript.trim());
+        return;
+      } else {
+        interim += res[0].transcript;
+      }
+    }
+    document.getElementById('micTranscript').textContent = interim;
+    clearTimeout(micSilenceTimer);
+    micSilenceTimer = setTimeout(()=>{ if(micEscutando) fecharMic(); }, MIC_SILENCE_MS);
+  };
+  micRecognition.onerror = ()=>{};
+  micRecognition.onend = ()=>{ if(micEscutando){ try{ micRecognition.start(); }catch(e){} } };
+  try{ micRecognition.start(); }catch(e){}
+}
+
+document.getElementById('btnMic').addEventListener('click', ()=>{ abrirMic(); iniciarEscutaMic(); });
+document.getElementById('btnFecharMic').addEventListener('click', fecharMic);
 
 init();
 </script>
