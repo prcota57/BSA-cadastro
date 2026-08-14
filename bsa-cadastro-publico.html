@@ -121,22 +121,19 @@
     </div>
 
     <div class="field">
-      <label>Dias de preferência para treinar</label>
-      <div class="day-chips" id="diaChips">
-        <div class="day-chip" data-dia="dom">Dom</div>
-        <div class="day-chip" data-dia="seg">Seg</div>
-        <div class="day-chip" data-dia="ter">Ter</div>
-        <div class="day-chip" data-dia="qua">Qua</div>
-        <div class="day-chip" data-dia="qui">Qui</div>
-        <div class="day-chip" data-dia="sex">Sex</div>
-        <div class="day-chip" data-dia="sab">Sáb</div>
-      </div>
-      <div class="hint">Toque nos dias. A equipe confirma o horário exato com você.</div>
+      <label>Turma / horário de treino</label>
+      <select id="fTurma"></select>
+      <div class="hint" id="turmaHint"></div>
     </div>
 
     <div class="field">
-      <label>Horário de preferência (opcional)</label>
-      <input type="text" id="fHorario" placeholder="ex: manhã, 9h, à tarde...">
+      <label>Melhor dia para pagamento da mensalidade</label>
+      <select id="fVencimento">
+        <option value="5">Dia 5</option>
+        <option value="10">Dia 10</option>
+        <option value="15">Dia 15</option>
+        <option value="20">Dia 20</option>
+      </select>
     </div>
 
     <div class="section-title">Responsável</div>
@@ -189,21 +186,30 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 auth.signInAnonymously().catch(()=>{});
 
-let diasSelecionados = [];
 let fotoBase64 = null;
 
-document.querySelectorAll('.day-chip').forEach(chip=>{
-  chip.addEventListener('click', ()=>{
-    const dia = chip.dataset.dia;
-    if(diasSelecionados.includes(dia)){
-      diasSelecionados = diasSelecionados.filter(d=>d!==dia);
-      chip.classList.remove('sel');
-    }else{
-      diasSelecionados.push(dia);
-      chip.classList.add('sel');
-    }
-  });
-});
+const TURMAS = {
+  'Carlos Prates': [
+    { valor:'cp_ter', label:'Terça às 18h', dias:['ter'], horario:'18:00' },
+    { valor:'cp_qui', label:'Quinta às 18h', dias:['qui'], horario:'18:00' },
+    { valor:'cp_qua_sex', label:'Quarta e Sexta às 9h', dias:['qua','sex'], horario:'09:00' }
+  ],
+  'Estoril': [
+    { valor:'es_8', label:'Sábado e Domingo às 8h', dias:['sab','dom'], horario:'08:00' },
+    { valor:'es_9', label:'Sábado e Domingo às 9h', dias:['sab','dom'], horario:'09:00' },
+    { valor:'es_10', label:'Sábado e Domingo às 10h', dias:['sab','dom'], horario:'10:00' }
+  ]
+};
+
+function popularTurmas(){
+  const unidade = document.getElementById('fUnidade').value;
+  const sel = document.getElementById('fTurma');
+  sel.innerHTML = TURMAS[unidade].map(t=> `<option value="${t.valor}">${t.label}</option>`).join('');
+  document.getElementById('turmaHint').textContent =
+    unidade === 'Carlos Prates' ? 'Treinos no Carlos Prates: terças, quintas ou quarta+sexta.' : 'Treinos no Estoril: sempre sábado e domingo, no horário escolhido.';
+}
+document.getElementById('fUnidade').addEventListener('change', popularTurmas);
+popularTurmas();
 
 document.getElementById('btnFoto').addEventListener('click', ()=>{
   document.getElementById('fotoInput').click();
@@ -237,14 +243,15 @@ document.getElementById('btnEnviar').addEventListener('click', async ()=>{
   const nome = document.getElementById('fNome').value.trim();
   const nascimento = document.getElementById('fNascimento').value;
   const unidade = document.getElementById('fUnidade').value;
-  const horario = document.getElementById('fHorario').value.trim();
+  const turmaSel = TURMAS[unidade].find(t=> t.valor === document.getElementById('fTurma').value);
+  const vencimento = document.getElementById('fVencimento').value;
   const respNome = document.getElementById('fRespNome').value.trim();
   const respWhats = document.getElementById('fRespWhats').value.trim();
   const obs = document.getElementById('fObs').value.trim();
   const statusEl = document.getElementById('statusMsg');
 
-  if(!nome || !respNome || limparWhats(respWhats).length < 10){
-    statusEl.textContent = 'Preencha ao menos o nome do aluno, o nome do responsável e um WhatsApp válido.';
+  if(!nome || !nascimento || !respNome || limparWhats(respWhats).length < 10){
+    statusEl.textContent = 'Preencha o nome do aluno, a data de nascimento, o nome do responsável e um WhatsApp válido.';
     return;
   }
 
@@ -256,7 +263,8 @@ document.getElementById('btnEnviar').addEventListener('click', async ()=>{
   try{
     await db.collection('cadastrosPendentes').add({
       nome, dataNascimento: nascimento, unidade,
-      diasPreferidos: diasSelecionados, horarioPreferido: horario,
+      diasPreferidos: turmaSel.dias, horarioPreferido: turmaSel.horario, turmaLabel: turmaSel.label,
+      diaVencimentoPreferido: vencimento,
       responsavelNome: respNome, responsavelWhatsapp: respWhats,
       observacoes: obs, foto: fotoBase64 || null,
       status: 'pendente',
