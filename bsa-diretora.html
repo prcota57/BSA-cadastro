@@ -147,6 +147,36 @@
   .comp-table td{padding:7px 0; border-top:1px solid rgba(255,255,255,0.06);}
   .comp-table td.num{text-align:right; font-weight:700;}
 
+  .resumo-chips{display:flex; gap:8px; margin-bottom:14px;}
+  .resumo-chips .chip{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:2px;
+    padding:10px 4px; border-radius:12px; border:1px solid rgba(255,255,255,0.1);
+  }
+  .resumo-chips .chip .n{font-family:'Anton'; font-size:20px; line-height:1;}
+  .resumo-chips .chip .l{font-size:9.5px; color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.03em; margin-top:2px;}
+  .resumo-chips .chip.red{background:var(--red-bg); border-color:rgba(255,92,122,0.35);}
+  .resumo-chips .chip.red .n{color:var(--red);}
+  .resumo-chips .chip.yellow{background:var(--yellow-bg); border-color:rgba(255,200,51,0.35);}
+  .resumo-chips .chip.yellow .n{color:var(--yellow);}
+  .resumo-chips .chip.green{background:var(--green-bg); border-color:rgba(63,166,114,0.35);}
+  .resumo-chips .chip.green .n{color:var(--green);}
+
+  .urg-section{margin-bottom:6px;}
+  .urg-header{
+    display:flex; align-items:center; gap:8px; padding:11px 12px; border-radius:12px;
+    background:var(--board-line); margin-bottom:8px;
+  }
+  .urg-header .dot{width:9px; height:9px; border-radius:50%; flex:none;}
+  .urg-header.red .dot{background:var(--red);}
+  .urg-header.yellow .dot{background:var(--yellow);}
+  .urg-header.green .dot{background:var(--green);}
+  .urg-header .titulo-sec{font-weight:700; font-size:13.5px; flex:1;}
+  .urg-header .count{font-size:12px; color:var(--chalk-dim);}
+  .urg-header .arrow{font-size:12px; color:var(--chalk-dim); transition:transform 0.15s;}
+  .urg-header.expandido .arrow{transform:rotate(180deg);}
+  .urg-body{display:none;}
+  .urg-body.expandido{display:block;}
+
   /* câmera modal */
   .cam-overlay{position:fixed; inset:0; background:#000; z-index:50; display:none; flex-direction:column;}
   .cam-overlay.active{display:flex;}
@@ -180,6 +210,8 @@
   </div>
 
   <div id="painelPendencias">
+  <div class="resumo-chips" id="resumoChips"></div>
+
   <div class="unit-tabs">
     <button data-u="todas" class="active">Ambas</button>
     <button data-u="Carlos Prates">Carlos Prates</button>
@@ -566,40 +598,98 @@ function computarERenderizar(){
   renderLista(todos);
 }
 
+let secExpandido = { red:true, yellow:false, green:false };
+
 function renderLista(itens){
   const cont = document.getElementById('lista');
   const sub = document.getElementById('subStatus');
+  const chips = document.getElementById('resumoChips');
 
   if(itens.length === 0){
     sub.textContent = 'tudo em dia';
+    chips.innerHTML = '';
     cont.innerHTML = `<div class="empty-state"><div class="emoji">🎉</div><div class="msg">Tudo em dia!</div><div class="sub2">Nenhuma pendência urgente agora. Bom trabalho.</div></div>`;
     tocarCelebracao();
     return;
   }
 
+  const grupos = { red:[], yellow:[], green:[] };
+  itens.forEach(item=> grupos[nivelDe(item.score)].push(item));
+
   sub.textContent = itens.length + ' pendência(s) precisam de você' + (filtroAlunoId ? ' · filtrado por aluno' : '');
 
-  cont.innerHTML = itens.map(item=>{
-    const nivel = nivelDe(item.score);
-    const acoesHtml = (item.acoes||[]).map(a=>{
-      if(a.tipo === 'wpp') return `<a class="wpp" href="${a.url}" target="_blank" rel="noopener">${a.label}</a>`;
-      if(a.tipo === 'link') return `<a class="${a.primaria?'primaria':''}" href="${a.url}">${a.label}</a>`;
-      if(a.tipo === 'concluir') return `<button class="primaria" data-tarefa="${a.tarefaId}">${a.label}</button>`;
-      return '';
-    }).join('');
-    return `<div class="card nivel-${nivel}" data-id="${item.id}">
-      <div class="ico">${item.ico}</div>
-      <div class="body">
-        <div class="titulo">${item.titulo}</div>
-        <div class="detalhe">${item.detalhe}</div>
-        ${acoesHtml ? `<div class="acoes">${acoesHtml}</div>` : ''}
+  // reabre automaticamente qualquer seção com itens, se ela tinha ficado vazia antes
+  if(grupos.red.length === 0) secExpandido.red = true;
+
+  chips.innerHTML = `
+    <div class="chip red" data-jump="red"><div class="n">${grupos.red.length}</div><div class="l">Urgente</div></div>
+    <div class="chip yellow" data-jump="yellow"><div class="n">${grupos.yellow.length}</div><div class="l">Hoje</div></div>
+    <div class="chip green" data-jump="green"><div class="n">${grupos.green.length}</div><div class="l">Tranquilo</div></div>
+  `;
+  chips.querySelectorAll('.chip').forEach(c=>{
+    c.addEventListener('click', ()=>{
+      const key = c.dataset.jump;
+      secExpandido[key] = true;
+      renderLista(itensAtuais);
+      setTimeout(()=>{
+        const alvo = document.getElementById('sec-'+key);
+        if(alvo) alvo.scrollIntoView({behavior:'smooth', block:'start'});
+      }, 30);
+    });
+  });
+
+  const config = [
+    { key:'red', label:'Urgente agora' },
+    { key:'yellow', label:'Importante hoje' },
+    { key:'green', label:'Pode esperar' }
+  ];
+
+  cont.innerHTML = config.map(sec=>{
+    const lista = grupos[sec.key];
+    if(lista.length === 0) return '';
+    const exp = secExpandido[sec.key];
+    return `<div class="urg-section" id="sec-${sec.key}">
+      <div class="urg-header ${sec.key} ${exp?'expandido':''}" data-toggle="${sec.key}">
+        <div class="dot"></div>
+        <div class="titulo-sec">${sec.label}</div>
+        <div class="count">${lista.length}</div>
+        <div class="arrow">▾</div>
+      </div>
+      <div class="urg-body ${exp?'expandido':''}" data-body="${sec.key}">
+        ${lista.map(item=> cardHtml(item)).join('')}
       </div>
     </div>`;
   }).join('');
 
-  cont.querySelectorAll('button[data-tarefa]').forEach(btn=>{
-    btn.addEventListener('click', ()=> concluirTarefa(btn.dataset.tarefa));
+  cont.querySelectorAll('.urg-header').forEach(h=>{
+    h.addEventListener('click', ()=>{
+      const key = h.dataset.toggle;
+      secExpandido[key] = !secExpandido[key];
+      renderLista(itensAtuais);
+    });
   });
+
+  cont.querySelectorAll('button[data-tarefa]').forEach(btn=>{
+    btn.addEventListener('click', (ev)=>{ ev.stopPropagation(); concluirTarefa(btn.dataset.tarefa); });
+  });
+}
+
+function cardHtml(item){
+  const nivel = nivelDe(item.score);
+  const acoesHtml = (item.acoes||[]).map(a=>{
+    if(a.tipo === 'wpp') return `<a class="wpp" href="${a.url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${a.label}</a>`;
+    if(a.tipo === 'link') return `<a class="${a.primaria?'primaria':''}" href="${a.url}" onclick="event.stopPropagation()">${a.label}</a>`;
+    if(a.tipo === 'concluir') return `<button class="primaria" data-tarefa="${a.tarefaId}">${a.label}</button>`;
+    return '';
+  }).join('');
+  return `<div class="card nivel-${nivel}" data-id="${item.id}">
+    <div class="ico">${item.ico}</div>
+    <div class="body">
+      <div class="titulo">${item.titulo}</div>
+      <div class="detalhe">${item.detalhe}</div>
+      ${acoesHtml ? `<div class="acoes">${acoesHtml}</div>` : ''}
+    </div>
+  </div>`;
 }
 
 async function concluirTarefa(id){
