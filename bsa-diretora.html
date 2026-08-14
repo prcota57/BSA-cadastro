@@ -760,6 +760,7 @@ function abrirModalRevisao(pendenteId){
     ${p.foto ? `<img class="foto-rev" src="${p.foto}">` : ''}
     <h3>Revisar cadastro</h3>
     <div class="sub" style="margin-bottom:14px;">Confira e complete antes de aprovar</div>
+    ${p.valoresAjustadosPeloPai ? `<div class="rev-obs" style="background:rgba(255,200,51,0.16); border:1px solid rgba(255,200,51,0.4); color:#FFC833;">⚠️ O responsável alterou os valores padrão (possível desconto combinado) — confira com atenção antes de aprovar.</div>` : ''}
     <div class="rev-obs">👤 <b>${p.responsavelNome||'?'}</b> · 📱 ${p.responsavelWhatsapp||'?'}${p.turmaLabel ? '<br>⚽ Turma: '+p.turmaLabel+' ('+(p.frequenciaSemanal||1)+'x/semana)' : ''}${p.observacoes ? '<br>📝 '+p.observacoes : ''}</div>
 
     <div class="rev-field"><label>Nome do aluno</label><input id="revNome" value="${(p.nome||'').replace(/"/g,'&quot;')}"></div>
@@ -774,7 +775,11 @@ function abrirModalRevisao(pendenteId){
     </div>
     <div class="rev-field"><label>Horário fixo de treino</label><input id="revHorario" value="${p.horarioPreferido||''}" placeholder="ex: 09:00"></div>
     <div class="rev-row">
-      <div class="rev-field"><label>Mensalidade (R$)</label><input type="number" id="revValor" value="${p.valorMensalidadeEsperado||''}" placeholder="ex: 195" step="0.01"></div>
+      <div class="rev-field"><label>Matrícula (R$)</label><input type="number" id="revMatricula" value="${p.valorMatriculaInformado||''}" step="0.01"></div>
+      <div class="rev-field"><label>Uniforme (R$)</label><input type="number" id="revUniforme" value="${p.valorUniformeInformado||''}" step="0.01"></div>
+    </div>
+    <div class="rev-row">
+      <div class="rev-field"><label>Mensalidade (R$)</label><input type="number" id="revValor" value="${p.valorMensalidadeInformado||''}" placeholder="ex: 195" step="0.01"></div>
       <div class="rev-field"><label>Dia vencimento</label>
         <select id="revVencimento">
           <option value="">Selecione</option>
