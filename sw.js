@@ -1,8 +1,8 @@
 // Service Worker do BSA APP (Hub) — guarda todas as telas em cache para funcionar sem internet.
 // Só busca conteúdo novo quando o usuário toca em "Atualizar" no cabeçalho.
-var CACHE_NAME = 'bsa-hub-cache-v1';
+var CACHE_NAME = 'bsa-hub-cache-v2';
 var PREFIX = 'bsa-hub-cache-';
-var FILES = ['index.html', 'bsa-avaliacao.html', 'bsa-backup.html', 'bsa-cadastro.html', 'bsa-captacao.html', 'bsa-descritores.html', 'bsa-estoque.html', 'bsa-financas.html', 'bsa-mensageiro.html', 'bsa-presenca.html', 'bsa-relatorios.html', 'bsa-treino-index.html'];
+var FILES = ['index.html', 'bsa-avaliacao.html', 'bsa-backup.html', 'bsa-cadastro.html', 'bsa-captacao.html', 'bsa-descritores.html', 'bsa-diretora.html', 'bsa-estoque.html', 'bsa-financas.html', 'bsa-mensageiro.html', 'bsa-presenca.html', 'bsa-relatorios.html', 'bsa-tarefas.html', 'bsa-treino-index.html'];
 
 self.addEventListener('install', function(event) {
   self.skipWaiting();
