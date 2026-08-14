@@ -291,6 +291,9 @@
   <div style="padding:0 16px 8px;">
     <button class="btn btn-outline btn-block" id="btnIdentificar" type="button">📷 Identificar aluno (sem lançar presença)</button>
   </div>
+  <div style="padding:0 16px 8px;">
+    <button class="btn btn-gold btn-block" id="btnCopiarLink" type="button">🔗 Copiar link do cadastro para o pai</button>
+  </div>
   <div class="chipsrow" id="unitChips">
     <div class="chip active" data-unit="todas">Todas unidades <span class="cnt-tag" id="cnt-todas">(0)</span></div>
     <div class="chip" data-unit="Carlos Prates">Carlos Prates <span class="cnt-tag" id="cnt-carlosprates">(0)</span></div>
@@ -682,6 +685,28 @@ async function loopIdentificacao(){
 }
 
 document.getElementById('btnIdentificar').addEventListener('click', abrirIdentificacao);
+
+document.getElementById('btnCopiarLink').addEventListener('click', async ()=>{
+  const link = 'https://prcota57.github.io/BSA-cadastro/bsa-cadastro-publico.html';
+  const btn = document.getElementById('btnCopiarLink');
+  const original = btn.textContent;
+  try{
+    await navigator.clipboard.writeText(link);
+    btn.textContent = '✅ Link copiado!';
+  }catch(err){
+    // fallback pra navegadores/contextos sem Clipboard API
+    const temp = document.createElement('textarea');
+    temp.value = link;
+    temp.style.position = 'fixed';
+    temp.style.opacity = '0';
+    document.body.appendChild(temp);
+    temp.focus(); temp.select();
+    try{ document.execCommand('copy'); btn.textContent = '✅ Link copiado!'; }
+    catch(e){ btn.textContent = '⚠️ Não foi possível copiar'; }
+    document.body.removeChild(temp);
+  }
+  setTimeout(()=>{ btn.textContent = original; }, 2200);
+});
 document.getElementById('btnFecharIdent').addEventListener('click', fecharIdentificacao);
 
 function initFirebase(){
