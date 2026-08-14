@@ -71,11 +71,13 @@
 
   .status-msg{font-size:13px; text-align:center; margin-top:10px; color:var(--coral); min-height:16px;}
 
-  .price-box{background:var(--pitch-soft); border-radius:14px; padding:13px 15px; margin:2px 0 12px;}
-  .price-box .linha{display:flex; justify-content:space-between; font-size:13.5px; padding:3px 0; color:var(--pitch-dark);}
-  .price-box .linha.total{font-weight:700; border-top:1px dashed rgba(15,92,61,0.25); margin-top:5px; padding-top:7px; font-size:14.5px;}
+  .price-box{background:var(--pitch-soft); border-radius:14px; padding:13px 15px; margin:2px 0 4px;}
+  .price-box .linha{display:flex; align-items:center; justify-content:space-between; font-size:13.5px; padding:5px 0; color:var(--pitch-dark); gap:10px;}
   .price-box .linha .lbl{color:var(--ink-soft); font-weight:500;}
-  .price-box .linha.total .lbl{color:var(--pitch-dark); font-weight:700;}
+  .price-box .linha input{
+    width:88px; text-align:right; border:1px solid rgba(15,92,61,0.25); border-radius:8px; padding:6px 8px;
+    font-family:'Inter'; font-weight:700; font-size:13.5px; color:var(--pitch-dark); background:#fff;
+  }
 
   .pix-box{background:var(--surface); border-radius:16px; padding:16px; margin-top:20px; text-align:left; box-shadow:0 2px 8px rgba(20,43,32,0.06);}
   .pix-box .titulo{font-family:'Space Grotesk'; font-weight:700; font-size:14.5px; color:var(--pitch-dark); margin-bottom:6px;}
@@ -143,6 +145,7 @@
     </div>
 
     <div class="price-box" id="priceBox"></div>
+    <div class="hint" style="margin:-2px 0 12px;">Tem desconto combinado (irmãos, promoção, etc.)? Pode ajustar os valores acima. Nossa equipe confirma tudo na hora de aprovar o cadastro.</div>
 
     <div class="field">
       <label>Melhor dia para pagamento da mensalidade</label>
@@ -185,7 +188,7 @@
     </div>
     <div class="pix-box">
       <div class="titulo">💳 Já pode adiantar o pagamento (opcional)</div>
-      <div class="info">Se quiser garantir a vaga, pode adiantar a matrícula (R$ 120,00) + uniforme (R$ 170,00) = <b>R$ 290,00</b> via PIX. Não é obrigatório — a mensalidade só começa a ser cobrada depois da confirmação da matrícula.</div>
+      <div class="info">Se quiser garantir a vaga, pode adiantar a matrícula + uniforme via PIX (valor combinado com a equipe, conforme o que você informou no cadastro). Não é obrigatório — a mensalidade só começa a ser cobrada depois da confirmação da matrícula.</div>
       <div class="chave">
         <span id="pixChave">31973369120</span>
         <button id="btnCopiarPix" type="button">Copiar chave</button>
@@ -251,9 +254,9 @@ function atualizarPreco(){
   const freq = turma ? turma.freq : 1;
   const mensalidade = freq === 2 ? PRECOS.mensalidade2x : PRECOS.mensalidade1x;
   document.getElementById('priceBox').innerHTML = `
-    <div class="linha"><span class="lbl">Matrícula (única)</span><span>${fmtR$(PRECOS.matricula)}</span></div>
-    <div class="linha"><span class="lbl">Mensalidade (${freq}x/semana)</span><span>${fmtR$(mensalidade)}</span></div>
-    <div class="linha"><span class="lbl">Uniforme</span><span>${fmtR$(PRECOS.uniforme)}</span></div>
+    <div class="linha"><span class="lbl">Matrícula (única)</span><input type="number" id="vMatricula" value="${PRECOS.matricula}" step="0.01" min="0"></div>
+    <div class="linha"><span class="lbl">Mensalidade (${freq}x/semana)</span><input type="number" id="vMensalidade" value="${mensalidade}" step="0.01" min="0"></div>
+    <div class="linha"><span class="lbl">Uniforme</span><input type="number" id="vUniforme" value="${PRECOS.uniforme}" step="0.01" min="0"></div>
   `;
 }
 document.getElementById('fUnidade').addEventListener('change', popularTurmas);
@@ -299,6 +302,12 @@ document.getElementById('btnEnviar').addEventListener('click', async ()=>{
   const obs = document.getElementById('fObs').value.trim();
   const statusEl = document.getElementById('statusMsg');
 
+  const valorMatricula = parseFloat(document.getElementById('vMatricula').value) || 0;
+  const valorMensalidade = parseFloat(document.getElementById('vMensalidade').value) || 0;
+  const valorUniforme = parseFloat(document.getElementById('vUniforme').value) || 0;
+  const mensalidadePadrao = turmaSel.freq === 2 ? PRECOS.mensalidade2x : PRECOS.mensalidade1x;
+  const valoresAjustados = (valorMatricula !== PRECOS.matricula) || (valorMensalidade !== mensalidadePadrao) || (valorUniforme !== PRECOS.uniforme);
+
   if(!nome || !nascimento || !respNome || limparWhats(respWhats).length < 10){
     statusEl.textContent = 'Preencha o nome do aluno, a data de nascimento, o nome do responsável e um WhatsApp válido.';
     return;
@@ -314,7 +323,10 @@ document.getElementById('btnEnviar').addEventListener('click', async ()=>{
       nome, dataNascimento: nascimento, unidade,
       diasPreferidos: turmaSel.dias, horarioPreferido: turmaSel.horario, turmaLabel: turmaSel.label,
       frequenciaSemanal: turmaSel.freq,
-      valorMensalidadeEsperado: turmaSel.freq === 2 ? PRECOS.mensalidade2x : PRECOS.mensalidade1x,
+      valorMatriculaInformado: valorMatricula,
+      valorMensalidadeInformado: valorMensalidade,
+      valorUniformeInformado: valorUniforme,
+      valoresAjustadosPeloPai: valoresAjustados,
       diaVencimentoPreferido: vencimento,
       responsavelNome: respNome, responsavelWhatsapp: respWhats,
       observacoes: obs, foto: fotoBase64 || null,
