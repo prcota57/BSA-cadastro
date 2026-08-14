@@ -71,6 +71,22 @@
 
   .status-msg{font-size:13px; text-align:center; margin-top:10px; color:var(--coral); min-height:16px;}
 
+  .price-box{background:var(--pitch-soft); border-radius:14px; padding:13px 15px; margin:2px 0 12px;}
+  .price-box .linha{display:flex; justify-content:space-between; font-size:13.5px; padding:3px 0; color:var(--pitch-dark);}
+  .price-box .linha.total{font-weight:700; border-top:1px dashed rgba(15,92,61,0.25); margin-top:5px; padding-top:7px; font-size:14.5px;}
+  .price-box .linha .lbl{color:var(--ink-soft); font-weight:500;}
+  .price-box .linha.total .lbl{color:var(--pitch-dark); font-weight:700;}
+
+  .pix-box{background:var(--surface); border-radius:16px; padding:16px; margin-top:20px; text-align:left; box-shadow:0 2px 8px rgba(20,43,32,0.06);}
+  .pix-box .titulo{font-family:'Space Grotesk'; font-weight:700; font-size:14.5px; color:var(--pitch-dark); margin-bottom:6px;}
+  .pix-box .info{font-size:13px; color:var(--ink-soft); line-height:1.6; margin-bottom:10px;}
+  .pix-box .chave{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:var(--pitch-soft); border-radius:10px; padding:10px 12px; font-family:'Space Grotesk'; font-weight:600; font-size:14px; color:var(--pitch-dark);
+  }
+  .pix-box .chave button{border:none; background:var(--gold); color:var(--pitch-dark); font-weight:700; font-size:12px; padding:7px 12px; border-radius:16px;}
+  .pix-box .hint{margin-top:8px;}
+
   .success{text-align:center; padding:50px 20px;}
   .success .emoji{font-size:56px;}
   .success h2{font-family:'Space Grotesk'; color:var(--pitch-dark); margin:16px 0 8px;}
@@ -126,6 +142,8 @@
       <div class="hint" id="turmaHint"></div>
     </div>
 
+    <div class="price-box" id="priceBox"></div>
+
     <div class="field">
       <label>Melhor dia para pagamento da mensalidade</label>
       <select id="fVencimento">
@@ -165,6 +183,15 @@
       <h2>Cadastro enviado!</h2>
       <p>Recebemos os dados de <b id="sucNome"></b>. Nossa equipe vai revisar e confirmar a matrícula em breve pelo WhatsApp. Obrigado! 💚⚽</p>
     </div>
+    <div class="pix-box">
+      <div class="titulo">💳 Já pode adiantar o pagamento (opcional)</div>
+      <div class="info">Se quiser garantir a vaga, pode adiantar a matrícula (R$ 120,00) + uniforme (R$ 170,00) = <b>R$ 290,00</b> via PIX. Não é obrigatório — a mensalidade só começa a ser cobrada depois da confirmação da matrícula.</div>
+      <div class="chave">
+        <span id="pixChave">31973369120</span>
+        <button id="btnCopiarPix" type="button">Copiar chave</button>
+      </div>
+      <div class="hint pix-hint">Chave PIX (telefone) · Ronaldo Amâncio Cota · Banco C6</div>
+    </div>
   </div>
 </main>
 
@@ -188,27 +215,49 @@ auth.signInAnonymously().catch(()=>{});
 
 let fotoBase64 = null;
 
+const PRECOS = { matricula: 120, mensalidade1x: 195, mensalidade2x: 295, uniforme: 170 };
+
 const TURMAS = {
   'Carlos Prates': [
-    { valor:'cp_ter', label:'Terça às 18h', dias:['ter'], horario:'18:00' },
-    { valor:'cp_qui', label:'Quinta às 18h', dias:['qui'], horario:'18:00' },
-    { valor:'cp_qua_sex', label:'Quarta e Sexta às 9h', dias:['qua','sex'], horario:'09:00' }
+    { valor:'cp_ter', label:'Terça às 18h', dias:['ter'], horario:'18:00', freq:1 },
+    { valor:'cp_qui', label:'Quinta às 18h', dias:['qui'], horario:'18:00', freq:1 },
+    { valor:'cp_qua_sex', label:'Quarta e Sexta às 9h', dias:['qua','sex'], horario:'09:00', freq:2 }
   ],
-  'Estoril': [
-    { valor:'es_8', label:'Sábado e Domingo às 8h', dias:['sab','dom'], horario:'08:00' },
-    { valor:'es_9', label:'Sábado e Domingo às 9h', dias:['sab','dom'], horario:'09:00' },
-    { valor:'es_10', label:'Sábado e Domingo às 10h', dias:['sab','dom'], horario:'10:00' }
-  ]
+  'Estoril': (()=>{
+    const opts = [];
+    ['08:00','09:00','10:00'].forEach(h=>{
+      const hl = h.slice(0,2)+'h';
+      opts.push({ valor:'es_sab_'+h, label:'Sábado às '+hl, dias:['sab'], horario:h, freq:1 });
+      opts.push({ valor:'es_dom_'+h, label:'Domingo às '+hl, dias:['dom'], horario:h, freq:1 });
+      opts.push({ valor:'es_ambos_'+h, label:'Sábado e Domingo às '+hl, dias:['sab','dom'], horario:h, freq:2 });
+    });
+    return opts;
+  })()
 };
+
+function fmtR$(v){ return 'R$ ' + v.toFixed(2).replace('.',','); }
 
 function popularTurmas(){
   const unidade = document.getElementById('fUnidade').value;
   const sel = document.getElementById('fTurma');
   sel.innerHTML = TURMAS[unidade].map(t=> `<option value="${t.valor}">${t.label}</option>`).join('');
   document.getElementById('turmaHint').textContent =
-    unidade === 'Carlos Prates' ? 'Treinos no Carlos Prates: terças, quintas ou quarta+sexta.' : 'Treinos no Estoril: sempre sábado e domingo, no horário escolhido.';
+    unidade === 'Carlos Prates' ? 'Treinos no Carlos Prates: terças, quintas ou quarta+sexta.' : 'Treinos no Estoril: escolha sábado, domingo, ou os dois dias.';
+  atualizarPreco();
+}
+function atualizarPreco(){
+  const unidade = document.getElementById('fUnidade').value;
+  const turma = TURMAS[unidade].find(t=> t.valor === document.getElementById('fTurma').value);
+  const freq = turma ? turma.freq : 1;
+  const mensalidade = freq === 2 ? PRECOS.mensalidade2x : PRECOS.mensalidade1x;
+  document.getElementById('priceBox').innerHTML = `
+    <div class="linha"><span class="lbl">Matrícula (única)</span><span>${fmtR$(PRECOS.matricula)}</span></div>
+    <div class="linha"><span class="lbl">Mensalidade (${freq}x/semana)</span><span>${fmtR$(mensalidade)}</span></div>
+    <div class="linha"><span class="lbl">Uniforme</span><span>${fmtR$(PRECOS.uniforme)}</span></div>
+  `;
 }
 document.getElementById('fUnidade').addEventListener('change', popularTurmas);
+document.getElementById('fTurma').addEventListener('change', atualizarPreco);
 popularTurmas();
 
 document.getElementById('btnFoto').addEventListener('click', ()=>{
@@ -264,6 +313,8 @@ document.getElementById('btnEnviar').addEventListener('click', async ()=>{
     await db.collection('cadastrosPendentes').add({
       nome, dataNascimento: nascimento, unidade,
       diasPreferidos: turmaSel.dias, horarioPreferido: turmaSel.horario, turmaLabel: turmaSel.label,
+      frequenciaSemanal: turmaSel.freq,
+      valorMensalidadeEsperado: turmaSel.freq === 2 ? PRECOS.mensalidade2x : PRECOS.mensalidade1x,
       diaVencimentoPreferido: vencimento,
       responsavelNome: respNome, responsavelWhatsapp: respWhats,
       observacoes: obs, foto: fotoBase64 || null,
@@ -278,6 +329,23 @@ document.getElementById('btnEnviar').addEventListener('click', async ()=>{
     btn.disabled = false;
     btn.textContent = 'Enviar cadastro';
   }
+});
+
+document.getElementById('btnCopiarPix').addEventListener('click', async ()=>{
+  const chave = document.getElementById('pixChave').textContent;
+  const btn = document.getElementById('btnCopiarPix');
+  try{
+    await navigator.clipboard.writeText(chave);
+    btn.textContent = 'Copiado ✓';
+  }catch(err){
+    const temp = document.createElement('textarea');
+    temp.value = chave; temp.style.position='fixed'; temp.style.opacity='0';
+    document.body.appendChild(temp); temp.focus(); temp.select();
+    try{ document.execCommand('copy'); btn.textContent = 'Copiado ✓'; }
+    catch(e){ btn.textContent = 'Copie manualmente'; }
+    document.body.removeChild(temp);
+  }
+  setTimeout(()=>{ btn.textContent = 'Copiar chave'; }, 2200);
 });
 </script>
 </body>
