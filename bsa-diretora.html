@@ -121,6 +121,26 @@
   .mic-modal .transcript{font-size:14px; color:var(--chalk-dim); min-height:20px; margin:10px 0 18px;}
   .mic-modal .fechar{background:transparent; border:1px solid rgba(255,255,255,0.3); color:var(--chalk); padding:9px 18px; border-radius:20px; font-size:13px;}
 
+  .rev-modal{position:fixed; inset:0; background:#000000CC; z-index:60; display:none; align-items:flex-end; justify-content:center;}
+  .rev-modal.active{display:flex;}
+  .rev-modal .sheet{background:var(--board); border-radius:20px 20px 0 0; padding:20px 18px calc(20px + env(safe-area-inset-bottom)); max-width:520px; width:100%; max-height:88vh; overflow-y:auto; border-top:1px solid rgba(255,255,255,0.14);}
+  .rev-modal h3{font-family:'Anton'; font-size:18px; color:var(--gold); text-transform:uppercase; margin:0 0 4px;}
+  .rev-modal .foto-rev{width:64px; height:64px; border-radius:50%; object-fit:cover; border:2px solid var(--gold); float:right;}
+  .rev-field{margin-bottom:10px;}
+  .rev-field label{display:block; font-size:11.5px; color:var(--chalk-dim); margin-bottom:4px; text-transform:uppercase; letter-spacing:0.03em;}
+  .rev-field input, .rev-field select{
+    width:100%; background:var(--board-line); border:1px solid rgba(255,255,255,0.14); color:var(--chalk);
+    border-radius:10px; padding:10px 11px; font-size:14.5px; font-family:'Inter';
+  }
+  .rev-row{display:flex; gap:8px;}
+  .rev-row .rev-field{flex:1;}
+  .rev-actions{display:flex; gap:10px; margin-top:16px;}
+  .rev-actions button{flex:1; padding:12px; border-radius:12px; font-size:13.5px; font-weight:700; border:none;}
+  .rev-actions .aprovar{background:var(--gold); color:#3A2C00;}
+  .rev-actions .rejeitar{background:rgba(255,92,122,0.16); border:1px solid rgba(255,92,122,0.4); color:#FF8FA3;}
+  .rev-actions .cancelar{background:transparent; border:1px solid rgba(255,255,255,0.2); color:var(--chalk-dim); flex:0.6;}
+  .rev-obs{font-size:12.5px; color:var(--chalk-dim); background:var(--board-line); border-radius:10px; padding:9px 11px; margin-bottom:10px; line-height:1.4;}
+
   .panel-box{background:var(--board-line); border-radius:14px; padding:18px; margin-bottom:14px;}
   .radar-num{font-family:'Anton'; font-size:54px; color:var(--gold); line-height:1; text-align:center;}
   .radar-lbl{text-align:center; font-size:11px; color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.08em; margin-top:4px;}
@@ -274,6 +294,10 @@
   </div>
 </div>
 
+<div class="rev-modal" id="revModal">
+  <div class="sheet" id="revSheet"></div>
+</div>
+
 <div class="cam-overlay" id="camOverlay">
   <div class="cam-hint">Aponte a câmera para o rosto do aluno</div>
   <video id="camVideo" autoplay playsinline muted></video>
@@ -345,6 +369,7 @@ let mensalidadesCache = [];
 let danosCache = [];
 let tarefasCache = [];
 let avaliacoesCache = [];
+let cadastrosPendentesCache = [];
 let unidadeFiltro = 'todas';
 let itensAtuais = [];
 let itensResolvidosNestaSessao = new Set();
@@ -365,14 +390,18 @@ async function init(){
 
 async function carregarTudo(){
   document.getElementById('subStatus').textContent = 'atualizando…';
-  const [alunosSnap, presencasSnap, mensalidadesSnap, danosSnap, tarefasSnap, avaliacoesSnap] = await Promise.all([
+  const [alunosSnap, presencasSnap, mensalidadesSnap, danosSnap, tarefasSnap, avaliacoesSnap, cadastrosPendentesSnap] = await Promise.all([
     db.collection('alunos').get(),
     db.collection('presencas').where('data','>=', dataISOOffset(40)).get(),
     db.collection('mensalidades').get(),
     db.collection('movimentacoes').where('tipo','==','dano').where('status','==','pendente').get(),
     db.collection('tarefas').where('concluido','==', false).get(),
-    db.collection('avaliacoesFisicas').get()
+    db.collection('avaliacoesFisicas').get(),
+    db.collection('cadastrosPendentes').where('status','==','pendente').get()
   ]);
+
+  cadastrosPendentesCache = [];
+  cadastrosPendentesSnap.forEach(doc=> cadastrosPendentesCache.push({ id: doc.id, ...doc.data() }));
 
   alunosCache = [];
   alunosSnap.forEach(doc=>{
@@ -593,8 +622,35 @@ function computarAniversarios(){
   return itens;
 }
 
+function tempoDecorrido(timestamp){
+  if(!timestamp || !timestamp.toMillis) return 'agora há pouco';
+  const min = Math.floor((Date.now() - timestamp.toMillis())/60000);
+  if(min < 1) return 'agora há pouco';
+  if(min < 60) return min + ' min atrás';
+  const h = Math.floor(min/60);
+  if(h < 24) return h + 'h atrás';
+  return Math.floor(h/24) + ' dia(s) atrás';
+}
+
+function computarCadastrosPendentes(){
+  const itens = [];
+  cadastrosPendentesCache.forEach(p=>{
+    const minutos = p.criadoEm && p.criadoEm.toMillis ? (Date.now()-p.criadoEm.toMillis())/60000 : 0;
+    const score = 96 + clamp(Math.floor(minutos/20), 0, 4); // sempre no topo do vermelho, cresce levemente com o tempo
+    itens.push({
+      id: 'pend_' + p.id, tipo:'cadastro', unidade: p.unidade || 'todas', score,
+      ico: '🆕',
+      titulo: 'Novo cadastro para revisar — ' + (p.nome || '(sem nome)'),
+      detalhe: 'Enviado por ' + (p.responsavelNome || '?') + ' · ' + tempoDecorrido(p.criadoEm),
+      acoes: [{ tipo:'revisar', label:'Revisar e Aprovar', pendenteId: p.id, primaria:true }]
+    });
+  });
+  return itens;
+}
+
 function computarERenderizar(){
   let todos = [
+    ...computarCadastrosPendentes(),
     ...computarChamadaPendenteEFaltantes(),
     ...computarMensalidades(),
     ...computarDanos(),
@@ -689,6 +745,114 @@ function renderLista(itens){
   cont.querySelectorAll('button[data-tarefa]').forEach(btn=>{
     btn.addEventListener('click', (ev)=>{ ev.stopPropagation(); concluirTarefa(btn.dataset.tarefa); });
   });
+  cont.querySelectorAll('button[data-revisar]').forEach(btn=>{
+    btn.addEventListener('click', (ev)=>{ ev.stopPropagation(); abrirModalRevisao(btn.dataset.revisar); });
+  });
+}
+
+// ---------- revisão de cadastro pendente ----------
+function abrirModalRevisao(pendenteId){
+  const p = cadastrosPendentesCache.find(x=> x.id === pendenteId);
+  if(!p) return;
+  const dias = p.diasPreferidos || [];
+  const sheet = document.getElementById('revSheet');
+  sheet.innerHTML = `
+    ${p.foto ? `<img class="foto-rev" src="${p.foto}">` : ''}
+    <h3>Revisar cadastro</h3>
+    <div class="sub" style="margin-bottom:14px;">Confira e complete antes de aprovar</div>
+    <div class="rev-obs">👤 <b>${p.responsavelNome||'?'}</b> · 📱 ${p.responsavelWhatsapp||'?'}${p.observacoes ? '<br>📝 '+p.observacoes : ''}${dias.length ? '<br>📅 Preferência: '+dias.map(d=>DIA_LABEL[d]||d).join(', ')+(p.horarioPreferido?' · '+p.horarioPreferido:'') : ''}</div>
+
+    <div class="rev-field"><label>Nome do aluno</label><input id="revNome" value="${(p.nome||'').replace(/"/g,'&quot;')}"></div>
+    <div class="rev-row">
+      <div class="rev-field"><label>Nascimento</label><input type="date" id="revNascimento" value="${p.dataNascimento||''}"></div>
+      <div class="rev-field"><label>Unidade</label>
+        <select id="revUnidade">
+          <option value="Carlos Prates" ${p.unidade==='Carlos Prates'?'selected':''}>Carlos Prates</option>
+          <option value="Estoril" ${p.unidade==='Estoril'?'selected':''}>Estoril</option>
+        </select>
+      </div>
+    </div>
+    <div class="rev-field"><label>Horário fixo de treino</label><input id="revHorario" value="${p.horarioPreferido||''}" placeholder="ex: 09:00"></div>
+    <div class="rev-row">
+      <div class="rev-field"><label>Mensalidade (R$)</label><input type="number" id="revValor" placeholder="ex: 150" step="0.01"></div>
+      <div class="rev-field"><label>Dia vencimento</label>
+        <select id="revVencimento">
+          <option value="">Selecione</option>
+          <option value="5">Dia 5</option><option value="10">Dia 10</option>
+          <option value="15">Dia 15</option><option value="20">Dia 20</option>
+        </select>
+      </div>
+    </div>
+    <div class="rev-field"><label>Banco de pagamento</label>
+      <select id="revBanco"><option value="">Selecione</option><option value="C6">C6 Bank</option><option value="Nubank">Nubank</option></select>
+    </div>
+
+    <div class="rev-actions">
+      <button class="cancelar" id="btnRevCancelar">Fechar</button>
+      <button class="rejeitar" id="btnRevRejeitar">Rejeitar</button>
+      <button class="aprovar" id="btnRevAprovar">✓ Aprovar</button>
+    </div>
+  `;
+  document.getElementById('btnRevCancelar').addEventListener('click', fecharModalRevisao);
+  document.getElementById('btnRevRejeitar').addEventListener('click', ()=> rejeitarCadastro(p.id));
+  document.getElementById('btnRevAprovar').addEventListener('click', ()=> aprovarCadastro(p));
+  document.getElementById('revModal').classList.add('active');
+}
+
+function fecharModalRevisao(){
+  document.getElementById('revModal').classList.remove('active');
+}
+
+async function rejeitarCadastro(pendenteId){
+  if(!confirm('Rejeitar este cadastro? Essa ação não pode ser desfeita.')) return;
+  try{
+    await db.collection('cadastrosPendentes').doc(pendenteId).delete();
+    cadastrosPendentesCache = cadastrosPendentesCache.filter(x=> x.id !== pendenteId);
+    itensResolvidosNestaSessao.add('pend_' + pendenteId);
+    fecharModalRevisao();
+    toast('Cadastro rejeitado');
+    computarERenderizar();
+  }catch(err){
+    toast('Erro ao rejeitar. Tente de novo.');
+  }
+}
+
+async function aprovarCadastro(p){
+  const nome = document.getElementById('revNome').value.trim();
+  const nascimento = document.getElementById('revNascimento').value;
+  const unidade = document.getElementById('revUnidade').value;
+  const horario = document.getElementById('revHorario').value.trim();
+  const valor = parseFloat(document.getElementById('revValor').value) || 0;
+  const vencimento = document.getElementById('revVencimento').value;
+  const banco = document.getElementById('revBanco').value;
+
+  if(!nome){ toast('Preencha o nome do aluno.'); return; }
+
+  const btn = document.getElementById('btnRevAprovar');
+  btn.disabled = true; btn.textContent = 'Aprovando...';
+
+  try{
+    const hoje = dataHojeISO();
+    const novoAluno = {
+      nome, dataNascimento: nascimento || '', unidade,
+      diasTreino: p.diasPreferidos || [], horarioTreino: horario,
+      responsavelNome: p.responsavelNome || '', responsavelWhatsapp: p.responsavelWhatsapp || '',
+      valorMensalidade: valor, diaVencimento: vencimento, statusMensalidade: 'ativo',
+      dataMatricula: hoje, bancoPagamento: banco, statusGeral: 'ativo',
+      observacoes: p.observacoes || '', foto: p.foto || null
+    };
+    await db.collection('alunos').add(novoAluno);
+    await db.collection('cadastrosPendentes').doc(p.id).delete();
+    cadastrosPendentesCache = cadastrosPendentesCache.filter(x=> x.id !== p.id);
+    itensResolvidosNestaSessao.add('pend_' + p.id);
+    fecharModalRevisao();
+    toast('Aluno aprovado e cadastrado ✓');
+    if(navigator.vibrate) navigator.vibrate(80);
+    await carregarTudo();
+  }catch(err){
+    toast('Erro ao aprovar. Tente de novo.');
+    btn.disabled = false; btn.textContent = '✓ Aprovar';
+  }
 }
 
 function cardHtml(item){
@@ -697,6 +861,7 @@ function cardHtml(item){
     if(a.tipo === 'wpp') return `<a class="wpp" href="${a.url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${a.label}</a>`;
     if(a.tipo === 'link') return `<a class="${a.primaria?'primaria':''}" href="${a.url}" onclick="event.stopPropagation()">${a.label}</a>`;
     if(a.tipo === 'concluir') return `<button class="primaria" data-tarefa="${a.tarefaId}">${a.label}</button>`;
+    if(a.tipo === 'revisar') return `<button class="primaria" data-revisar="${a.pendenteId}">${a.label}</button>`;
     return '';
   }).join('');
   return `<div class="card nivel-${nivel}" data-id="${item.id}">
