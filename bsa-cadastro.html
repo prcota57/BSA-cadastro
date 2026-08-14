@@ -111,16 +111,62 @@
   nav.tabbar{
     position:fixed; bottom:0; left:0; right:0; z-index:30;
     background:var(--surface); border-top:1px solid var(--line);
-    display:flex; padding:8px 12px calc(8px + env(safe-area-inset-bottom));
-    gap:8px;
+    display:flex; padding:8px 6px calc(8px + env(safe-area-inset-bottom));
+    gap:2px;
   }
   nav.tabbar button{
-    flex:1; border:none; background:transparent; padding:8px 4px; border-radius:14px;
-    font-family:'Inter'; font-weight:600; font-size:12.5px; color:var(--ink-soft);
-    display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer;
+    flex:1; border:none; background:transparent; padding:8px 2px; border-radius:14px;
+    font-family:'Inter'; font-weight:600; font-size:11px; color:var(--ink-soft);
+    display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; position:relative;
   }
-  nav.tabbar button .ic{font-size:20px;}
+  nav.tabbar button .ic{font-size:18px;}
   nav.tabbar button.active{color:var(--pitch); background:var(--pitch-soft);}
+  .pend-badge{
+    position:absolute; top:2px; right:14px; background:var(--coral); color:#fff; font-size:10px; font-weight:700;
+    min-width:16px; height:16px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; padding:0 4px;
+  }
+
+  .pend-header{padding:16px 16px 4px;}
+  .pend-header-txt{font-size:13px; color:var(--ink-soft); line-height:1.4;}
+  .pend-row{
+    display:flex; align-items:center; gap:12px; background:var(--surface); margin:8px 16px; padding:12px 14px;
+    border-radius:16px; box-shadow:0 2px 8px rgba(20,43,32,0.06);
+  }
+  .pend-foto{
+    width:48px; height:48px; border-radius:50%; background:var(--pitch-soft); flex:none; overflow:hidden;
+    display:flex; align-items:center; justify-content:center; font-size:20px;
+  }
+  .pend-foto img{width:100%; height:100%; object-fit:cover;}
+  .pend-info{flex:1; min-width:0;}
+  .pend-info .n{font-weight:700; font-size:14.5px; color:var(--ink);}
+  .pend-info .m{font-size:12px; color:var(--ink-soft); margin-top:1px;}
+  .btn-pend-revisar{
+    background:var(--gold); color:var(--pitch-dark); border:none; border-radius:14px; padding:9px 14px;
+    font-weight:700; font-size:12.5px; flex:none;
+  }
+
+  .pend-modal{position:fixed; inset:0; background:#000000CC; z-index:70; display:none; align-items:flex-end; justify-content:center;}
+  .pend-modal.active{display:flex;}
+  .pend-modal .pend-sheet{
+    background:var(--surface); border-radius:20px 20px 0 0; padding:20px 18px calc(20px + env(safe-area-inset-bottom));
+    max-width:520px; width:100%; max-height:88vh; overflow-y:auto;
+  }
+  .pend-sheet h3{font-family:'Space Grotesk'; font-size:18px; color:var(--pitch-dark); margin:0 0 4px;}
+  .pend-foto-rev{width:64px; height:64px; border-radius:50%; object-fit:cover; border:2px solid var(--gold); float:right;}
+  .pend-alerta{background:var(--gold-soft); border:1px solid rgba(255,200,0,0.4); color:#8A6D00; border-radius:10px; padding:9px 11px; font-size:12.5px; margin-bottom:10px;}
+  .pend-obs{font-size:12.5px; color:var(--ink-soft); background:var(--pitch-soft); border-radius:10px; padding:9px 11px; margin-bottom:12px; line-height:1.4;}
+  .pend-field{margin-bottom:10px;}
+  .pend-field label{display:block; font-size:11.5px; color:var(--ink-soft); margin-bottom:4px; text-transform:uppercase; letter-spacing:0.02em;}
+  .pend-field input, .pend-field select{
+    width:100%; border:1px solid var(--line); border-radius:10px; padding:10px 11px; font-size:14.5px; font-family:'Inter'; color:var(--ink); background:#fff;
+  }
+  .pend-row2{display:flex; gap:8px;}
+  .pend-row2 .pend-field{flex:1;}
+  .pend-actions{display:flex; gap:10px; margin-top:16px;}
+  .pend-actions button{flex:1; padding:12px; border-radius:12px; font-size:13.5px; font-weight:700; border:none;}
+  .pend-actions .pend-aprovar{background:var(--gold); color:var(--pitch-dark);}
+  .pend-actions .pend-rejeitar{background:var(--coral-soft); color:#B8391B; border:1px solid rgba(255,90,54,0.35);}
+  .pend-actions .pend-cancelar{background:transparent; border:1px solid var(--line); color:var(--ink-soft); flex:0.6;}
 
   .screen{display:none;}
   .screen.active{display:block;}
@@ -504,12 +550,29 @@
   <main id="bdayListContainer"></main>
 </section>
 
+<section class="screen" id="screen-pendentes">
+  <div class="pend-header">
+    <div class="pend-header-txt">Cadastros enviados pelo formulário público, aguardando revisão.</div>
+  </div>
+  <main id="pendListContainer">
+    <div class="empty">
+      <div class="big">✅</div>
+      <div>Nenhum cadastro pendente no momento.</div>
+    </div>
+  </main>
+</section>
+
 <nav class="tabbar">
   <button class="active" data-screen="lista"><span class="ic">📋</span>Alunos</button>
   <button data-screen="cadastro"><span class="ic">➕</span>Novo</button>
+  <button data-screen="pendentes"><span class="ic">🆕</span>Pendentes<span id="pendCountBadge" class="pend-badge" style="display:none;"></span></button>
   <button data-screen="importar"><span class="ic">📥</span>Importar</button>
   <button data-screen="aniversarios"><span class="ic">🎂</span>Aniversários</button>
 </nav>
+
+<div class="pend-modal" id="pendModal">
+  <div class="pend-sheet" id="pendSheet"></div>
+</div>
 
 <!-- Camera overlay -->
 <div class="camera-overlay" id="cameraOverlay">
@@ -747,6 +810,152 @@ function listenAlunos(){
   }, err=>{
     document.getElementById('statusLine').textContent = 'erro de sincronização';
   });
+  listenPendentes();
+}
+
+/* ---------- Cadastros pendentes (vindos do formulário público) ---------- */
+let pendentesCache = [];
+function listenPendentes(){
+  db.collection('cadastrosPendentes').where('status','==','pendente').onSnapshot(snap=>{
+    pendentesCache = snap.docs.map(d=>({...d.data(), _docId:d.id}));
+    renderPendentes();
+    const badge = document.getElementById('pendCountBadge');
+    if(pendentesCache.length > 0){
+      badge.style.display = 'inline-flex';
+      badge.textContent = pendentesCache.length;
+    }else{
+      badge.style.display = 'none';
+    }
+  }, err=>{
+    document.getElementById('pendListContainer').innerHTML = '<div class="empty"><div class="big">⚠️</div><div>Erro ao carregar pendentes.</div></div>';
+  });
+}
+
+function tempoDecorridoPend(timestamp){
+  if(!timestamp || !timestamp.toMillis) return 'agora há pouco';
+  const min = Math.floor((Date.now() - timestamp.toMillis())/60000);
+  if(min < 1) return 'agora há pouco';
+  if(min < 60) return min + ' min atrás';
+  const h = Math.floor(min/60);
+  if(h < 24) return h + 'h atrás';
+  return Math.floor(h/24) + ' dia(s) atrás';
+}
+
+function renderPendentes(){
+  const cont = document.getElementById('pendListContainer');
+  if(pendentesCache.length === 0){
+    cont.innerHTML = '<div class="empty"><div class="big">✅</div><div>Nenhum cadastro pendente no momento.</div></div>';
+    return;
+  }
+  cont.innerHTML = pendentesCache.map(p=>`
+    <div class="pend-row" data-id="${p._docId}">
+      <div class="pend-foto">${p.foto ? `<img src="${p.foto}">` : '👤'}</div>
+      <div class="pend-info">
+        <div class="n">${p.nome || '(sem nome)'}</div>
+        <div class="m">${p.unidade||'?'} · ${p.turmaLabel||''} · enviado ${tempoDecorridoPend(p.criadoEm)}</div>
+        <div class="m">Responsável: ${p.responsavelNome||'?'}</div>
+      </div>
+      <button class="btn-pend-revisar" data-id="${p._docId}">Revisar</button>
+    </div>
+  `).join('');
+  cont.querySelectorAll('.btn-pend-revisar').forEach(btn=>{
+    btn.addEventListener('click', ()=> abrirModalPendente(btn.dataset.id));
+  });
+}
+
+function abrirModalPendente(id){
+  const p = pendentesCache.find(x=> x._docId === id);
+  if(!p) return;
+  const sheet = document.getElementById('pendSheet');
+  sheet.innerHTML = `
+    ${p.foto ? `<img class="pend-foto-rev" src="${p.foto}">` : ''}
+    <h3>Revisar cadastro</h3>
+    ${p.valoresAjustadosPeloPai ? `<div class="pend-alerta">⚠️ O responsável alterou os valores padrão — confira com atenção.</div>` : ''}
+    <div class="pend-obs">👤 <b>${p.responsavelNome||'?'}</b> · 📱 ${p.responsavelWhatsapp||'?'}${p.turmaLabel ? '<br>⚽ '+p.turmaLabel+' ('+(p.frequenciaSemanal||1)+'x/semana)' : ''}${p.observacoes ? '<br>📝 '+p.observacoes : ''}</div>
+
+    <div class="pend-field"><label>Nome do aluno</label><input id="pNome" value="${(p.nome||'').replace(/"/g,'&quot;')}"></div>
+    <div class="pend-row2">
+      <div class="pend-field"><label>Nascimento</label><input type="date" id="pNascimento" value="${p.dataNascimento||''}"></div>
+      <div class="pend-field"><label>Unidade</label>
+        <select id="pUnidade">
+          <option value="Carlos Prates" ${p.unidade==='Carlos Prates'?'selected':''}>Carlos Prates</option>
+          <option value="Estoril" ${p.unidade==='Estoril'?'selected':''}>Estoril</option>
+        </select>
+      </div>
+    </div>
+    <div class="pend-field"><label>Horário fixo de treino</label><input id="pHorario" value="${p.horarioPreferido||''}" placeholder="ex: 18:00"></div>
+    <div class="pend-row2">
+      <div class="pend-field"><label>Matrícula (R$)</label><input type="number" id="pMatricula" value="${p.valorMatriculaInformado||''}" step="0.01"></div>
+      <div class="pend-field"><label>Uniforme (R$)</label><input type="number" id="pUniforme" value="${p.valorUniformeInformado||''}" step="0.01"></div>
+    </div>
+    <div class="pend-row2">
+      <div class="pend-field"><label>Mensalidade (R$)</label><input type="number" id="pValor" value="${p.valorMensalidadeInformado||''}" step="0.01"></div>
+      <div class="pend-field"><label>Dia vencimento</label>
+        <select id="pVencimento">
+          <option value="">Selecione</option>
+          <option value="5" ${p.diaVencimentoPreferido==='5'?'selected':''}>Dia 5</option>
+          <option value="10" ${p.diaVencimentoPreferido==='10'?'selected':''}>Dia 10</option>
+          <option value="15" ${p.diaVencimentoPreferido==='15'?'selected':''}>Dia 15</option>
+          <option value="20" ${p.diaVencimentoPreferido==='20'?'selected':''}>Dia 20</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="pend-actions">
+      <button class="pend-cancelar" id="btnPendCancelar">Fechar</button>
+      <button class="pend-rejeitar" id="btnPendRejeitar">Rejeitar</button>
+      <button class="pend-aprovar" id="btnPendAprovar">✓ Aprovar</button>
+    </div>
+  `;
+  document.getElementById('btnPendCancelar').addEventListener('click', fecharModalPendente);
+  document.getElementById('btnPendRejeitar').addEventListener('click', ()=> rejeitarPendente(p._docId));
+  document.getElementById('btnPendAprovar').addEventListener('click', ()=> aprovarPendente(p));
+  document.getElementById('pendModal').classList.add('active');
+}
+
+function fecharModalPendente(){
+  document.getElementById('pendModal').classList.remove('active');
+}
+
+async function rejeitarPendente(id){
+  if(!confirm('Rejeitar este cadastro? Essa ação não pode ser desfeita.')) return;
+  try{
+    await db.collection('cadastrosPendentes').doc(id).delete();
+    fecharModalPendente();
+  }catch(err){
+    alert('Erro ao rejeitar. Tente de novo.');
+  }
+}
+
+async function aprovarPendente(p){
+  const nome = document.getElementById('pNome').value.trim();
+  const nascimento = document.getElementById('pNascimento').value;
+  const unidade = document.getElementById('pUnidade').value;
+  const horario = document.getElementById('pHorario').value.trim();
+  const valor = parseFloat(document.getElementById('pValor').value) || 0;
+  const vencimento = document.getElementById('pVencimento').value;
+
+  if(!nome){ alert('Preencha o nome do aluno.'); return; }
+
+  const btn = document.getElementById('btnPendAprovar');
+  btn.disabled = true; btn.textContent = 'Aprovando...';
+
+  try{
+    const novoAluno = {
+      nome, dataNascimento: nascimento || '', unidade,
+      diasTreino: p.diasPreferidos || [], horarioTreino: horario,
+      responsavelNome: p.responsavelNome || '', responsavelWhatsapp: p.responsavelWhatsapp || '',
+      valorMensalidade: valor, diaVencimento: vencimento, statusMensalidade: 'ativo',
+      dataMatricula: new Date().toISOString().slice(0,10), statusGeral: 'ativo',
+      observacoes: p.observacoes || '', foto: p.foto || null
+    };
+    await db.collection('alunos').add(novoAluno);
+    await db.collection('cadastrosPendentes').doc(p._docId).delete();
+    fecharModalPendente();
+  }catch(err){
+    alert('Erro ao aprovar. Tente de novo.');
+    btn.disabled = false; btn.textContent = '✓ Aprovar';
+  }
 }
 
 /* ---------- Contador de alunos por unidade ---------- */
