@@ -226,6 +226,7 @@
   <div class="halfline"></div><div class="circle"></div>
   <div class="topline">
     <a class="back" href="index.html">← Hub</a>
+    <button class="foto-btn" id="btnAtualizar">🔄 Atualizar</button>
     <button class="foto-btn" id="btnFoto">🔎 Resolver por foto</button>
   </div>
   <div class="eyebrow">Gerência unificada</div>
@@ -253,7 +254,7 @@
 
   <div id="lista"></div>
 
-  <div class="status-line">Atualizado às <span id="horaAtualizacao">—</span> · toque em "Ambas" pra atualizar</div>
+  <div class="status-line">Atualizado às <span id="horaAtualizacao">—</span></div>
   </div>
 
   <div id="painelGeral" style="display:none;">
@@ -386,6 +387,22 @@ function toast(msg){
 async function init(){
   await auth.signInAnonymously().catch(err=>{ document.getElementById('subStatus').textContent = 'erro de login: ' + err.message; });
   await carregarTudo();
+
+  document.getElementById('btnAtualizar').addEventListener('click', async ()=>{
+    const btn = document.getElementById('btnAtualizar');
+    btn.textContent = '🔄 Atualizando...';
+    await carregarTudo();
+    btn.textContent = '🔄 Atualizar';
+    toast('Dados atualizados');
+  });
+
+  let ultimoRefresh = Date.now();
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'visible' && Date.now() - ultimoRefresh > 15000){
+      ultimoRefresh = Date.now();
+      carregarTudo();
+    }
+  });
 }
 
 async function carregarTudo(){
