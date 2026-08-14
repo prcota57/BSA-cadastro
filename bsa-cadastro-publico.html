@@ -64,6 +64,8 @@
     padding:8px 12px; border-radius:20px; border:1.5px solid transparent;
   }
   .day-chip.sel{background:var(--pitch); color:#fff; border-color:var(--gold);}
+  .day-chip.disabled{opacity:0.4;}
+  .freq-chip{flex:1; text-align:center;}
 
   .section-title{font-family:'Space Grotesk'; font-size:14px; font-weight:700; color:var(--pitch-dark); margin:20px 2px 8px;}
 
@@ -139,9 +141,26 @@
     </div>
 
     <div class="field">
-      <label>Turma / horário de treino</label>
-      <select id="fTurma"></select>
-      <div class="hint" id="turmaHint"></div>
+      <label>Quantas vezes por semana?</label>
+      <div class="day-chips" id="freqChips">
+        <div class="day-chip freq-chip" data-freq="1">1x por semana</div>
+        <div class="day-chip freq-chip" data-freq="2">2x por semana</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label id="diasLabel">Dia(s) de treino</label>
+      <div class="day-chips" id="diaChips"></div>
+      <div class="hint" id="diaHint"></div>
+    </div>
+
+    <div class="field" id="campoHorarioEstoril" style="display:none;">
+      <label>Horário</label>
+      <select id="fHorarioEstoril">
+        <option value="08:00">8h</option>
+        <option value="09:00">9h</option>
+        <option value="10:00">10h</option>
+      </select>
     </div>
 
     <div class="price-box" id="priceBox"></div>
@@ -220,38 +239,100 @@ let fotoBase64 = null;
 
 const PRECOS = { matricula: 120, mensalidade1x: 195, mensalidade2x: 295, uniforme: 170 };
 
-const TURMAS = {
+// dias reais disponíveis por unidade
+const DIAS_UNIDADE = {
   'Carlos Prates': [
-    { valor:'cp_ter', label:'Terça às 18h', dias:['ter'], horario:'18:00', freq:1 },
-    { valor:'cp_qui', label:'Quinta às 18h', dias:['qui'], horario:'18:00', freq:1 },
-    { valor:'cp_qua_sex', label:'Quarta e Sexta às 9h', dias:['qua','sex'], horario:'09:00', freq:2 }
+    { dia:'ter', label:'Terça', horario:'18:00', horarioLabel:'18h' },
+    { dia:'qui', label:'Quinta', horario:'18:00', horarioLabel:'18h' },
+    { dia:'sex', label:'Sexta', horario:'09:00', horarioLabel:'9h' }
   ],
-  'Estoril': (()=>{
-    const opts = [];
-    ['08:00','09:00','10:00'].forEach(h=>{
-      const hl = h.slice(0,2)+'h';
-      opts.push({ valor:'es_sab_'+h, label:'Sábado às '+hl, dias:['sab'], horario:h, freq:1 });
-      opts.push({ valor:'es_dom_'+h, label:'Domingo às '+hl, dias:['dom'], horario:h, freq:1 });
-      opts.push({ valor:'es_ambos_'+h, label:'Sábado e Domingo às '+hl, dias:['sab','dom'], horario:h, freq:2 });
-    });
-    return opts;
-  })()
+  'Estoril': [
+    { dia:'sab', label:'Sábado' },
+    { dia:'dom', label:'Domingo' }
+  ]
 };
+
+let freqSelecionada = null;
+let diasSelecionados = [];
 
 function fmtR$(v){ return 'R$ ' + v.toFixed(2).replace('.',','); }
 
-function popularTurmas(){
+function popularDias(){
   const unidade = document.getElementById('fUnidade').value;
-  const sel = document.getElementById('fTurma');
-  sel.innerHTML = TURMAS[unidade].map(t=> `<option value="${t.valor}">${t.label}</option>`).join('');
-  document.getElementById('turmaHint').textContent =
-    unidade === 'Carlos Prates' ? 'Treinos no Carlos Prates: terças, quintas ou quarta+sexta.' : 'Treinos no Estoril: escolha sábado, domingo, ou os dois dias.';
+  diasSelecionados = [];
+  const cont = document.getElementById('diaChips');
+  cont.innerHTML = DIAS_UNIDADE[unidade].map(d=>
+    `<div class="day-chip" data-dia="${d.dia}">${d.label}${d.horarioLabel ? ' '+d.horarioLabel : ''}</div>`
+  ).join('');
+  cont.querySelectorAll('.day-chip').forEach(chip=>{
+    chip.addEventListener('click', ()=> toggleDia(chip));
+  });
+  document.getElementById('campoHorarioEstoril').style.display = (unidade === 'Estoril') ? 'block' : 'none';
+  atualizarHintDias();
   atualizarPreco();
 }
-function atualizarPreco(){
+
+function toggleDia(chip){
+  const dia = chip.dataset.dia;
+  const max = freqSelecionada || 1;
+  if(diasSelecionados.includes(dia)){
+    diasSelecionados = diasSelecionados.filter(d=>d!==dia);
+  }else{
+    if(diasSelecionados.length >= max){
+      diasSelecionados.shift(); // tira o mais antigo pra abrir espaço
+    }
+    diasSelecionados.push(dia);
+  }
+  document.querySelectorAll('#diaChips .day-chip').forEach(c=>{
+    c.classList.toggle('sel', diasSelecionados.includes(c.dataset.dia));
+  });
+  atualizarPreco();
+}
+
+function atualizarHintDias(){
   const unidade = document.getElementById('fUnidade').value;
-  const turma = TURMAS[unidade].find(t=> t.valor === document.getElementById('fTurma').value);
-  const freq = turma ? turma.freq : 1;
+  document.getElementById('diaHint').textContent = freqSelecionada
+    ? `Toque em ${freqSelecionada} dia(s) — escolhido acima.`
+    : 'Primeiro escolha quantas vezes por semana.';
+}
+
+document.querySelectorAll('.freq-chip').forEach(chip=>{
+  chip.addEventListener('click', ()=>{
+    freqSelecionada = parseInt(chip.dataset.freq, 10);
+    document.querySelectorAll('.freq-chip').forEach(c=> c.classList.toggle('sel', c===chip));
+    // se já tinha mais dias selecionados do que a nova frequência permite, corta
+    if(diasSelecionados.length > freqSelecionada) diasSelecionados = diasSelecionados.slice(0, freqSelecionada);
+    document.querySelectorAll('#diaChips .day-chip').forEach(c=>{
+      c.classList.toggle('sel', diasSelecionados.includes(c.dataset.dia));
+    });
+    atualizarHintDias();
+    atualizarPreco();
+  });
+});
+
+function calcularTurma(){
+  const unidade = document.getElementById('fUnidade').value;
+  const config = DIAS_UNIDADE[unidade];
+  const dias = diasSelecionados.slice();
+  let horarioTexto = '';
+  if(unidade === 'Estoril'){
+    const h = document.getElementById('fHorarioEstoril').value;
+    horarioTexto = h.slice(0,2)+'h';
+  }else{
+    horarioTexto = dias.map(d=> config.find(c=>c.dia===d).horarioLabel).join(' / ');
+  }
+  const diasLabel = dias.map(d=> config.find(c=>c.dia===d).label).join(' e ');
+  return {
+    dias,
+    horario: unidade === 'Estoril' ? document.getElementById('fHorarioEstoril').value : (dias[0] ? config.find(c=>c.dia===dias[0]).horario : ''),
+    label: dias.length ? diasLabel + ' às ' + horarioTexto : '',
+    freq: dias.length || 1
+  };
+}
+
+function atualizarPreco(){
+  const turma = calcularTurma();
+  const freq = turma.freq === 2 ? 2 : 1;
   const mensalidade = freq === 2 ? PRECOS.mensalidade2x : PRECOS.mensalidade1x;
   document.getElementById('priceBox').innerHTML = `
     <div class="linha"><span class="lbl">Matrícula (única)</span><input type="number" id="vMatricula" value="${PRECOS.matricula}" step="0.01" min="0"></div>
@@ -259,9 +340,9 @@ function atualizarPreco(){
     <div class="linha"><span class="lbl">Uniforme</span><input type="number" id="vUniforme" value="${PRECOS.uniforme}" step="0.01" min="0"></div>
   `;
 }
-document.getElementById('fUnidade').addEventListener('change', popularTurmas);
-document.getElementById('fTurma').addEventListener('change', atualizarPreco);
-popularTurmas();
+document.getElementById('fUnidade').addEventListener('change', popularDias);
+document.getElementById('fHorarioEstoril').addEventListener('change', atualizarPreco);
+popularDias();
 
 document.getElementById('btnFoto').addEventListener('click', ()=>{
   document.getElementById('fotoInput').click();
@@ -295,7 +376,7 @@ document.getElementById('btnEnviar').addEventListener('click', async ()=>{
   const nome = document.getElementById('fNome').value.trim();
   const nascimento = document.getElementById('fNascimento').value;
   const unidade = document.getElementById('fUnidade').value;
-  const turmaSel = TURMAS[unidade].find(t=> t.valor === document.getElementById('fTurma').value);
+  const turmaSel = calcularTurma();
   const vencimento = document.getElementById('fVencimento').value;
   const respNome = document.getElementById('fRespNome').value.trim();
   const respWhats = document.getElementById('fRespWhats').value.trim();
@@ -310,6 +391,10 @@ document.getElementById('btnEnviar').addEventListener('click', async ()=>{
 
   if(!nome || !nascimento || !respNome || limparWhats(respWhats).length < 10){
     statusEl.textContent = 'Preencha o nome do aluno, a data de nascimento, o nome do responsável e um WhatsApp válido.';
+    return;
+  }
+  if(!freqSelecionada || diasSelecionados.length === 0){
+    statusEl.textContent = 'Escolha a frequência (1x ou 2x) e o(s) dia(s) de treino.';
     return;
   }
 
