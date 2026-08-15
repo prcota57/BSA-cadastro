@@ -461,7 +461,8 @@ function renderExtrato(app){
   if(r.revisar.length===0){
     html += '<div class="empty">Nada pendente de revisão.</div>';
   } else {
-    r.revisar.forEach(function(x){
+    var alunosOrdenadosExtrato = state.alunos.slice().sort(function(a,b){ return a.nome.localeCompare(b.nome); });
+    r.revisar.forEach(function(x, idx){
       html += '<div class="row-card" style="display:block;">'
         + '<div class="info"><div class="name">'+x.entrada.nomeOriginal+'</div><div class="meta">'+fmtMoeda(x.entrada.valor)+'</div></div>'
         + '<div class="hint" style="margin:6px 0;">'+x.motivo+'</div>';
@@ -470,6 +471,14 @@ function renderExtrato(app){
           return '<button class="btn btn-blue" style="margin:4px 4px 0 0;" data-action="marcarPago" data-id="'+m.id+'">Marcar pago: '+m.nomeAluno+' ('+fmtMoeda(m.valor)+')</button>';
         }).join('');
       }
+      html += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid #eee;">'
+        + '<div class="hint" style="margin-bottom:4px;">Não é nenhum dos acima? Escolha o aluno certo:</div>'
+        + '<select id="revisarSelect_'+idx+'" style="width:100%;padding:8px;border-radius:8px;margin-bottom:6px;">'
+        + '<option value="">Selecione o aluno...</option>'
+        + alunosOrdenadosExtrato.map(function(a){ return '<option value="'+a.id+'">'+a.nome+' ('+a.unidade+')</option>'; }).join('')
+        + '</select>'
+        + '<button class="btn btn-outline" style="width:100%;" data-action="resolverRevisarExtrato" data-idx="'+idx+'">Confirmar aluno e marcar pago</button>'
+        + '</div>';
       html += '</div>';
     });
   }
@@ -886,6 +895,37 @@ var Actions = {
     }catch(e){ showToast('Não foi possível desfazer: '+e.message); }
   },
   novaConferenciaExtrato:function(){ state.extratoResultado=null; state.extratoTexto=''; render(); },
+  resolverRevisarExtrato:async function(el){
+    var idx = parseInt(el.dataset.idx,10);
+    var item = state.extratoResultado && state.extratoResultado.revisar[idx];
+    if(!item){ return; }
+    var alunoId = document.getElementById('revisarSelect_'+idx).value;
+    if(!alunoId){ showToast('Selecione um aluno na lista.'); return; }
+    var aluno = state.alunos.find(function(a){ return a.id===alunoId; });
+    if(!aluno){ showToast('Aluno não encontrado.'); return; }
+    try{
+      // Ensina o sistema: atualiza o nome do responsável no cadastro pra bater automaticamente da próxima vez
+      if(normalizeNomeExtrato(aluno.responsavelNome) !== normalizeNomeExtrato(item.entrada.nomeOriginal)){
+        await db.collection('alunos').doc(alunoId).update({ responsavelNome: item.entrada.nomeOriginal });
+        aluno.responsavelNome = item.entrada.nomeOriginal;
+      }
+      // Procura mensalidade pendente desse aluno (preferindo a de valor mais próximo do extrato)
+      var pendentes = state.mensalidades.filter(function(m){
+        var st = statusComputado(m);
+        return m.alunoId===alunoId && st!=='pago' && st!=='isento';
+      }).sort(function(a,b){ return Math.abs(Number(a.valor)-item.entrada.valor) - Math.abs(Number(b.valor)-item.entrada.valor); });
+      if(pendentes.length===0){
+        showToast('Nome salvo no cadastro de '+aluno.nome+'. Não havia mensalidade pendente pra marcar como paga.');
+      } else {
+        var m = pendentes[0];
+        await db.collection('mensalidades').doc(m.id).update({ statusPagamento:'pago', dataPagamento: hojeStr() });
+        m.statusPagamento='pago'; m.dataPagamento=hojeStr();
+        showToast('Marcado como pago: '+aluno.nome+'. Nome salvo pra próxima vez bater sozinho.');
+      }
+      state.extratoResultado.revisar.splice(idx,1);
+      render();
+    }catch(e){ showToast('Não foi possível salvar: '+e.message); }
+  },
   irMovTabEntrada:function(){ state.movTab='entrada'; render(); },
   irMovTabSaida:function(){ state.movTab='saida'; render(); },
   salvarEntrada:async function(){
