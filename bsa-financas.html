@@ -232,8 +232,8 @@ async function garantirMensalidadesDoMes(){
         dataPagamento: null, statusPagamento: 'pendente'
       });
       algumaAlteracao = true;
-    } else if(existente.statusPagamento !== 'pago' && (existente.valor !== a.valorMensalidade || existente.diaVencimento !== a.diaVencimento)){
-      // Aluno já tem mensalidade do mês gerada, mas o cadastro mudou o valor/dia depois — sincroniza (só se ainda não foi paga)
+    } else if(existente.statusPagamento !== 'pago' && (existente.valor !== a.valorMensalidade || existente.diaVencimento !== a.diaVencimento || existente.responsavelNome !== a.responsavelNome || existente.responsavelWhatsapp !== a.responsavelWhatsapp || existente.nomeAluno !== a.nome)){
+      // Aluno já tem mensalidade do mês gerada, mas o cadastro mudou depois (valor, dia, nome do aluno ou do responsável) — sincroniza (só se ainda não foi paga)
       var ref2 = db.collection('mensalidades').doc(id);
       batch.update(ref2, {
         valor: a.valorMensalidade, diaVencimento: a.diaVencimento,
