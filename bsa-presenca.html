@@ -156,7 +156,7 @@
   }
 
   .modal-overlay{
-    position:fixed; inset:0; background:rgba(10,20,15,0.45); z-index:90; display:none;
+    position:fixed; inset:0; background:rgba(10,20,15,0.45); z-index:200; display:none;
     align-items:flex-end; justify-content:center;
   }
   .modal-overlay.active{display:flex;}
@@ -504,8 +504,8 @@
   <button class="kiosk-back-btn" id="btnKioskTrocarCamera" title="Trocar câmera" style="right:76px;">🔄</button>
 </div>
 
-<audio id="somPalmas" src="https://raw.githubusercontent.com/prcota57/bsa-alerta/main/sounds/palmas-simples.wav" preload="auto"></audio>
-<audio id="somTrombeta" src="https://raw.githubusercontent.com/prcota57/bsa-alerta/main/sounds/fail-trombeta.wav" preload="auto"></audio>
+<audio id="somPalmas" src="sounds/palmas-simples.wav" preload="auto"></audio>
+<audio id="somTrombeta" src="sounds/fail-trombeta.wav" preload="auto"></audio>
 
 <div class="toast" id="toast"></div>
 
@@ -594,17 +594,37 @@ function bip(){
   }catch(e){}
 }
 
-/* ---------- Sons do Modo Quiosque (reaproveitando os áudios reais do BSA Alerta) ---------- */
+/* ---------- Sons do Modo Quiosque (reaproveitando os áudios reais do BSA Alerta, com plano B sintetizado se o arquivo falhar) ---------- */
+function tomFallback(freqs, tipo){
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    freqs.forEach((freq,i)=>{
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.type = tipo || 'sine';
+      osc.frequency.value = freq;
+      const start = audioCtx.currentTime + i*0.15;
+      gain.gain.setValueAtTime(0.16, start);
+      osc.start(start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.2);
+      osc.stop(start + 0.22);
+    });
+  }catch(e){}
+}
 function somSucessoKiosk(){
   try{
     const a = document.getElementById('somPalmas');
     a.currentTime = 0;
-    a.play().catch(()=>{});
-  }catch(e){}
+    const p = a.play();
+    if(p) p.catch(()=> tomFallback([660,990]));
+  }catch(e){ tomFallback([660,990]); }
 }
 function somAvisoKiosk(){
   try{
     if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.connect(gain); gain.connect(audioCtx.destination);
@@ -620,8 +640,9 @@ function somFalhaKiosk(){
   try{
     const a = document.getElementById('somTrombeta');
     a.currentTime = 0;
-    a.play().catch(()=>{});
-  }catch(e){}
+    const p = a.play();
+    if(p) p.catch(()=> tomFallback([330,220], 'sawtooth'));
+  }catch(e){ tomFallback([330,220], 'sawtooth'); }
 }
 
 function initFirebase(){
@@ -1397,7 +1418,12 @@ async function loopKiosk(){
 
 async function kioskRegistrarSucesso(aluno, distance){
   const agora = Date.now();
-  if(aluno.id === kioskUltimoId && (agora - kioskUltimoTs) < KIOSK_COOLDOWN_MS) return;
+  if(aluno.id === kioskUltimoId && (agora - kioskUltimoTs) < KIOSK_COOLDOWN_MS){
+    // já foi cumprimentado há pouco — não bate no banco de novo, mas reforça a tela em vez de ficar mudo
+    kioskAttemptStartTs = null;
+    mostrarKioskSucesso(aluno, { mensagem: 'presença já registrada hoje', tocarBip: false });
+    return;
+  }
   kioskUltimoId = aluno.id;
   kioskUltimoTs = agora;
   kioskAttemptStartTs = null;
@@ -1433,6 +1459,7 @@ function mostrarKioskSucesso(aluno, resultado){
   clearTimeout(window._kioskSuccessTimer);
   window._kioskSuccessTimer = setTimeout(()=>{
     if(kioskAtivo){
+      kioskAttemptStartTs = null; // evita "não identificado" imediato se o mesmo rosto ainda estiver no quadro
       kioskState = 'standby-force'; // truque pra garantir a troca de tela mesmo vindo de 'success'
       setKioskState('standby');
       document.getElementById('kioskStandbyHeadline').textContent = 'Aproxime seu rosto';
@@ -1450,10 +1477,18 @@ document.getElementById('btnKioskManual').addEventListener('click', ()=>{
   setTimeout(()=> document.getElementById('manualBusca').focus(), 200);
 });
 
-document.getElementById('btnKioskVoz').addEventListener('click', ()=>{
+document.getElementById('btnKioskVoz').addEventListener('click', async ()=>{
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if(!SR){
     toast('Reconhecimento de voz não disponível neste navegador — use a busca manual');
+    return;
+  }
+  try{
+    // pede a permissão de microfone de forma explícita primeiro — mais confiável no iOS do que deixar só o SpeechRecognition pedir
+    const micTeste = await navigator.mediaDevices.getUserMedia({ audio: true });
+    micTeste.getTracks().forEach(t=>t.stop());
+  }catch(err){
+    toast('Permissão de microfone negada — use a busca manual');
     return;
   }
   try{
@@ -1470,7 +1505,7 @@ document.getElementById('btnKioskVoz').addEventListener('click', ()=>{
       renderManualLista(texto);
       document.getElementById('manualModal').classList.add('active');
     };
-    vozRecognition.onerror = ()=>{ toast('Não entendi — tente a busca manual'); };
+    vozRecognition.onerror = (event)=>{ toast('Não entendi (' + (event.error || 'erro') + ') — tente a busca manual'); };
     vozRecognition.start();
   }catch(err){
     toast('Erro ao acessar o microfone: ' + err.message);
