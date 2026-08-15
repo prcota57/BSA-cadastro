@@ -814,6 +814,11 @@ function initFirebase(){
   }
 }
 
+/* Abre direto no cadastro de um aluno específico quando vem de outro app (ex: bsa-presença → ?abrirAluno=ID) */
+const urlParams = new URLSearchParams(location.search);
+const abrirAlunoIdInicial = urlParams.get('abrirAluno');
+let abrirAlunoJaExecutado = false;
+
 function listenAlunos(){
   db.collection('alunos').orderBy('nome').onSnapshot(snap=>{
     alunosCache = snap.docs.map(d=>({...d.data(), _docId:d.id}));
@@ -822,6 +827,13 @@ function listenAlunos(){
     renderBdayBanner();
     if(document.getElementById('screen-aniversarios').classList.contains('active')){
       renderAniversariantes();
+    }
+    if(abrirAlunoIdInicial && !abrirAlunoJaExecutado){
+      const alvo = alunosCache.find(a=>a._docId === abrirAlunoIdInicial);
+      if(alvo){
+        abrirAlunoJaExecutado = true;
+        setTimeout(()=> abrirDetalhe(abrirAlunoIdInicial), 200);
+      }
     }
   }, err=>{
     document.getElementById('statusLine').textContent = 'erro de sincronização';
