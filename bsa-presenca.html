@@ -190,19 +190,26 @@
     overflow:hidden;
   }
   .kiosk-overlay.active{display:flex;}
+  .kiosk-overlay video{
+    position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0;
+  }
+  .kiosk-overlay video.mirror{ transform:scaleX(-1); }
+  .kiosk-scrim{
+    position:absolute; inset:0; z-index:1;
+    background:linear-gradient(180deg, rgba(10,31,22,.55) 0%, rgba(10,31,22,.25) 30%, rgba(10,31,22,.35) 70%, rgba(10,31,22,.65) 100%);
+  }
   .kiosk-overlay::before{
-    content:''; position:absolute; inset:0;
+    content:''; position:absolute; inset:0; z-index:1;
     background-image:
       repeating-linear-gradient(0deg, transparent 0 78px, var(--k-line) 78px 79px),
       repeating-linear-gradient(90deg, transparent 0 78px, var(--k-line) 78px 79px);
-    opacity:.22; pointer-events:none;
+    opacity:.12; pointer-events:none;
   }
   .kiosk-topbar{
     position:absolute; top:0; left:0; right:0; z-index:5;
     display:flex; align-items:center; justify-content:space-between;
     padding:calc(20px + env(safe-area-inset-top)) 26px 0 26px;
-  }
-  .kiosk-brand{
+  }  .kiosk-brand{
     display:flex; align-items:center; gap:9px;
     font-family:'Barlow Condensed', sans-serif; font-weight:700; letter-spacing:.06em; font-size:18px; color:var(--k-paper);
   }
@@ -440,8 +447,9 @@
 </div>
 
 <div class="kiosk-overlay" id="kioskOverlay">
-  <video id="kioskVideo" autoplay playsinline muted style="display:none;"></video>
+  <video id="kioskVideo" class="mirror" autoplay playsinline muted></video>
   <canvas id="kioskProcCanvas" style="display:none;"></canvas>
+  <div class="kiosk-scrim"></div>
 
   <div class="kiosk-topbar">
     <div class="kiosk-brand"><span class="kiosk-dot"></span>BSA PRESENÇA</div>
@@ -453,12 +461,6 @@
     <div class="kiosk-scan-frame">
       <div class="corner c1"></div><div class="corner c2"></div><div class="corner c3"></div><div class="corner c4"></div>
       <div class="kiosk-sweep"></div>
-      <div class="kiosk-face-icon">
-        <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#F3EFE4" stroke-width="1.3">
-          <circle cx="12" cy="9" r="4"/>
-          <path d="M4 20c0-3.6 3.6-6 8-6s8 2.4 8 6"/>
-        </svg>
-      </div>
     </div>
     <h1 class="kiosk-headline" id="kioskStandbyHeadline">Aproxime seu rosto</h1>
     <p class="kiosk-subline">Sua presença será registrada automaticamente</p>
@@ -492,7 +494,11 @@
 
   <div class="kiosk-exit-hint">2 toques na tela pra sair do Modo Quiosque</div>
   <button class="kiosk-back-btn" id="btnKioskSair" title="Sair do Modo Quiosque">✕</button>
+  <button class="kiosk-back-btn" id="btnKioskTrocarCamera" title="Trocar câmera" style="right:76px;">🔄</button>
 </div>
+
+<audio id="somPalmas" src="https://raw.githubusercontent.com/prcota57/bsa-alerta/main/sounds/palmas-simples.wav" preload="auto"></audio>
+<audio id="somTrombeta" src="https://raw.githubusercontent.com/prcota57/bsa-alerta/main/sounds/fail-trombeta.wav" preload="auto"></audio>
 
 <div class="toast" id="toast"></div>
 
@@ -563,21 +569,12 @@ function bip(){
   }catch(e){}
 }
 
-/* ---------- Sons do Modo Quiosque (3 sons bem distintos) ---------- */
+/* ---------- Sons do Modo Quiosque (reaproveitando os áudios reais do BSA Alerta) ---------- */
 function somSucessoKiosk(){
   try{
-    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    [660, 990].forEach((freq,i)=>{
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.connect(gain); gain.connect(audioCtx.destination);
-      osc.frequency.value = freq;
-      const start = audioCtx.currentTime + i*0.12;
-      gain.gain.setValueAtTime(0.16, start);
-      osc.start(start);
-      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.18);
-      osc.stop(start + 0.2);
-    });
+    const a = document.getElementById('somPalmas');
+    a.currentTime = 0;
+    a.play().catch(()=>{});
   }catch(e){}
 }
 function somAvisoKiosk(){
@@ -596,19 +593,9 @@ function somAvisoKiosk(){
 }
 function somFalhaKiosk(){
   try{
-    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    [330, 220].forEach((freq,i)=>{
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.connect(gain); gain.connect(audioCtx.destination);
-      osc.type = 'sawtooth';
-      osc.frequency.value = freq;
-      const start = audioCtx.currentTime + i*0.22;
-      gain.gain.setValueAtTime(0.14, start);
-      osc.start(start);
-      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.2);
-      osc.stop(start + 0.22);
-    });
+    const a = document.getElementById('somTrombeta');
+    a.currentTime = 0;
+    a.play().catch(()=>{});
   }catch(e){}
 }
 
@@ -1214,6 +1201,7 @@ let kioskUltimoId = null;
 let kioskUltimoTs = 0;
 let kioskTapTimes = [];
 let vozRecognition = null;
+let kioskFacingMode = 'user'; // câmera FRONTAL por padrão — o aluno precisa se ver pra se posicionar sozinho
 
 function capitalizeKiosk(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
 
@@ -1249,9 +1237,10 @@ async function iniciarKiosk(){
   document.getElementById('kioskUnitPill').textContent = kioskUnidade.toUpperCase();
 
   try{
-    kioskStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' }, audio:false });
+    kioskStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: kioskFacingMode }, audio:false });
     const video = document.getElementById('kioskVideo');
     video.srcObject = kioskStream;
+    video.classList.toggle('mirror', kioskFacingMode === 'user');
     document.getElementById('kioskOverlay').classList.add('active');
     kioskAtivo = true;
     pedirWakeLock();
@@ -1269,6 +1258,26 @@ async function iniciarKiosk(){
     };
   }catch(err){
     toast('Não foi possível acessar a câmera: ' + err.message);
+  }
+}
+
+async function trocarCameraKiosk(){
+  if(!kioskAtivo) return;
+  kioskFacingMode = (kioskFacingMode === 'user') ? 'environment' : 'user';
+  if(kioskStream){ kioskStream.getTracks().forEach(t=>t.stop()); }
+  try{
+    kioskStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: kioskFacingMode }, audio:false });
+    const video = document.getElementById('kioskVideo');
+    video.srcObject = kioskStream;
+    video.classList.toggle('mirror', kioskFacingMode === 'user');
+    video.onloadedmetadata = ()=>{
+      const proc = document.getElementById('kioskProcCanvas');
+      proc.width = video.videoWidth;
+      proc.height = video.videoHeight;
+    };
+    toast(kioskFacingMode === 'user' ? '📷 Câmera frontal (aluno se vê)' : '📷 Câmera traseira (você posiciona)');
+  }catch(err){
+    toast('Não foi possível trocar de câmera: ' + err.message);
   }
 }
 
@@ -1428,6 +1437,7 @@ confirmarManual = async function(alunoId){
 
 /* ---------- Sair do quiosque: botão visível OU 2 toques rápidos na tela ---------- */
 document.getElementById('btnKioskSair').addEventListener('click', fecharKiosk);
+document.getElementById('btnKioskTrocarCamera').addEventListener('click', trocarCameraKiosk);
 
 document.getElementById('kioskOverlay').addEventListener('click', (e)=>{
   if(e.target.closest('button')) return;
