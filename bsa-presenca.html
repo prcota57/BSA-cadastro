@@ -150,6 +150,7 @@
     font-size:12px; font-weight:700; font-family:'Inter'; text-decoration:none; flex:0 0 auto;
   }
   .recognition-card .schedule{color:rgba(255,255,255,0.75); font-size:11.5px; margin-top:3px;}
+  .recognition-card .inadimplente-tag{color:#ff8a70; font-size:11px; font-weight:700; margin-top:5px;}
   .repo-row .btn-cancel{
     background:var(--coral-soft); color:#B23A20; border:none; border-radius:10px;
     padding:6px 10px; font-size:11.5px; font-weight:700; flex:0 0 auto;
@@ -302,6 +303,11 @@
     font-family:'Barlow Condensed', sans-serif; font-weight:800; font-size:clamp(20px,6vw,27px);
     color:var(--k-gold-soft); text-align:center; margin:0 0 14px 0; line-height:1.2;
   }
+  .kiosk-inadimplente-badge{
+    margin-top:10px; display:flex; align-items:center; gap:6px;
+    background:rgba(217,85,62,.15); border:1px solid var(--k-fail); color:var(--k-fail);
+    padding:7px 14px; border-radius:100px; font-size:12px; font-weight:700; letter-spacing:.02em;
+  }
 
   .kiosk-back-btn{
     position:absolute; z-index:8; bottom:calc(20px + env(safe-area-inset-bottom)); right:20px;
@@ -447,6 +453,7 @@
         <div class="name" id="recName">—</div>
         <div class="status" id="recStatus">presença registrada</div>
         <div class="schedule" id="recSchedule"></div>
+        <div class="inadimplente-tag" id="recInadimplenteTag" style="display:none;">💸 mensalidade em atraso · toque pra abrir o cadastro</div>
       </div>
     </div>
   </div>
@@ -496,6 +503,7 @@
       <h1 class="kiosk-student-name" id="kioskSuccessNome">—</h1>
       <p class="kiosk-student-meta" id="kioskSuccessMeta">Presença às --:--</p>
       <div class="kiosk-check-badge" id="kioskSuccessBadge">✓ Presença registrada</div>
+      <div class="kiosk-inadimplente-badge" id="kioskInadimplenteBadge" style="display:none;">💸 Mensalidade em atraso</div>
     </div>
   </div>
 
@@ -584,10 +592,17 @@ document.addEventListener('visibilitychange', async ()=>{
   }
 });
 
-function toast(msg){
+function toast(msg, clickUrl){
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
+  if(clickUrl){
+    t.style.cursor = 'pointer';
+    t.onclick = ()=> window.open(clickUrl, '_blank');
+  } else {
+    t.style.cursor = 'default';
+    t.onclick = null;
+  }
   clearTimeout(window._toastTimer);
   window._toastTimer = setTimeout(()=>t.classList.remove('show'), 2600);
 }
@@ -765,6 +780,24 @@ function carregarTodosAlunos(){
     });
     renderFaltantes();
   }, err=>{ console.error(err); });
+  carregarMensalidades();
+}
+
+/* ---------- Inadimplência (pra avisar na hora de bater a presença) ---------- */
+let mensalidadesCache = [];
+function carregarMensalidades(){
+  db.collection('mensalidades').onSnapshot(snap=>{
+    mensalidadesCache = snap.docs.map(d=> d.data());
+  }, err=>{ console.error(err); });
+}
+function alunoEstaInadimplente(alunoId){
+  const hoje = dataHojeInputValue();
+  return mensalidadesCache.some(m=>
+    m.alunoId === alunoId &&
+    m.statusPagamento !== 'pago' &&
+    m.statusPagamento !== 'isento' &&
+    m.dataVencimento < hoje
+  );
 }
 
 function dataHojeInputValue(){
@@ -1177,8 +1210,12 @@ function mostrarCardReconhecimento(aluno, statusTexto){
   document.getElementById('recName').textContent = aluno.nome;
   document.getElementById('recStatus').textContent = statusTexto;
   document.getElementById('recSchedule').textContent = formatarHorarioAluno(aluno);
+  const tagInadimplente = document.getElementById('recInadimplenteTag');
+  tagInadimplente.style.display = alunoEstaInadimplente(aluno.id) ? 'block' : 'none';
   const card = document.getElementById('recognitionCard');
   card.classList.add('show');
+  card.onclick = ()=> window.open('bsa-cadastro.html?abrirAluno=' + aluno.id, '_blank');
+  card.style.cursor = 'pointer';
   clearTimeout(window._cardTimer);
   window._cardTimer = setTimeout(()=> card.classList.remove('show'), 3200);
 }
@@ -1277,7 +1314,9 @@ async function confirmarManual(alunoId){
   toast('Registrando presença de ' + aluno.nome + '...');
   try{
     const resultado = await marcarPresenca(aluno, null, 'manual');
-    toast(resultado.mensagem + ' (manual)');
+    const inadimplente = alunoEstaInadimplente(aluno.id);
+    const msg = resultado.mensagem + ' (manual)' + (inadimplente ? ' · 💸 mensalidade em atraso' : '') + ' — toque pra abrir o cadastro';
+    toast(msg, 'bsa-cadastro.html?abrirAluno=' + aluno.id);
     if(resultado.tocarBip) bip();
   }catch(err){
     toast('Erro ao registrar: ' + err.message);
@@ -1492,6 +1531,7 @@ function mostrarKioskSucesso(aluno, resultado){
   const hora = String(agora.getHours()).padStart(2,'0') + ':' + String(agora.getMinutes()).padStart(2,'0');
   document.getElementById('kioskSuccessMeta').textContent = 'Presença às ' + hora;
   document.getElementById('kioskSuccessBadge').textContent = (jaRegistrado ? 'ℹ️ ' : '✓ ') + resultado.mensagem;
+  document.getElementById('kioskInadimplenteBadge').style.display = alunoEstaInadimplente(aluno.id) ? 'flex' : 'none';
 
   setKioskState('success');
   if(resultado.tocarBip) somSucessoKiosk();
