@@ -656,6 +656,15 @@ function somAvisoKiosk(){
   }catch(e){}
 }
 
+/* Registra o Service Worker do ecossistema BSA — deixa o app funcionando sem internet
+   depois da primeira vez que for aberto com internet (mesmo se abrir direto por este arquivo,
+   sem passar pelo Hub) */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  });
+}
+
 function initFirebase(){
   if(firebaseConfig.apiKey === "COLE_AQUI"){
     document.getElementById('setupBanner').style.display = 'block';
@@ -665,18 +674,39 @@ function initFirebase(){
   firebase.initializeApp(firebaseConfig);
   db = firebase.firestore();
   auth = firebase.auth();
+
+  // Ativa o modo offline do banco: guarda os alunos e as presenças no próprio aparelho
+  // e sincroniza sozinho quando a internet voltar. Sem isso, sem internet = tela em branco.
+  db.enablePersistence({ synchronizeTabs: true }).catch(function(err){
+    console.warn('Persistência offline não ativada:', err.code);
+    // 'failed-precondition' = já tem outra aba aberta; 'unimplemented' = navegador não suporta.
+    // Em ambos os casos o app continua funcionando normalmente quando ONLINE.
+  });
+
+  // Se ficar mais de 6s sem resposta de login (típico de estar totalmente offline
+  // e nunca ter aberto este app antes com internet), avisa em vez de ficar girando pra sempre.
+  const timeoutOffline = setTimeout(()=>{
+    if(document.getElementById('statusLine').textContent === 'conectando...'){
+      document.getElementById('statusLine').textContent = 'sem internet — abra este app com internet ao menos 1 vez antes de usar offline';
+    }
+  }, 6000);
+
   auth.signInAnonymously().catch(err=>{
     document.getElementById('statusLine').textContent = 'erro de login: ' + err.message;
   });
   auth.onAuthStateChanged(user=>{
     if(user){
-      document.getElementById('statusLine').textContent = 'conectado';
+      clearTimeout(timeoutOffline);
+      document.getElementById('statusLine').textContent = navigator.onLine ? 'conectado' : 'offline (usando dados salvos no aparelho)';
       carregarModelosEAlunos();
       carregarTodosAlunos();
       listenReposicoes();
     }
   });
 }
+
+window.addEventListener('online', ()=>{ if(auth && auth.currentUser) document.getElementById('statusLine').textContent = 'conectado'; });
+window.addEventListener('offline', ()=>{ if(auth && auth.currentUser) document.getElementById('statusLine').textContent = 'offline (usando dados salvos no aparelho)'; });
 
 async function carregarModelosEAlunos(){
   try{
