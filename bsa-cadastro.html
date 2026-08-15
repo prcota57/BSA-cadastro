@@ -592,6 +592,7 @@
   <div class="ident-status" id="identStatus">Carregando modelo de reconhecimento facial...</div>
   <div class="camera-controls">
     <button class="cancel" id="btnFecharIdent">✕</button>
+    <button class="cancel" id="btnFlipIdent">🔄</button>
   </div>
 </div>
 
@@ -650,6 +651,7 @@ let identLoopAtivo = false;
 let identFaceMatcher = null;
 let identUltimoId = null;
 let identUltimoTs = 0;
+let identFacingMode = 'environment';
 
 async function garantirModelosIdent(){
   if(identModelsLoaded) return true;
@@ -685,7 +687,7 @@ async function abrirIdentificacao(){
   );
 
   try{
-    identStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    identStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: identFacingMode }, audio: false });
     const video = document.getElementById('identVideo');
     video.srcObject = identStream;
     identLoopAtivo = true;
@@ -695,6 +697,20 @@ async function abrirIdentificacao(){
     document.getElementById('identStatus').textContent = 'Não foi possível acessar a câmera: ' + err.message;
   }
 }
+
+async function trocarCameraIdent(){
+  identFacingMode = (identFacingMode === 'environment') ? 'user' : 'environment';
+  if(identStream){ identStream.getTracks().forEach(t=>t.stop()); }
+  try{
+    identStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: identFacingMode }, audio: false });
+    const video = document.getElementById('identVideo');
+    video.srcObject = identStream;
+    showToast(identFacingMode === 'user' ? '📷 Câmera frontal' : '📷 Câmera traseira');
+  }catch(err){
+    showToast('Não foi possível trocar de câmera');
+  }
+}
+document.getElementById('btnFlipIdent').addEventListener('click', trocarCameraIdent);
 
 function fecharIdentificacao(){
   identLoopAtivo = false;
