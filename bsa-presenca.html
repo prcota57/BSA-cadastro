@@ -544,6 +544,13 @@ let audioDesbloqueado = false;
 function desbloquearAudioGlobal(){
   if(audioDesbloqueado) return;
   audioDesbloqueado = true;
+  religarSaidaDeAudio();
+}
+document.addEventListener('pointerdown', desbloquearAudioGlobal, { once:true });
+
+/* religa a saída de som — usar o microfone (busca por voz) às vezes derruba a sessão de áudio de saída no iOS,
+   então chamamos isso de novo depois de qualquer uso do microfone ou troca de aba/tela */
+function religarSaidaDeAudio(){
   try{
     if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if(audioCtx.state === 'suspended') audioCtx.resume();
@@ -551,11 +558,16 @@ function desbloquearAudioGlobal(){
   ['somPalmas','somTrombeta'].forEach(id=>{
     const el = document.getElementById(id);
     if(!el) return;
-    el.muted = true;
-    el.play().then(()=>{ el.pause(); el.currentTime = 0; el.muted = false; }).catch(()=>{ el.muted = false; });
+    try{
+      el.muted = true;
+      const p = el.play();
+      if(p) p.then(()=>{ el.pause(); el.currentTime = 0; el.muted = false; }).catch(()=>{ el.muted = false; });
+    }catch(e){}
   });
 }
-document.addEventListener('pointerdown', desbloquearAudioGlobal, { once:true });
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'visible' && audioDesbloqueado) religarSaidaDeAudio();
+});
 let wakeLock = null;
 
 async function pedirWakeLock(){
@@ -614,12 +626,19 @@ function tomFallback(freqs, tipo){
   }catch(e){}
 }
 function somSucessoKiosk(){
+  tocarSomKiosk('somPalmas', [660,990], 'sine');
+}
+function somFalhaKiosk(){
+  tocarSomKiosk('somTrombeta', [330,220], 'sawtooth');
+}
+function tocarSomKiosk(elId, freqsFallback, tipoFallback){
   try{
-    const a = document.getElementById('somPalmas');
+    const a = document.getElementById(elId);
+    if(!a.paused){ a.pause(); }
     a.currentTime = 0;
     const p = a.play();
-    if(p) p.catch(()=> tomFallback([660,990]));
-  }catch(e){ tomFallback([660,990]); }
+    if(p) p.catch(()=>{ religarSaidaDeAudio(); tomFallback(freqsFallback, tipoFallback); });
+  }catch(e){ tomFallback(freqsFallback, tipoFallback); }
 }
 function somAvisoKiosk(){
   try{
@@ -635,14 +654,6 @@ function somAvisoKiosk(){
     gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
     osc.stop(audioCtx.currentTime + 0.36);
   }catch(e){}
-}
-function somFalhaKiosk(){
-  try{
-    const a = document.getElementById('somTrombeta');
-    a.currentTime = 0;
-    const p = a.play();
-    if(p) p.catch(()=> tomFallback([330,220], 'sawtooth'));
-  }catch(e){ tomFallback([330,220], 'sawtooth'); }
 }
 
 function initFirebase(){
@@ -1505,7 +1516,14 @@ document.getElementById('btnKioskVoz').addEventListener('click', async ()=>{
       renderManualLista(texto);
       document.getElementById('manualModal').classList.add('active');
     };
-    vozRecognition.onerror = (event)=>{ toast('Não entendi (' + (event.error || 'erro') + ') — tente a busca manual'); };
+    vozRecognition.onerror = (event)=>{
+      if(event.error === 'service-not-allowed' || event.error === 'not-allowed'){
+        toast('Ditado desativado neste iPad — Ajustes > Geral > Teclado > Ativar Ditado. Use a busca manual por enquanto.');
+      } else {
+        toast('Não entendi (' + (event.error || 'erro') + ') — tente a busca manual');
+      }
+    };
+    vozRecognition.onend = religarSaidaDeAudio; // usar o microfone pode derrubar a saída de som no iOS — religa depois
     vozRecognition.start();
   }catch(err){
     toast('Erro ao acessar o microfone: ' + err.message);
