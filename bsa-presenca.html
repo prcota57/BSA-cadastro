@@ -453,7 +453,6 @@
         <div class="name" id="recName">—</div>
         <div class="status" id="recStatus">presença registrada</div>
         <div class="schedule" id="recSchedule"></div>
-        <div class="inadimplente-tag" id="recInadimplenteTag" style="display:none;">💸 mensalidade em atraso · toque pra abrir o cadastro</div>
       </div>
     </div>
   </div>
@@ -503,7 +502,6 @@
       <h1 class="kiosk-student-name" id="kioskSuccessNome">—</h1>
       <p class="kiosk-student-meta" id="kioskSuccessMeta">Presença às --:--</p>
       <div class="kiosk-check-badge" id="kioskSuccessBadge">✓ Presença registrada</div>
-      <div class="kiosk-inadimplente-badge" id="kioskInadimplenteBadge" style="display:none;">💸 Mensalidade em atraso</div>
     </div>
   </div>
 
@@ -1048,7 +1046,8 @@ function renderHistorico(itens){
     const selo = p.tipoRegistro === 'reposicao' ? ' <span class="badge-repo">reposição</span>'
       : (p.tipoRegistro === 'fora_horario' ? ' <span class="badge-alerta">fora do horário</span>' : '');
     const seloManual = p.origemRegistro === 'manual' ? ' <span class="badge-repo">manual</span>' : '';
-    return `<div class="presenca-item">${foto}<div class="info"><div class="name">${p.nome}${selo}${seloManual}</div><div class="time">${p.hora}</div></div><button class="btn-excluir" data-docid="${p._docId}" data-nome="${(p.nome||'').replace(/"/g,'&quot;')}" title="Remover presença">🗑️</button></div>`;
+    const seloInadimplente = alunoEstaInadimplente(p.alunoId) ? ' <span class="badge-alerta" style="background:rgba(217,85,62,.15); color:#c94b34;">💸 atrasado</span>' : '';
+    return `<div class="presenca-item" style="cursor:pointer;" onclick="window.open('bsa-cadastro.html?abrirAluno=${p.alunoId}','_blank')">${foto}<div class="info"><div class="name">${p.nome}${selo}${seloManual}${seloInadimplente}</div><div class="time">${p.hora}</div></div><button class="btn-excluir" data-docid="${p._docId}" data-nome="${(p.nome||'').replace(/"/g,'&quot;')}" title="Remover presença" onclick="event.stopPropagation()">🗑️</button></div>`;
   }).join('');
   cont.querySelectorAll('.btn-excluir').forEach(btn=>{
     btn.addEventListener('click', ()=> excluirPresenca(btn.dataset.docid, btn.dataset.nome));
@@ -1210,8 +1209,6 @@ function mostrarCardReconhecimento(aluno, statusTexto){
   document.getElementById('recName').textContent = aluno.nome;
   document.getElementById('recStatus').textContent = statusTexto;
   document.getElementById('recSchedule').textContent = formatarHorarioAluno(aluno);
-  const tagInadimplente = document.getElementById('recInadimplenteTag');
-  tagInadimplente.style.display = alunoEstaInadimplente(aluno.id) ? 'block' : 'none';
   const card = document.getElementById('recognitionCard');
   card.classList.add('show');
   card.onclick = ()=> window.open('bsa-cadastro.html?abrirAluno=' + aluno.id, '_blank');
@@ -1314,9 +1311,7 @@ async function confirmarManual(alunoId){
   toast('Registrando presença de ' + aluno.nome + '...');
   try{
     const resultado = await marcarPresenca(aluno, null, 'manual');
-    const inadimplente = alunoEstaInadimplente(aluno.id);
-    const msg = resultado.mensagem + ' (manual)' + (inadimplente ? ' · 💸 mensalidade em atraso' : '') + ' — toque pra abrir o cadastro';
-    toast(msg, 'bsa-cadastro.html?abrirAluno=' + aluno.id);
+    toast(resultado.mensagem + ' (manual) — toque pra abrir o cadastro', 'bsa-cadastro.html?abrirAluno=' + aluno.id);
     if(resultado.tocarBip) bip();
   }catch(err){
     toast('Erro ao registrar: ' + err.message);
@@ -1531,7 +1526,6 @@ function mostrarKioskSucesso(aluno, resultado){
   const hora = String(agora.getHours()).padStart(2,'0') + ':' + String(agora.getMinutes()).padStart(2,'0');
   document.getElementById('kioskSuccessMeta').textContent = 'Presença às ' + hora;
   document.getElementById('kioskSuccessBadge').textContent = (jaRegistrado ? 'ℹ️ ' : '✓ ') + resultado.mensagem;
-  document.getElementById('kioskInadimplenteBadge').style.display = alunoEstaInadimplente(aluno.id) ? 'flex' : 'none';
 
   setKioskState('success');
   if(resultado.tocarBip) somSucessoKiosk();
