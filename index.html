@@ -1,316 +1,400 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<script>
-  if (location.search.indexOf('upd=') !== -1) { history.replaceState(null, '', location.pathname); }
-</script>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#0E2A1E">
-<title>BSA APP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BSA APP — Mockup do Hub</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --board:#161F1B; --board-line:#1E2822; --chalk:#F3EFE3; --chalk-dim:#A9BEB2;
-    --gold:#FFC833; --gold-dark:#B4870A;
+    --bg: #F7F7F5;
+    --card-dark: #131A1F;
+    --card-dark-2: #1B242A;
+    --surface: #FFFFFF;
+    --line: #E6E4DF;
+    --text: #1A1E1F;
+    --text-on-dark: #ECEFEF;
+    --text-dim: #7C8482;
+    --text-dim-on-dark: #8FA0A6;
+    --green: #3E7A57;
+    --green-soft: rgba(62,122,87,0.12);
+    --gold: #B08A34;
+    --gold-soft: rgba(176,138,52,0.14);
+    --red: #B84A40;
+    --red-soft: rgba(184,74,64,0.10);
+    --blue: #4C7699;
+    --blue-soft: rgba(76,118,153,0.12);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter', sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:40px;
+  }
+  .banner{
+    background:var(--gold-soft);
+    border-bottom:1px solid var(--line);
+    color:var(--gold);
+    font-size:12.5px;
+    text-align:center;
+    padding:8px 16px;
+    letter-spacing:.02em;
+  }
+  header{
+    padding:26px 20px 20px;
+    background:
+      linear-gradient(180deg, rgba(62,122,87,0.16), transparent 75%),
+      var(--card-dark);
+    position:relative;
+    overflow:hidden;
+  }
+  header::before{
+    content:"";
+    position:absolute;
+    top:-60px; right:-60px;
+    width:180px; height:180px;
+    border-radius:50%;
+    background:radial-gradient(circle, rgba(62,122,87,0.22), transparent 70%);
+  }
+  .eyebrow{
+    font-family:'Barlow Condensed', sans-serif;
+    font-weight:600;
+    font-size:13px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:#7FBF9C;
+  }
+  .greeting{
+    font-family:'Barlow Condensed', sans-serif;
+    font-weight:700;
+    font-size:30px;
+    letter-spacing:.01em;
+    margin-top:4px;
+    color:var(--text-on-dark);
+  }
+  .greeting span{color:var(--text-dim-on-dark); font-weight:500;}
+  .date-row{
+    display:flex; align-items:center; gap:8px;
+    margin-top:6px;
+    color:var(--text-dim-on-dark);
+    font-size:13px;
+  }
 
-    --alunos:#3FA672; --treino:#FF8A3D; --financeiro:#FFC833;
-    --sistema:#5B8DEF; --exp:#FF5C7A; --neutro:#7C8B83;
+  .stats-strip{
+    display:flex; gap:10px;
+    padding:16px 20px 4px;
+    overflow-x:auto;
   }
-  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  html,body{margin:0; padding:0; background:var(--board); color:var(--chalk); font-family:'Inter',sans-serif;}
-  body{padding-bottom:calc(40px + env(safe-area-inset-bottom)); padding-top:env(safe-area-inset-top);}
-  a{-webkit-tap-highlight-color:transparent;}
-  :focus-visible{outline:2px solid var(--gold); outline-offset:2px;}
+  .stat-chip{
+    flex:0 0 auto;
+    min-width:112px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:10px 14px;
+    box-shadow:0 1px 2px rgba(0,0,0,0.04);
+  }
+  .stat-chip.alert{border-color:rgba(184,74,64,0.25); background:var(--red-soft);}
+  .stat-num{
+    font-family:'Barlow Condensed', sans-serif;
+    font-weight:700;
+    font-size:24px;
+    line-height:1;
+  }
+  .stat-chip.alert .stat-num{color:var(--red);}
+  .stat-label{
+    font-size:11.5px;
+    color:var(--text-dim);
+    margin-top:3px;
+  }
 
-  header.field{
-    position:relative; overflow:hidden; padding:30px 22px 30px;
-    background:radial-gradient(120% 100% at 15% 0%, #1C2822 0%, var(--board) 55%);
-    border-bottom:1px solid rgba(255,255,255,0.08);
+  .section{
+    padding:22px 20px 4px;
   }
-  header.field .halfline{
-    position:absolute; left:0; right:0; top:64%; height:0; border-top:2px dashed rgba(255,255,255,0.09);
+  .section-head{
+    display:flex; align-items:baseline; justify-content:space-between;
+    margin-bottom:10px;
+    border-bottom:1px solid var(--line);
+    padding-bottom:8px;
   }
-  header.field .circle{
-    position:absolute; right:-46px; top:18px; width:150px; height:150px; border-radius:50%;
-    border:2px dashed rgba(255,255,255,0.09);
+  .section-title{
+    font-family:'Barlow Condensed', sans-serif;
+    font-weight:600;
+    font-size:15px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    display:flex; align-items:center; gap:8px;
   }
-  header.field .eyebrow{
-    position:relative; font-size:12px; font-weight:700; letter-spacing:0.12em; color:var(--gold); text-transform:uppercase;
+  .section-title .dot{
+    width:7px;height:7px;border-radius:50%;
   }
-  header.field .wordmark{
-    position:relative; font-family:'Anton'; font-weight:400; font-size:42px; line-height:1; letter-spacing:0.01em;
-    margin-top:8px; text-transform:uppercase;
+  .section-count{
+    font-size:11.5px;
+    color:var(--text-dim);
   }
-  header.field .wordmark span{color:var(--gold);}
-  header.field .sub{position:relative; font-size:13px; color:var(--chalk-dim); margin-top:8px;}
-  .update-btn{
-    position:absolute; top:0; right:0;
-    display:flex; align-items:center; gap:6px;
-    background:var(--board-line); border:1px solid rgba(255,255,255,0.12);
-    color:var(--chalk-dim); font-family:'Inter',sans-serif; font-size:10px;
-    font-weight:700; text-transform:uppercase; letter-spacing:0.04em;
-    padding:7px 11px; border-radius:20px;
-  }
-  .update-btn:active{ transform:scale(0.96); }
-  .update-btn .ico{ font-size:13px; }
-  .update-btn.spin .ico{ display:inline-block; animation:spin 0.8s linear infinite; }
-  @keyframes spin{ from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
 
-  main{padding:8px 18px 20px; max-width:560px; margin:0 auto;}
-
-  .section-divider{
-    display:flex; align-items:center; gap:9px; margin:30px 2px 6px;
+  .module-list{
+    display:flex; flex-direction:column;
+    gap:8px;
   }
-  .section-divider:first-of-type{margin-top:22px;}
-  .section-divider .tag{width:8px; height:8px; border-radius:2px; flex:none;}
-  .section-divider .label{
-    font-family:'Anton'; font-weight:400; font-size:15px; letter-spacing:0.05em; text-transform:uppercase; color:var(--chalk);
+  .module-row{
+    display:flex; align-items:center; gap:12px;
+    background:var(--card-dark);
+    padding:13px 14px;
+    border-radius:14px;
+    box-shadow:0 2px 6px rgba(20,20,18,0.08);
   }
-  .section-divider .rule{flex:1; height:1px; background:repeating-linear-gradient(90deg, rgba(255,255,255,0.16) 0 5px, transparent 5px 10px);}
-
-  .roster{display:flex; flex-direction:column;}
-
-  a.row{
-    display:flex; align-items:center; gap:14px; padding:13px 4px;
-    text-decoration:none; color:inherit; border-bottom:1px solid rgba(255,255,255,0.07);
+  .module-row.featured{
+    background:var(--card-dark-2);
+    box-shadow:0 3px 10px rgba(20,20,18,0.12);
   }
-  .roster a.row:last-child{border-bottom:none;}
-  a.row:active{background:rgba(255,255,255,0.045);}
+  .num{
+    font-family:'Barlow Condensed', sans-serif;
+    font-weight:700;
+    font-size:15px;
+    width:26px; height:26px;
+    border-radius:7px;
+    display:flex; align-items:center; justify-content:center;
+    flex:0 0 auto;
+  }
+  .mod-info{flex:1; min-width:0;}
+  .mod-name{font-size:14.5px; font-weight:600; color:var(--text-on-dark);}
+  .mod-sub{font-size:12px; color:var(--text-dim-on-dark); margin-top:1px;}
+  .chevron{color:var(--text-dim-on-dark); font-size:16px;}
 
   .badge{
-    position:relative; flex:none; width:46px; height:46px; border-radius:13px;
-    display:flex; align-items:center; justify-content:center; font-size:21px;
+    font-size:10.5px;
+    font-weight:600;
+    padding:2px 7px;
+    border-radius:20px;
+    margin-left:6px;
   }
-  .badge .num{
-    position:absolute; right:-5px; bottom:-5px; width:19px; height:19px; border-radius:50%;
-    background:var(--board); border:1.5px solid rgba(255,255,255,0.16);
-    display:flex; align-items:center; justify-content:center;
-    font-family:'Anton'; font-size:10px; color:var(--chalk);
+  .badge.red{background:rgba(184,74,64,0.22); color:#E28A80;}
+  .badge.gold{background:rgba(176,138,52,0.22); color:#E0C070;}
+
+  /* category color coding */
+  .c-alunos .num{background:var(--green-soft); color:var(--green);}
+  .c-alunos .dot{background:var(--green);}
+  .c-financeiro .num{background:var(--gold-soft); color:var(--gold);}
+  .c-financeiro .dot{background:var(--gold);}
+  .c-treino .num{background:var(--blue-soft); color:var(--blue);}
+  .c-treino .dot{background:var(--blue);}
+  .c-comunicacao .num{background:rgba(150,120,200,0.16); color:#A98FD1;}
+  .c-comunicacao .dot{background:#A98FD1;}
+  .c-sistema .num{background:rgba(143,160,166,0.16); color:var(--text-dim);}
+  .c-sistema .dot{background:var(--text-dim);}
+
+  .note{
+    margin:26px 20px 0;
+    padding:14px 16px;
+    background:var(--surface);
+    border:1px dashed var(--line);
+    border-radius:12px;
+    font-size:12.5px;
+    color:var(--text-dim);
+    line-height:1.5;
   }
-
-  .row .info{flex:1; min-width:0;}
-  .row .name{font-family:'Anton'; font-weight:400; font-size:16.5px; letter-spacing:0.01em; text-transform:uppercase;}
-  .row .desc{font-size:12px; color:var(--chalk-dim); margin-top:2px; line-height:1.3;}
-  .row .chev{flex:none; font-size:20px; color:rgba(255,255,255,0.22); font-weight:600;}
-
-  .row.featured .name{color:var(--gold);}
-  .row.featured .badge{box-shadow:0 0 0 2px var(--gold), 0 0 14px rgba(255,200,51,0.35);}
-  .star{color:var(--gold); font-size:11px; margin-left:6px; vertical-align:1px;}
-
-  .cat-alunos .badge{background:rgba(63,166,114,0.18); color:var(--alunos);}
-  .cat-treino .badge{background:rgba(255,138,61,0.18); color:var(--treino);}
-  .cat-financeiro .badge{background:rgba(255,200,51,0.16); color:var(--gold);}
-  .cat-sistema .badge{background:rgba(91,141,239,0.18); color:var(--sistema);}
-  .cat-exp .badge{background:rgba(255,92,122,0.18); color:var(--exp);}
-  .cat-neutro .badge{background:rgba(124,139,131,0.18); color:var(--neutro);}
-
-  a.row.disabled{opacity:0.45; pointer-events:none;}
-  .badge-em-breve{
-    font-size:9px; font-weight:700; color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.04em;
-    border:1px solid rgba(255,255,255,0.18); padding:2px 7px; border-radius:20px; margin-top:5px; display:inline-block;
-  }
-
-  footer{text-align:center; margin-top:34px; font-size:11px; color:var(--chalk-dim); opacity:0.7;}
-  footer b{color:var(--chalk);}
 </style>
 </head>
 <body>
 
-<header class="field">
-  <div class="circle"></div>
-  <div class="halfline"></div>
-  <button class="update-btn" id="updateBtn"><span class="ico">🔄</span><span id="updateBtnLabel">Atualizar</span></button>
-  <div class="eyebrow" id="greeting">Bom dia, Ronaldo</div>
-  <div class="wordmark">BSA <span>APP</span></div>
-  <div class="sub">sua escalação de ferramentas do dia a dia</div>
-</header>
+  <div class="banner">🖼️ Isto é apenas uma ilustração — nada foi publicado no app real</div>
 
-<main>
+  <header>
+    <div class="eyebrow">BSA APP · Carlos Prates & Estoril</div>
+    <div class="greeting">Boa tarde, <span>Ronaldo</span></div>
+    <div class="date-row">
+      <span>Sábado, 15 de agosto</span>
+    </div>
+  </header>
 
-  <div class="section-divider"><span class="tag" style="background:var(--gold)"></span><span class="label">Gerência</span><span class="rule"></span></div>
-  <div class="roster">
-    <a class="row cat-financeiro featured" href="bsa-diretora.html">
-      <div class="badge">🧭<span class="num">0</span></div>
-      <div class="info"><div class="name">Diretora<span class="star">★</span></div><div class="desc">Painel único de pendências por urgência</div></div>
-      <div class="chev">›</div>
-    </a>
+  <div class="stats-strip">
+    <div class="stat-chip alert">
+      <div class="stat-num">4</div>
+      <div class="stat-label">Faltas hoje</div>
+    </div>
+    <div class="stat-chip alert">
+      <div class="stat-num">7</div>
+      <div class="stat-label">Vencem hoje</div>
+    </div>
+    <div class="stat-chip">
+      <div class="stat-num">61</div>
+      <div class="stat-label">Alunos ativos</div>
+    </div>
+    <div class="stat-chip">
+      <div class="stat-num">3</div>
+      <div class="stat-label">Tarefas</div>
+    </div>
   </div>
 
-  <div class="section-divider"><span class="tag" style="background:var(--alunos)"></span><span class="label">Gestão de Alunos</span><span class="rule"></span></div>
-  <div class="roster">
-    <a class="row cat-alunos featured" href="bsa-cadastro.html">
-      <div class="badge">📋<span class="num">1</span></div>
-      <div class="info"><div class="name">Cadastro<span class="star">★</span></div><div class="desc">Alunos, fotos e responsáveis</div></div>
-      <div class="chev">›</div>
-    </a>
-    <a class="row cat-alunos featured" href="bsa-presenca.html">
-      <div class="badge">📸<span class="num">2</span></div>
-      <div class="info"><div class="name">Presença<span class="star">★</span></div><div class="desc">Chamada por reconhecimento facial</div></div>
-      <div class="chev">›</div>
-    </a>
-    <a class="row cat-alunos" href="bsa-descritores.html">
-      <div class="badge">🧬<span class="num">3</span></div>
-      <div class="info"><div class="name">Reconhecimento</div><div class="desc">Gera os rostos para reconhecimento</div></div>
-      <div class="chev">›</div>
-    </a>
-    <a class="row cat-alunos" href="bsa-relatorios.html">
-      <div class="badge">📊<span class="num">4</span></div>
-      <div class="info"><div class="name">Relatórios</div><div class="desc">Assiduidade por aluno e por dia</div></div>
-      <div class="chev">›</div>
-    </a>
-    <a class="row cat-alunos" href="bsa-avaliacao.html">
-      <div class="badge">🏅<span class="num">5</span></div>
-      <div class="info"><div class="name">Avaliação</div><div class="desc">Teste físico e evolução do aluno</div></div>
-      <div class="chev">›</div>
-    </a>
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title"><span class="dot" style="background:var(--green)"></span>Alunos</div>
+      <div class="section-count">5 apps</div>
+    </div>
+    <div class="module-list c-alunos">
+      <div class="module-row featured">
+        <div class="num">01</div>
+        <div class="mod-info">
+          <div class="mod-name">Cadastro</div>
+          <div class="mod-sub">Alunos, turmas e cadastros pendentes<span class="badge red">2 novos</span></div>
+        </div>
+        <div class="chevron">›</div>
+      </div>
+      <div class="module-row">
+        <div class="num">02</div>
+        <div class="mod-info">
+          <div class="mod-name">Presença</div>
+          <div class="mod-sub">Reconhecimento facial e faltantes de hoje</div>
+        </div>
+        <div class="chevron">›</div>
+      </div>
+      <div class="module-row">
+        <div class="num">03</div>
+        <div class="mod-info">
+          <div class="mod-name">Captação</div>
+          <div class="mod-sub">Leads e funil de matrícula</div>
+        </div>
+        <div class="chevron">›</div>
+      </div>
+      <div class="module-row">
+        <div class="num">04</div>
+        <div class="mod-info">
+          <div class="mod-name">Avaliação</div>
+          <div class="mod-sub">Descritores e evolução física</div>
+        </div>
+        <div class="chevron">›</div>
+      </div>
+      <div class="module-row">
+        <div class="num">05</div>
+        <div class="mod-info">
+          <div class="mod-name">Reconhecimento</div>
+          <div class="mod-sub">Processamento em lote de descritores</div>
+        </div>
+        <div class="chevron">›</div>
+      </div>
+    </div>
   </div>
 
-  <div class="section-divider"><span class="tag" style="background:var(--exp)"></span><span class="label">Experimental</span><span class="rule"></span></div>
-  <div class="roster">
-    <a class="row cat-exp" href="bsa-captacao.html">
-      <div class="badge">🎯<span class="num">6</span></div>
-      <div class="info"><div class="name">Experimental</div><div class="desc">Funil de aulas experimentais</div></div>
-      <div class="chev">›</div>
-    </a>
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title"><span class="dot" style="background:var(--gold)"></span>Financeiro</div>
+      <div class="section-count">2 apps</div>
+    </div>
+    <div class="module-list c-financeiro">
+      <div class="module-row featured">
+        <div class="num">06</div>
+        <div class="mod-info">
+          <div class="mod-name">Finanças</div>
+          <div class="mod-sub">Mensalidades, cobrança e dashboard<span class="badge gold">7 vencem hoje</span></div>
+        </div>
+        <div class="chevron">›</div>
+      </div>
+      <div class="module-row">
+        <div class="num">07</div>
+        <div class="mod-info">
+          <div class="mod-name">Estoque</div>
+          <div class="mod-sub">Uniformes e patrimônio</div>
+        </div>
+        <div class="chevron">›</div>
+      </div>
+    </div>
   </div>
 
-  <div class="section-divider"><span class="tag" style="background:var(--treino)"></span><span class="label">Treino</span><span class="rule"></span></div>
-  <div class="roster">
-    <a class="row cat-treino" href="https://prcota57.github.io/bsa-treino/">
-      <div class="badge">🏃<span class="num">7</span></div>
-      <div class="info"><div class="name">Colchão</div><div class="desc">Ciclo de exercícios ilustrados</div></div>
-      <div class="chev">›</div>
-    </a>
-    <a class="row cat-treino" href="https://prcota57.github.io/bsa-cores/">
-      <div class="badge">🎨<span class="num">8</span></div>
-      <div class="info"><div class="name">Cores</div><div class="desc">Estímulo de reação e reflexo</div></div>
-      <div class="chev">›</div>
-    </a>
-    <a class="row cat-treino" href="https://prcota57.github.io/bsa-alerta/">
-      <div class="badge">🔊<span class="num">9</span></div>
-      <div class="info"><div class="name">Alerta</div><div class="desc">Aplausos, apito, buzina e mais</div></div>
-      <div class="chev">›</div>
-    </a>
-    <a class="row cat-treino" href="https://prcota57.github.io/bsa-reflexo/">
-      <div class="badge">⚡<span class="num">10</span></div>
-      <div class="info"><div class="name">Rebatedor</div><div class="desc">Contador de rebotes e recordes por aluno</div></div>
-      <div class="chev">›</div>
-    </a>
-    <a class="row cat-treino" href="https://prcota57.github.io/bsa-velocidade/">
-      <div class="badge">💨<span class="num">11</span></div>
-      <div class="info"><div class="name">Velocidade</div><div class="desc">Cronômetro de sprint por câmera</div></div>
-      <div class="chev">›</div>
-    </a>
-    <a class="row cat-treino" href="https://prcota57.github.io/bsa-salto/">
-      <div class="badge">🚀<span class="num">12</span></div>
-      <div class="info"><div class="name">Salto</div><div class="desc">Altura do salto vertical por sensor</div></div>
-      <div class="chev">›</div>
-    </a>
-    <a class="row cat-treino" href="https://prcota57.github.io/bsa-aquecimento/">
-      <div class="badge">🗣️<span class="num">13</span></div>
-      <div class="info"><div class="name">Aquecimento</div><div class="desc">Comandos de voz aleatórios pro aquecimento</div></div>
-      <div class="chev">›</div>
-    </a>
-    <a class="row cat-treino" href="https://prcota57.github.io/bsa-radar/">
-      <div class="badge">📡<span class="num">14</span></div>
-      <div class="info"><div class="name">Radar</div><div class="desc">Lê o visor do radar e dá feedback por nível</div></div>
-      <div class="chev">›</div>
-    </a>
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title"><span class="dot" style="background:var(--blue)"></span>Treino</div>
+      <div class="section-count">6 apps</div>
+    </div>
+    <div class="module-list c-treino">
+      <div class="module-row">
+        <div class="num">08</div>
+        <div class="mod-info"><div class="mod-name">Colchão</div><div class="mod-sub">Aquecimento com bola azul/branca</div></div>
+        <div class="chevron">›</div>
+      </div>
+      <div class="module-row">
+        <div class="num">09</div>
+        <div class="mod-info"><div class="mod-name">Aquecimento</div><div class="mod-sub">Comandos por voz aleatórios</div></div>
+        <div class="chevron">›</div>
+      </div>
+      <div class="module-row">
+        <div class="num">10</div>
+        <div class="mod-info"><div class="mod-name">Salto</div><div class="mod-sub">Medidor de salto vertical</div></div>
+        <div class="chevron">›</div>
+      </div>
+      <div class="module-row">
+        <div class="num">11</div>
+        <div class="mod-info"><div class="mod-name">Velocidade</div><div class="mod-sub">Medidor de sprint por câmera</div></div>
+        <div class="chevron">›</div>
+      </div>
+      <div class="module-row">
+        <div class="num">12</div>
+        <div class="mod-info"><div class="mod-name">Rebatedor</div><div class="mod-sub">Contador de rebotes</div></div>
+        <div class="chevron">›</div>
+      </div>
+      <div class="module-row">
+        <div class="num">13</div>
+        <div class="mod-info"><div class="mod-name">Cores</div><div class="mod-sub">Reconhecimento de cores</div></div>
+        <div class="chevron">›</div>
+      </div>
+    </div>
   </div>
 
-  <div class="section-divider"><span class="tag" style="background:var(--financeiro)"></span><span class="label">Financeiro</span><span class="rule"></span></div>
-  <div class="roster">
-    <a class="row cat-financeiro featured" href="bsa-financas.html">
-      <div class="badge">💰<span class="num">10</span></div>
-      <div class="info"><div class="name">Finanças<span class="star">★</span></div><div class="desc">Mensalidades e cobrança</div></div>
-      <div class="chev">›</div>
-    </a>
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title"><span class="dot" style="background:#A98FD1"></span>Comunicação</div>
+      <div class="section-count">3 apps</div>
+    </div>
+    <div class="module-list c-comunicacao">
+      <div class="module-row">
+        <div class="num">14</div>
+        <div class="mod-info"><div class="mod-name">Mensageiro</div><div class="mod-sub">Disparo de mensagens em massa</div></div>
+        <div class="chevron">›</div>
+      </div>
+      <div class="module-row">
+        <div class="num">15</div>
+        <div class="mod-info"><div class="mod-name">Alerta</div><div class="mod-sub">Sons de apito e feedback em quadra</div></div>
+        <div class="chevron">›</div>
+      </div>
+      <div class="module-row">
+        <div class="num">16</div>
+        <div class="mod-info"><div class="mod-name">Tarefas</div><div class="mod-sub">Captura por voz, lista compartilhada<span class="badge gold">3 pendentes</span></div></div>
+        <div class="chevron">›</div>
+      </div>
+    </div>
   </div>
 
-  <div class="section-divider"><span class="tag" style="background:var(--exp)"></span><span class="label">Comunicação</span><span class="rule"></span></div>
-  <div class="roster">
-    <a class="row cat-exp" href="bsa-mensageiro.html">
-      <div class="badge">✉️<span class="num">11</span></div>
-      <div class="info"><div class="name">Mensageiro</div><div class="desc">Envio em massa de mensagens no WhatsApp</div></div>
-      <div class="chev">›</div>
-    </a>
-    <a class="row cat-exp" href="bsa-tarefas.html">
-      <div class="badge">🎤<span class="num">14</span></div>
-      <div class="info"><div class="name">Tarefas</div><div class="desc">Anotar tarefas por voz durante o treino</div></div>
-      <div class="chev">›</div>
-    </a>
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title"><span class="dot" style="background:var(--text-dim)"></span>Sistema</div>
+      <div class="section-count">2 apps</div>
+    </div>
+    <div class="module-list c-sistema">
+      <div class="module-row">
+        <div class="num">17</div>
+        <div class="mod-info"><div class="mod-name">Backup</div><div class="mod-sub">Exportação de dados e código-fonte</div></div>
+        <div class="chevron">›</div>
+      </div>
+      <div class="module-row">
+        <div class="num">18</div>
+        <div class="mod-info"><div class="mod-name">Central de Comando</div><div class="mod-sub">Painel do dia — todos os alertas juntos</div></div>
+        <div class="chevron">›</div>
+      </div>
+    </div>
   </div>
 
-  <div class="section-divider"><span class="tag" style="background:var(--sistema)"></span><span class="label">Sistema</span><span class="rule"></span></div>
-  <div class="roster">
-    <a class="row cat-sistema" href="bsa-backup.html">
-      <div class="badge">💾<span class="num">12</span></div>
-      <div class="info"><div class="name">Backup</div><div class="desc">Baixar cópia de segurança de tudo</div></div>
-      <div class="chev">›</div>
-    </a>
-    <a class="row cat-sistema" href="bsa-estoque.html">
-      <div class="badge">📦<span class="num">13</span></div>
-      <div class="info"><div class="name">Estoque</div><div class="desc">Uniformes, equipamentos e patrimônio</div></div>
-      <div class="chev">›</div>
-    </a>
+  <div class="note">
+    <strong style="color:var(--text)">Versão aprovada — o que mudou em relação ao Hub atual:</strong><br>
+    • Fundo claro e leve no corpo da página, sem o verde predominante<br>
+    • Cabeçalho escuro com o verde só como acento — ancora a identidade sem pesar<br>
+    • Cada módulo é um card escuro flutuando com sombra, agrupados por categoria com divisórias<br>
+    • Numeração estilo "súmula/escalação" mantendo a identidade esportiva que você gostou antes<br>
+    • Tira de estatísticas no topo (faltas, vencimentos, tarefas) — antecipa o que a Central de Comando vai aprofundar
   </div>
-
-  <div class="section-divider"><span class="tag" style="background:var(--neutro)"></span><span class="label">Em construção</span><span class="rule"></span></div>
-  <div class="roster">
-    <a class="row cat-neutro disabled" href="#">
-      <div class="badge">🏆<span class="num">14</span></div>
-      <div class="info"><div class="name">Em breve</div><div class="desc">Próxima novidade</div><span class="badge-em-breve">em breve</span></div>
-      <div class="chev">›</div>
-    </a>
-  </div>
-
-  <footer>BSA Brasil · painel construído sob medida por <b>Ronaldo Cota</b></footer>
-
-</main>
-
-<script>
-  var h = new Date().getHours();
-  var g = h < 12 ? "Bom dia" : (h < 18 ? "Boa tarde" : "Boa noite");
-  document.getElementById('greeting').textContent = g + ', Ronaldo';
-</script>
-
-<script>
-  // Registra o Service Worker do Hub (guarda todas as telas em cache pra funcionar sem internet)
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
-  }
-
-  // Botão "Atualizar": limpa o cache de TODOS os apps do BSA APP (Hub + todos os módulos,
-  // já que todos vivem no mesmo endereço prcota57.github.io) e recarrega — precisa de internet.
-  var updateBtn = document.getElementById('updateBtn');
-  var updateBtnLabel = document.getElementById('updateBtnLabel');
-  updateBtn.addEventListener('click', function(){
-    updateBtn.classList.add('spin');
-    updateBtnLabel.textContent = 'Atualizando...';
-    var tasks = [];
-    if ('serviceWorker' in navigator) {
-      tasks.push(navigator.serviceWorker.getRegistrations().then(function(regs){
-        return Promise.all(regs.map(function(r){ return r.unregister(); }));
-      }));
-    }
-    if ('caches' in window) {
-      tasks.push(caches.keys().then(function(keys){
-        return Promise.all(keys.map(function(k){ return caches.delete(k); }));
-      }));
-    }
-    Promise.all(tasks).finally(function(){
-      setTimeout(function(){ location.href = location.pathname + '?upd=' + Date.now(); }, 500);
-    });
-  });
-</script>
 
 </body>
 </html>
-
-
