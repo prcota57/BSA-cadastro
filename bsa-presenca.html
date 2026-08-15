@@ -298,6 +298,10 @@
     background:rgba(76,187,108,.15); border:1px solid var(--k-ok); color:var(--k-ok);
     padding:8px 16px; border-radius:100px; font-size:12.5px; font-weight:700; letter-spacing:.02em;
   }
+  .kiosk-already-flag{
+    font-family:'Barlow Condensed', sans-serif; font-weight:800; font-size:clamp(20px,6vw,27px);
+    color:var(--k-gold-soft); text-align:center; margin:0 0 14px 0; line-height:1.2;
+  }
 
   .kiosk-back-btn{
     position:absolute; z-index:8; bottom:calc(20px + env(safe-area-inset-bottom)); right:20px;
@@ -486,6 +490,7 @@
 
   <div class="kiosk-screen" id="kioskScreenSuccess">
     <div class="kiosk-success-card">
+      <div class="kiosk-already-flag" id="kioskAlreadyFlag" style="display:none;">✅ Você já foi registrado hoje</div>
       <img class="kiosk-avatar-img" id="kioskSuccessFoto" style="display:none;">
       <div class="kiosk-avatar" id="kioskSuccessAvatarLetra" style="display:none;"></div>
       <h1 class="kiosk-student-name" id="kioskSuccessNome">—</h1>
@@ -533,6 +538,24 @@ let loopAtivo = false;
 let ultimoReconhecidoId = null;
 let ultimoReconhecidoTs = 0;
 let audioCtx = null;
+let audioDesbloqueado = false;
+
+/* iOS/Safari só libera áudio depois de um toque real do usuário — destrava tudo no primeiro toque na tela */
+function desbloquearAudioGlobal(){
+  if(audioDesbloqueado) return;
+  audioDesbloqueado = true;
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+  }catch(e){}
+  ['somPalmas','somTrombeta'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.muted = true;
+    el.play().then(()=>{ el.pause(); el.currentTime = 0; el.muted = false; }).catch(()=>{ el.muted = false; });
+  });
+}
+document.addEventListener('pointerdown', desbloquearAudioGlobal, { once:true });
 let wakeLock = null;
 
 async function pedirWakeLock(){
@@ -1206,7 +1229,8 @@ document.getElementById('manualBusca').addEventListener('input', e=> renderManua
 
 /* =================== MODO QUIOSQUE =================== */
 const KIOSK_MIN_FACE_RATIO = 0.20;   // rosto precisa ocupar pelo menos ~20% da largura do quadro
-const KIOSK_FAIL_MS = 9000;          // depois de 9s tentando sem sucesso, mostra "não identificado"
+const KIOSK_FAIL_MS = 9000;          // depois de ~9s tentando sem sucesso (~16 tentativas), mostra "não identificado"
+const KIOSK_NO_FACE_RESET_MS = 14000; // só desiste de vez da tentativa se ficar bem mais tempo sem detectar nada (tolera rosto sumir da câmera por instantes)
 const KIOSK_COOLDOWN_MS = 45000;     // depois de identificar, ignora o mesmo aluno por 45s
 
 let kioskAtivo = false;
@@ -1328,9 +1352,18 @@ async function loopKiosk(){
         const deteccoes = await faceapi.detectAllFaces(procCanvas, opcoes).withFaceLandmarks().withFaceDescriptors();
 
         if(deteccoes.length === 0){
-          kioskAttemptStartTs = null;
-          setKioskState('standby');
-          document.getElementById('kioskStandbyHeadline').textContent = 'Aproxime seu rosto';
+          if(kioskAttemptStartTs){
+            // tolera o rosto sumir da câmera por alguns segundos sem zerar a tentativa —
+            // só desiste de vez se passar bem do tempo de "não identificado"
+            if((Date.now() - kioskAttemptStartTs) > KIOSK_NO_FACE_RESET_MS){
+              kioskAttemptStartTs = null;
+              setKioskState('standby');
+              document.getElementById('kioskStandbyHeadline').textContent = 'Aproxime seu rosto';
+            }
+          } else {
+            setKioskState('standby');
+            document.getElementById('kioskStandbyHeadline').textContent = 'Aproxime seu rosto';
+          }
         } else {
           if(!kioskAttemptStartTs) kioskAttemptStartTs = Date.now();
 
@@ -1349,10 +1382,10 @@ async function loopKiosk(){
               if(aluno) await kioskRegistrarSucesso(aluno, match.distance);
             }
           }
+        }
 
-          if(kioskState !== 'success' && kioskAttemptStartTs && (Date.now() - kioskAttemptStartTs) > KIOSK_FAIL_MS){
-            setKioskState('fail');
-          }
+        if(kioskAttemptStartTs && (Date.now() - kioskAttemptStartTs) > KIOSK_FAIL_MS){
+          setKioskState('fail');
         }
       }
     }catch(err){
@@ -1377,6 +1410,7 @@ async function kioskRegistrarSucesso(aluno, distance){
 }
 
 function mostrarKioskSucesso(aluno, resultado){
+  const jaRegistrado = resultado.mensagem.includes('já registrada');
   const foto = document.getElementById('kioskSuccessFoto');
   const letra = document.getElementById('kioskSuccessAvatarLetra');
   if(aluno.foto){
@@ -1385,14 +1419,15 @@ function mostrarKioskSucesso(aluno, resultado){
     letra.textContent = (aluno.nome || '?').slice(0,1).toUpperCase();
     letra.style.display = 'flex'; foto.style.display = 'none';
   }
+  document.getElementById('kioskAlreadyFlag').style.display = jaRegistrado ? 'block' : 'none';
   document.getElementById('kioskSuccessNome').textContent = aluno.nome;
   const agora = new Date();
   const hora = String(agora.getHours()).padStart(2,'0') + ':' + String(agora.getMinutes()).padStart(2,'0');
   document.getElementById('kioskSuccessMeta').textContent = 'Presença às ' + hora;
-  document.getElementById('kioskSuccessBadge').textContent = (resultado.mensagem.includes('já registrada') ? 'ℹ️ ' : '✓ ') + resultado.mensagem;
+  document.getElementById('kioskSuccessBadge').textContent = (jaRegistrado ? 'ℹ️ ' : '✓ ') + resultado.mensagem;
 
   setKioskState('success');
-  somSucessoKiosk();
+  if(resultado.tocarBip) somSucessoKiosk();
   if(navigator.vibrate) navigator.vibrate(40);
 
   clearTimeout(window._kioskSuccessTimer);
