@@ -73,6 +73,7 @@
   .camera-overlay.active{display:flex;}
   .camera-stage{position:relative; flex:1; overflow:hidden;}
   .camera-stage video{width:100%; height:100%; object-fit:cover;}
+  .camera-stage video.mirror-video{ transform:scaleX(-1); }
   .camera-stage canvas{position:absolute; top:0; left:0; width:100%; height:100%;}
   .camera-topbar{
     position:absolute; top:0; left:0; right:0; padding:calc(14px + env(safe-area-inset-top)) 16px 14px;
@@ -429,6 +430,7 @@
     <div class="camera-topbar">
       <div class="unit-label" id="camUnitLabel">Unidade<small>aponte a câmera para o rosto do aluno</small></div>
       <div style="display:flex; gap:8px;">
+        <button class="camera-close" id="btnFlipCameraPresenca" title="Trocar câmera">🔄</button>
         <button class="camera-close" id="btnManualNaCamera" title="Reconhecimento manual">✋</button>
         <button class="camera-close" id="btnFecharCamera">✕</button>
       </div>
@@ -937,6 +939,9 @@ function renderHistorico(itens){
 
 document.getElementById('btnIniciar').addEventListener('click', iniciarCamera);
 document.getElementById('btnFecharCamera').addEventListener('click', fecharCamera);
+document.getElementById('btnFlipCameraPresenca').addEventListener('click', trocarCameraPresenca);
+
+let presencaFacingMode = 'environment';
 
 async function iniciarCamera(){
   const alunosUnidade = alunosCache.filter(a=>a.unidade === unidadeAtual);
@@ -950,7 +955,7 @@ async function iniciarCamera(){
   document.getElementById('camUnitLabel').innerHTML = unidadeAtual + '<small>aponte a câmera para o rosto do aluno</small>';
 
   try{
-    streamAtivo = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    streamAtivo = await navigator.mediaDevices.getUserMedia({ video: { facingMode: presencaFacingMode }, audio: false });
     const video = document.getElementById('video');
     video.srcObject = streamAtivo;
     document.getElementById('cameraOverlay').classList.add('active');
@@ -964,6 +969,20 @@ async function iniciarCamera(){
     };
   }catch(err){
     toast('Não foi possível acessar a câmera: ' + err.message);
+  }
+}
+
+async function trocarCameraPresenca(){
+  presencaFacingMode = (presencaFacingMode === 'environment') ? 'user' : 'environment';
+  if(streamAtivo){ streamAtivo.getTracks().forEach(t=>t.stop()); }
+  try{
+    streamAtivo = await navigator.mediaDevices.getUserMedia({ video: { facingMode: presencaFacingMode }, audio: false });
+    const video = document.getElementById('video');
+    video.srcObject = streamAtivo;
+    video.classList.toggle('mirror-video', presencaFacingMode === 'user');
+    toast(presencaFacingMode === 'user' ? '📷 Câmera frontal' : '📷 Câmera traseira');
+  }catch(err){
+    toast('Não foi possível trocar de câmera: ' + err.message);
   }
 }
 
