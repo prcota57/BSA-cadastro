@@ -970,7 +970,7 @@ async function cancelarRepo(docId){
 function aquecerCacheDasDuasUnidades(){
   const hoje = dataHojeISO();
   ['Carlos Prates', 'Estoril'].forEach(u=>{
-    db.collection('presencas').where('unidade','==',u).where('data','==',hoje).get().catch(()=>{});
+    db.collection('presencas').where('unidadeCheckin','==',u).where('data','==',hoje).get().catch(()=>{});
   });
 }
 
@@ -1350,9 +1350,10 @@ async function marcarPresenca(aluno, distance, origem){
   try{
     existente = await ref.get();
   }catch(e){
-    // não conseguiu checar se já existe (típico de estar offline com esse documento específico
-    // ainda não visto antes) — assume que não existe e segue tentando registrar
-    existente = { exists: false };
+    // Não conseguiu checar se já existe. NUNCA assume que não existe aqui — isso arriscaria
+    // sobrescrever por cima de um registro correto já feito (ex: em outra unidade). Melhor
+    // avisar e deixar tentar de novo do que arriscar apagar dado certo.
+    throw new Error('Não foi possível confirmar se a presença já existe (falha de rede) — tente de novo');
   }
   if(existente.exists){
     const dados = existente.data();
