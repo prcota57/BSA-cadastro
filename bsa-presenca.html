@@ -734,6 +734,9 @@ async function carregarModelosEAlunos(){
     document.getElementById('modelPanel').style.display = 'none';
     document.getElementById('unitPanel').style.display = 'block';
     carregarAlunos();
+    // força o download dos sons explicitamente — o iOS às vezes não baixa <audio preload> sozinho pra economizar dados
+    fetch('sounds/palmas-simples.wav').catch(()=>{});
+    fetch('sounds/fail-trombeta.wav').catch(()=>{});
     setTimeout(verificarProntidaoOffline, 2500); // dá um tempo pro cache terminar de salvar em segundo plano
   }catch(err){
     document.getElementById('modelStatus').textContent = 'Erro ao carregar modelos: ' + err.message;
@@ -741,9 +744,14 @@ async function carregarModelosEAlunos(){
 }
 
 /* Confere de verdade o que já ficou salvo no aparelho (não é só "achismo") */
-async function verificarProntidaoOffline(){
+async function verificarProntidaoOffline(forcarSons){
   const el = document.getElementById('offlineStatus');
   if(!el) return;
+  if(forcarSons){
+    fetch('sounds/palmas-simples.wav').catch(()=>{});
+    fetch('sounds/fail-trombeta.wav').catch(()=>{});
+    await new Promise(r=>setTimeout(r, 800));
+  }
   if(!('caches' in window) || !('serviceWorker' in navigator)){
     el.textContent = '⚠️ Este navegador não suporta uso offline';
     el.style.color = '#c94b34';
@@ -766,12 +774,12 @@ async function verificarProntidaoOffline(){
     const qtdModelos = todasChaves.filter(u=> u.includes('tiny_face_detector') || u.includes('face_recognition') || u.includes('face_landmark')).length;
     const temSons = todasChaves.some(u=> u.includes('palmas-simples') || u.includes('fail-trombeta'));
     const temFirebase = todasChaves.some(u=> u.includes('firebase'));
-    if(qtdModelos >= 8 && temSons && temFirebase){
+    if(qtdModelos >= 7 && temSons && temFirebase){
       el.textContent = '✅ Pronto para uso offline (' + qtdModelos + ' arquivos de modelo salvos) — toque pra verificar de novo';
       el.style.color = '#2e7d32';
     } else {
       const faltando = [];
-      if(qtdModelos < 8) faltando.push('modelos (' + qtdModelos + '/~11 salvos)');
+      if(qtdModelos < 7) faltando.push('modelos (' + qtdModelos + '/7 salvos)');
       if(!temSons) faltando.push('sons');
       if(!temFirebase) faltando.push('banco de dados');
       el.textContent = '⚠️ Faltando: ' + faltando.join(', ') + ' — feche e abra de novo';
@@ -782,7 +790,7 @@ async function verificarProntidaoOffline(){
     el.style.color = '#c94b34';
   }
 }
-document.getElementById('offlineStatus').addEventListener('click', verificarProntidaoOffline);
+document.getElementById('offlineStatus').addEventListener('click', ()=> verificarProntidaoOffline(true));
 
 function carregarAlunos(){
   db.collection('alunos').where('faceDescriptor', '!=', null).onSnapshot(snap=>{
