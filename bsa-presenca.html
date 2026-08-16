@@ -591,13 +591,24 @@ document.addEventListener('visibilitychange', async ()=>{
   }
 });
 
+/* Abre em aba nova de verdade — window.open() programático às vezes navega na mesma aba no Safari mobile,
+   um <a target="_blank"> real é bem mais confiável */
+function abrirEmNovaAba(url){
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
 function toast(msg, clickUrl){
-  const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
   if(clickUrl){
     t.style.cursor = 'pointer';
-    t.onclick = ()=> window.open(clickUrl, '_blank');
+    t.onclick = ()=> abrirEmNovaAba(clickUrl);
   } else {
     t.style.cursor = 'default';
     t.onclick = null;
@@ -734,6 +745,7 @@ async function carregarModelosEAlunos(){
     document.getElementById('modelPanel').style.display = 'none';
     document.getElementById('unitPanel').style.display = 'block';
     carregarAlunos();
+    retomarUltimaUnidade();
     // força o download dos sons explicitamente — o iOS às vezes não baixa <audio preload> sozinho pra economizar dados
     fetch('sounds/palmas-simples.wav').catch(()=>{});
     fetch('sounds/fail-trombeta.wav').catch(()=>{});
@@ -804,8 +816,7 @@ function carregarAlunos(){
     document.getElementById('countBadge').textContent = alunosCache.length;
     const cp = alunosCache.filter(a=>a.unidade === 'Carlos Prates').length;
     const es = alunosCache.filter(a=>a.unidade === 'Estoril').length;
-    document.getElementById('countCP').textContent = cp + ' rosto(s) prontos';
-    document.getElementById('countES').textContent = es + ' rosto(s) prontos';
+    document.getElementById('countCP').textContent = cp + ' rosto(s) prontos';    document.getElementById('countES').textContent = es + ' rosto(s) prontos';
   }, err=>{
     document.getElementById('statusLine').textContent = 'erro ao ler alunos: ' + err.message;
   });
@@ -956,6 +967,7 @@ document.querySelectorAll('.unit-btn').forEach(btn=>{
     document.querySelectorAll('.unit-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
     unidadeAtual = btn.dataset.u;
+    try{ localStorage.setItem('bsaPresencaUltimaUnidade', unidadeAtual); }catch(e){}
     document.getElementById('btnIniciar').disabled = false;
     document.getElementById('btnIniciar').textContent = 'Iniciar câmera — ' + unidadeAtual;
     document.getElementById('btnManual').disabled = false;
@@ -967,6 +979,17 @@ document.querySelectorAll('.unit-btn').forEach(btn=>{
     renderFaltantes();
   });
 });
+
+/* Se já tinha uma unidade escolhida antes (ex: voltou de outra tela e o app recarregou), retoma sozinho */
+function retomarUltimaUnidade(){
+  try{
+    const salva = localStorage.getItem('bsaPresencaUltimaUnidade');
+    if(salva){
+      const btn = document.querySelector('.unit-btn[data-u="' + salva + '"]');
+      if(btn) btn.click();
+    }
+  }catch(e){}
+}
 
 function dataHojeISO(){
   const d = new Date();
@@ -1101,7 +1124,7 @@ function renderHistorico(itens){
       : (p.tipoRegistro === 'fora_horario' ? ' <span class="badge-alerta">fora do horário</span>' : '');
     const seloManual = p.origemRegistro === 'manual' ? ' <span class="badge-repo">manual</span>' : '';
     const seloInadimplente = alunoEstaInadimplente(p.alunoId) ? ' <span class="badge-alerta" style="background:rgba(217,85,62,.15); color:#c94b34;">💸 atrasado</span>' : '';
-    return `<div class="presenca-item" style="cursor:pointer;" onclick="window.open('bsa-cadastro.html?abrirAluno=${p.alunoId}','_blank')">${foto}<div class="info"><div class="name">${p.nome}${selo}${seloManual}${seloInadimplente}</div><div class="time">${p.hora}</div></div><button class="btn-excluir" data-docid="${p._docId}" data-nome="${(p.nome||'').replace(/"/g,'&quot;')}" title="Remover presença" onclick="event.stopPropagation()">🗑️</button></div>`;
+    return `<div class="presenca-item" style="cursor:pointer;" onclick="abrirEmNovaAba('bsa-cadastro.html?abrirAluno=${p.alunoId}')">${foto}<div class="info"><div class="name">${p.nome}${selo}${seloManual}${seloInadimplente}</div><div class="time">${p.hora}</div></div><button class="btn-excluir" data-docid="${p._docId}" data-nome="${(p.nome||'').replace(/"/g,'&quot;')}" title="Remover presença" onclick="event.stopPropagation()">🗑️</button></div>`;
   }).join('');
   cont.querySelectorAll('.btn-excluir').forEach(btn=>{
     btn.addEventListener('click', ()=> excluirPresenca(btn.dataset.docid, btn.dataset.nome));
@@ -1265,7 +1288,7 @@ function mostrarCardReconhecimento(aluno, statusTexto){
   document.getElementById('recSchedule').textContent = formatarHorarioAluno(aluno);
   const card = document.getElementById('recognitionCard');
   card.classList.add('show');
-  card.onclick = ()=> window.open('bsa-cadastro.html?abrirAluno=' + aluno.id, '_blank');
+  card.onclick = ()=> abrirEmNovaAba('bsa-cadastro.html?abrirAluno=' + aluno.id);
   card.style.cursor = 'pointer';
   clearTimeout(window._cardTimer);
   window._cardTimer = setTimeout(()=> card.classList.remove('show'), 3200);
