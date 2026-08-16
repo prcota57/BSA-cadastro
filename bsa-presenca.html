@@ -744,12 +744,18 @@ async function carregarModelosEAlunos(){
 async function verificarProntidaoOffline(){
   const el = document.getElementById('offlineStatus');
   if(!el) return;
-  if(!('caches' in window)){
-    el.textContent = '⚠️ Este navegador não guarda cache — uso offline não vai funcionar aqui';
+  if(!('caches' in window) || !('serviceWorker' in navigator)){
+    el.textContent = '⚠️ Este navegador não suporta uso offline';
     el.style.color = '#c94b34';
     return;
   }
   try{
+    const controlado = !!navigator.serviceWorker.controller;
+    if(!controlado){
+      el.textContent = '⚠️ App ainda não está sob o sistema de cache — feche o Safari inteiro (não só a aba) e abra de novo';
+      el.style.color = '#c94b34';
+      return;
+    }
     const nomes = await caches.keys();
     let todasChaves = [];
     for(const nome of nomes){
@@ -757,22 +763,23 @@ async function verificarProntidaoOffline(){
       const reqs = await cache.keys();
       todasChaves = todasChaves.concat(reqs.map(r=>r.url));
     }
-    const temModelos = todasChaves.some(u=> u.includes('tiny_face_detector') || u.includes('face_recognition') || u.includes('face_landmark'));
+    const qtdModelos = todasChaves.filter(u=> u.includes('tiny_face_detector') || u.includes('face_recognition') || u.includes('face_landmark')).length;
     const temSons = todasChaves.some(u=> u.includes('palmas-simples') || u.includes('fail-trombeta'));
     const temFirebase = todasChaves.some(u=> u.includes('firebase'));
-    if(temModelos && temSons && temFirebase){
-      el.textContent = '✅ Pronto para uso offline (toque pra verificar de novo)';
+    if(qtdModelos >= 8 && temSons && temFirebase){
+      el.textContent = '✅ Pronto para uso offline (' + qtdModelos + ' arquivos de modelo salvos) — toque pra verificar de novo';
       el.style.color = '#2e7d32';
     } else {
       const faltando = [];
-      if(!temModelos) faltando.push('modelos de reconhecimento');
+      if(qtdModelos < 8) faltando.push('modelos (' + qtdModelos + '/~11 salvos)');
       if(!temSons) faltando.push('sons');
       if(!temFirebase) faltando.push('banco de dados');
-      el.textContent = '⚠️ Ainda faltando salvar: ' + faltando.join(', ') + ' — feche e abra o app de novo com internet';
+      el.textContent = '⚠️ Faltando: ' + faltando.join(', ') + ' — feche e abra de novo';
       el.style.color = '#c94b34';
     }
   }catch(e){
-    el.textContent = '';
+    el.textContent = '⚠️ Erro ao verificar: ' + e.message;
+    el.style.color = '#c94b34';
   }
 }
 document.getElementById('offlineStatus').addEventListener('click', verificarProntidaoOffline);
