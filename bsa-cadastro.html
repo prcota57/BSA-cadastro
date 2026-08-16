@@ -1108,7 +1108,7 @@ function corrigirBalancoBranco(ctx, w, h){
   }
 }
 
-const CADASTRO_DISTANCE_THRESHOLD = 0.5;
+const CADASTRO_DISTANCE_THRESHOLD = 0.45;
 
 document.getElementById('btnCapture').addEventListener('click', async ()=>{
   const video = document.getElementById('cameraVideo');
@@ -1161,12 +1161,21 @@ document.getElementById('btnCapture').addEventListener('click', async ()=>{
       if(match.label !== 'unknown'){
         const alunoExistente = alunosCache.find(a => a._docId === match.label);
         if(alunoExistente){
-          showToast('⚠️ Aluno já cadastrado: ' + alunoExistente.nome);
-          status.style.display = 'none';
-          btnCapture.disabled = false;
-          closeCamera();
-          setTimeout(()=> abrirDetalhe(alunoExistente._docId), 250);
-          return;
+          // Não bloqueia mais automaticamente — só avisa e pergunta, porque rostos parecidos
+          // (irmãos, feições semelhantes) geram falso positivo com facilidade
+          const mesmaPessoa = confirm(
+            'Esse rosto se parece com "' + alunoExistente.nome + '", que já está cadastrado(a).\n\n' +
+            'Toque OK se for a MESMA pessoa (abre o cadastro dele).\n' +
+            'Toque Cancelar se for um aluno DIFERENTE (continua cadastrando essa foto normalmente).'
+          );
+          if(mesmaPessoa){
+            status.style.display = 'none';
+            btnCapture.disabled = false;
+            closeCamera();
+            setTimeout(()=> abrirDetalhe(alunoExistente._docId), 250);
+            return;
+          }
+          // Confirmou que é pessoa diferente — segue o fluxo normal abaixo, aceitando a foto
         }
       }
     }
