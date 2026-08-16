@@ -746,6 +746,7 @@ async function carregarModelosEAlunos(){
     document.getElementById('unitPanel').style.display = 'block';
     carregarAlunos();
     retomarUltimaUnidade();
+    aquecerCacheDasDuasUnidades();
     // força o download dos sons explicitamente — o iOS às vezes não baixa <audio preload> sozinho pra economizar dados
     fetch('sounds/palmas-simples.wav').catch(()=>{});
     fetch('sounds/fail-trombeta.wav').catch(()=>{});
@@ -960,6 +961,16 @@ async function cancelarRepo(docId){
   if(!confirm('Cancelar esta reposição agendada?')) return;
   await db.collection('reposicoes').doc(docId).update({status: 'cancelada'});
   toast('Reposição cancelada');
+}
+
+/* Roda a consulta de "presenças de hoje" das duas unidades pelo menos uma vez, mesmo que só uma
+   esteja selecionada na tela — isso "aquece" o cache local das duas, evitando que uma unidade
+   fique sem histórico visível se a internet cair antes de você abrir ela manualmente */
+function aquecerCacheDasDuasUnidades(){
+  const hoje = dataHojeISO();
+  ['Carlos Prates', 'Estoril'].forEach(u=>{
+    db.collection('presencas').where('unidade','==',u).where('data','==',hoje).get().catch(()=>{});
+  });
 }
 
 document.querySelectorAll('.unit-btn').forEach(btn=>{
