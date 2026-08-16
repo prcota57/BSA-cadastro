@@ -1149,9 +1149,10 @@ document.getElementById('btnFlipCameraPresenca').addEventListener('click', troca
 let presencaFacingMode = 'environment';
 
 async function iniciarCamera(){
-  const alunosUnidade = alunosCache.filter(a=>a.unidade === unidadeAtual);
+  // Reconhece alunos das duas unidades (permite reposição de aula em unidade diferente da matrícula)
+  const alunosUnidade = alunosCache;
   if(alunosUnidade.length === 0){
-    toast('Nenhum aluno com rosto processado nessa unidade ainda');
+    toast('Nenhum aluno com rosto processado ainda');
     return;
   }
   const labeled = alunosUnidade.map(a=> new faceapi.LabeledFaceDescriptors(a.id, [new Float32Array(a.faceDescriptor)]));
@@ -1347,12 +1348,14 @@ async function marcarPresenca(aluno, distance, origem){
 
   const reposicao = await buscarReposicaoAgendadaHoje(aluno);
   const foraDoHorario = !reposicao && estaForaDoHorario(aluno);
+  const unidadeDivergente = aluno.unidade !== unidadeAtual;
 
   await ref.set({
     alunoId: aluno.id,
     nome: aluno.nome,
     unidade: aluno.unidade,
     unidadeCheckin: unidadeAtual,
+    unidadeDivergente: unidadeDivergente,
     foto: aluno.foto || null,
     data: dataISO,
     hora: hora,
@@ -1365,15 +1368,20 @@ async function marcarPresenca(aluno, distance, origem){
     horarioTreino: aluno.horarioTreino || ''
   });
 
+  const avisoUnidade = unidadeDivergente ? (' · aluno da unidade ' + aluno.unidade) : '';
+
   if(reposicao){
     await db.collection('reposicoes').doc(reposicao._docId).update({
       status: 'usada',
       usadoEm: firebase.firestore.FieldValue.serverTimestamp()
     });
-    return { mensagem: 'reposição registrada ✓ (direito utilizado)', tocarBip: true };
+    return { mensagem: 'reposição registrada ✓ (direito utilizado)' + avisoUnidade, tocarBip: true };
   }
   if(foraDoHorario){
-    return { mensagem: '⚠️ presença registrada — fora do horário fixo dele', tocarBip: true };
+    return { mensagem: '⚠️ presença registrada — fora do horário fixo dele' + avisoUnidade, tocarBip: true };
+  }
+  if(unidadeDivergente){
+    return { mensagem: '📍 presença registrada — aluno da unidade ' + aluno.unidade, tocarBip: true };
   }
   return { mensagem: 'presença registrada ✓', tocarBip: true };
 }
@@ -1394,16 +1402,23 @@ function renderManualLista(termo){
   const lista = document.getElementById('manualLista');
   const t = (termo||'').trim().toLowerCase();
   const encontrados = todosAlunosCache
-    .filter(a => a.unidade === unidadeAtual && (t.length === 0 || a.nome.toLowerCase().includes(t)))
-    .sort((a,b)=> a.nome.localeCompare(b.nome))
+    .filter(a => t.length === 0 || a.nome.toLowerCase().includes(t))
+    .sort((a,b)=>{
+      // alunos da unidade atual aparecem primeiro; alunos de outra unidade (reposição) vêm depois
+      const da = a.unidade === unidadeAtual ? 0 : 1;
+      const db_ = b.unidade === unidadeAtual ? 0 : 1;
+      if(da !== db_) return da - db_;
+      return a.nome.localeCompare(b.nome);
+    })
     .slice(0, 30);
   if(encontrados.length === 0){
-    lista.innerHTML = '<div class="empty">Nenhum aluno encontrado nesta unidade.</div>';
+    lista.innerHTML = '<div class="empty">Nenhum aluno encontrado.</div>';
     return;
   }
   lista.innerHTML = encontrados.map(a=>{
     const foto = a.foto ? `<img class="avatar" src="${a.foto}">` : `<div class="avatar" style="display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;color:var(--pitch);">${(a.nome||'?').slice(0,1)}</div>`;
-    return `<div class="presenca-item" style="cursor:pointer;" onclick="confirmarManual('${a.id}')">${foto}<div class="info"><div class="name">${a.nome}</div></div></div>`;
+    const tagUnidade = a.unidade !== unidadeAtual ? ` <span class="badge-repo">${a.unidade}</span>` : '';
+    return `<div class="presenca-item" style="cursor:pointer;" onclick="confirmarManual('${a.id}')">${foto}<div class="info"><div class="name">${a.nome}${tagUnidade}</div></div></div>`;
   }).join('');
 }
 async function confirmarManual(alunoId){
@@ -1469,8 +1484,9 @@ function tickKioskClock(){
 
 async function iniciarKiosk(){
   if(!unidadeAtual){ toast('Selecione a unidade primeiro'); return; }
-  const alunosUnidade = alunosCache.filter(a=>a.unidade === unidadeAtual);
-  if(alunosUnidade.length === 0){ toast('Nenhum aluno com rosto processado nessa unidade ainda'); return; }
+  // Reconhece alunos das duas unidades (permite reposição de aula em unidade diferente da matrícula)
+  const alunosUnidade = alunosCache;
+  if(alunosUnidade.length === 0){ toast('Nenhum aluno com rosto processado ainda'); return; }
 
   const labeled = alunosUnidade.map(a=> new faceapi.LabeledFaceDescriptors(a.id, [new Float32Array(a.faceDescriptor)]));
   kioskFaceMatcher = new faceapi.FaceMatcher(labeled, DISTANCE_THRESHOLD);
