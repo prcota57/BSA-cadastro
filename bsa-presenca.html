@@ -747,6 +747,7 @@ async function carregarModelosEAlunos(){
     carregarAlunos();
     retomarUltimaUnidade();
     aquecerCacheDasDuasUnidades();
+    listenPresencasHojeGlobal();
     // força o download dos sons explicitamente — o iOS às vezes não baixa <audio preload> sozinho pra economizar dados
     fetch('sounds/palmas-simples.wav').catch(()=>{});
     fetch('sounds/fail-trombeta.wav').catch(()=>{});
@@ -1024,7 +1025,22 @@ function formatarHorarioAluno(aluno){
 
 let presentesHojeIds = new Set();
 let unsubHistorico = null;
+let unsubPresencasHojeGlobal = null;
 let dataHistoricoAtual = dataHojeISO();
+
+/* Roda em paralelo, independente da unidade selecionada na tela — junta as presenças de HOJE
+   das duas unidades, pra "faltantes" saber que um aluno do Carlos Prates que fez reposição
+   no Estoril não deve ser cobrado como ausente no Carlos Prates */
+function listenPresencasHojeGlobal(){
+  const hoje = dataHojeISO();
+  if(unsubPresencasHojeGlobal) unsubPresencasHojeGlobal();
+  unsubPresencasHojeGlobal = db.collection('presencas')
+    .where('data', '==', hoje)
+    .onSnapshot(snap=>{
+      presentesHojeIds = new Set(snap.docs.map(d=> d.data().alunoId));
+      renderFaltantes();
+    }, err=>{ console.error(err); });
+}
 
 function listenHistoricoHoje(){
   dataHistoricoAtual = dataHojeISO();
@@ -1038,16 +1054,16 @@ function listenHistorico(dataISO){
   if(unsubHistorico) unsubHistorico();
   const ehHoje = dataISO === dataHojeISO();
   document.getElementById('historyTitulo').innerHTML = (ehHoje ? 'Presenças de hoje' : 'Presenças de ' + dataISO.split('-').reverse().join('/')) + ' <span id="historyUnitLabel" style="color:var(--ink-soft); font-weight:500;">· ' + unidadeAtual + '</span>';
+  // Filtra por ONDE o aluno bateu presença (unidadeCheckin), não pela unidade de matrícula dele —
+  // assim uma reposição no Estoril aparece na lista do Estoril, mesmo que o aluno seja do Carlos Prates
   unsubHistorico = db.collection('presencas')
-    .where('unidade', '==', unidadeAtual)
+    .where('unidadeCheckin', '==', unidadeAtual)
     .where('data', '==', dataISO)
     .onSnapshot(snap=>{
       const itens = [];
       snap.forEach(doc=> itens.push({ _docId: doc.id, ...doc.data() }));
       itens.sort((a,b)=> (b.horaTimestamp||0) - (a.horaTimestamp||0));
-      if(ehHoje) presentesHojeIds = new Set(itens.map(i=>i.alunoId));
       renderHistorico(itens);
-      if(ehHoje) renderFaltantes();
     }, err=>{
       console.error(err);
     });
