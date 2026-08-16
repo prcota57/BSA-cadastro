@@ -393,7 +393,8 @@
     <div class="field">
       <label>Aluno</label>
       <input type="text" id="repoBuscaAluno" placeholder="Digite o nome do aluno...">
-      <select id="repoAlunoSelect" size="5" style="margin-top:6px;"></select>
+      <div id="repoAlunoLista" style="margin-top:6px; max-height:220px; overflow-y:auto;"></div>
+      <div id="repoAlunoSelecionadoChip" style="display:none; margin-top:8px; padding:8px 12px; background:var(--pitch-soft); border-radius:10px; font-size:13px; font-weight:600;"></div>
     </div>
     <div class="field">
       <label>Unidade da falta</label>
@@ -873,7 +874,8 @@ let repoAlunoSelecionado = null;
 
 function abrirRepoModal(){
   document.getElementById('repoBuscaAluno').value = '';
-  document.getElementById('repoAlunoSelect').innerHTML = '';
+  document.getElementById('repoAlunoLista').innerHTML = '';
+  document.getElementById('repoAlunoSelecionadoChip').style.display = 'none';
   repoAlunoSelecionado = null;
   document.getElementById('repoDataFalta').value = dataHojeInputValue();
   document.getElementById('repoDataReposicao').value = dataHojeInputValue();
@@ -890,18 +892,33 @@ document.getElementById('repoModal').addEventListener('click', e=>{
 
 document.getElementById('repoBuscaAluno').addEventListener('input', e=>{
   const termo = e.target.value.trim().toLowerCase();
-  const select = document.getElementById('repoAlunoSelect');
-  if(termo.length < 2){ select.innerHTML = ''; return; }
+  const lista = document.getElementById('repoAlunoLista');
+  if(termo.length < 2){ lista.innerHTML = ''; return; }
   const encontrados = todosAlunosCache.filter(a=> a.nome.toLowerCase().includes(termo)).slice(0,20);
-  select.innerHTML = encontrados.map(a=> `<option value="${a.id}">${a.nome} · ${a.unidade}</option>`).join('');
-});
-document.getElementById('repoAlunoSelect').addEventListener('change', e=>{
-  const id = e.target.value;
-  repoAlunoSelecionado = todosAlunosCache.find(a=>a.id === id) || null;
-  if(repoAlunoSelecionado){
-    document.getElementById('repoUnidadeFalta').value = repoAlunoSelecionado.unidade;
-    document.getElementById('repoUnidadeReposicao').value = repoAlunoSelecionado.unidade;
+  if(encontrados.length === 0){
+    lista.innerHTML = '<div class="empty" style="padding:10px 0;">Nenhum aluno encontrado.</div>';
+    return;
   }
+  lista.innerHTML = encontrados.map(a=>
+    `<div class="presenca-item" style="cursor:pointer; padding:9px 10px;" data-id="${a.id}">
+      <div class="info"><div class="name">${a.nome}</div><div class="time">${a.unidade}</div></div>
+    </div>`
+  ).join('');
+  lista.querySelectorAll('.presenca-item').forEach(item=>{
+    item.addEventListener('click', ()=>{
+      const id = item.dataset.id;
+      repoAlunoSelecionado = todosAlunosCache.find(a=>a.id === id) || null;
+      if(repoAlunoSelecionado){
+        document.getElementById('repoUnidadeFalta').value = repoAlunoSelecionado.unidade;
+        document.getElementById('repoUnidadeReposicao').value = repoAlunoSelecionado.unidade;
+        document.getElementById('repoBuscaAluno').value = repoAlunoSelecionado.nome;
+        const chip = document.getElementById('repoAlunoSelecionadoChip');
+        chip.style.display = 'block';
+        chip.textContent = '✓ ' + repoAlunoSelecionado.nome + ' (' + repoAlunoSelecionado.unidade + ')';
+      }
+      lista.innerHTML = '';
+    });
+  });
 });
 
 document.getElementById('btnSalvarRepo').addEventListener('click', async ()=>{
