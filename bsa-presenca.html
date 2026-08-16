@@ -734,7 +734,7 @@ async function carregarModelosEAlunos(){
     document.getElementById('modelPanel').style.display = 'none';
     document.getElementById('unitPanel').style.display = 'block';
     carregarAlunos();
-    verificarProntidaoOffline();
+    setTimeout(verificarProntidaoOffline, 2500); // dá um tempo pro cache terminar de salvar em segundo plano
   }catch(err){
     document.getElementById('modelStatus').textContent = 'Erro ao carregar modelos: ' + err.message;
   }
