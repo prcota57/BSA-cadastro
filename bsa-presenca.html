@@ -1287,9 +1287,16 @@ async function processarReconhecimento(aluno, distance){
 
   mostrarCardReconhecimento(aluno, 'registrando...');
 
-  const resultado = await marcarPresenca(aluno, distance);
-  mostrarCardReconhecimento(aluno, resultado.mensagem);
-  if(resultado.tocarBip) bip();
+  try{
+    const resultado = await marcarPresenca(aluno, distance);
+    mostrarCardReconhecimento(aluno, resultado.mensagem);
+    if(resultado.tocarBip) bip();
+  }catch(err){
+    console.error('Erro ao marcar presença:', err);
+    mostrarCardReconhecimento(aluno, '❌ erro ao salvar — tente de novo');
+    toast('Erro ao registrar presença: ' + err.message);
+    ultimoReconhecidoId = null; // libera pra tentar de novo na hora, sem esperar os 4s
+  }
 }
 
 function mostrarCardReconhecimento(aluno, statusTexto){
@@ -1322,7 +1329,14 @@ async function marcarPresenca(aluno, distance, origem){
   const dataISO = dataHojeISO();
   const docId = aluno.id + '_' + dataISO;
   const ref = db.collection('presencas').doc(docId);
-  const existente = await ref.get();
+  let existente;
+  try{
+    existente = await ref.get();
+  }catch(e){
+    // não conseguiu checar se já existe (típico de estar offline com esse documento específico
+    // ainda não visto antes) — assume que não existe e segue tentando registrar
+    existente = { exists: false };
+  }
   if(existente.exists){
     const dados = existente.data();
     return { mensagem: dados.tipoRegistro === 'reposicao' ? 'reposição já registrada hoje' : 'presença já registrada hoje', tocarBip: false };
@@ -1594,7 +1608,9 @@ async function kioskRegistrarSucesso(aluno, distance){
     const resultado = await marcarPresenca(aluno, distance, 'facial');
     mostrarKioskSucesso(aluno, resultado);
   }catch(err){
-    console.error(err);
+    console.error('Erro ao marcar presença (quiosque):', err);
+    toast('⚠️ Falha ao salvar a presença de ' + aluno.nome + ': ' + err.message);
+    kioskUltimoId = null; // não bloqueia mais esse aluno no cooldown — deixa tentar de novo
   }
 }
 
