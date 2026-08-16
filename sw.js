@@ -30,7 +30,12 @@ self.addEventListener('fetch', function(event) {
       if (cached) return cached;
       return fetch(event.request).then(function(resp) {
         var copy = resp.clone();
-        caches.open(CACHE_NAME).then(function(cache) { cache.put(event.request, copy); });
+        // Precisa do waitUntil aqui — sem ele, o navegador pode encerrar o Service Worker
+        // antes do cache.put() terminar de salvar, principalmente quando muitos arquivos
+        // (como os modelos de reconhecimento facial) chegam quase juntos.
+        event.waitUntil(
+          caches.open(CACHE_NAME).then(function(cache) { return cache.put(event.request, copy); })
+        );
         return resp;
       }).catch(function() { return cached; });
     })
