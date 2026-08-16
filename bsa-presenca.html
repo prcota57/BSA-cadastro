@@ -350,6 +350,7 @@
 
   <div class="panel" id="unitPanel" style="display:none;">
     <h2>1. Escolha a unidade</h2>
+    <div id="offlineStatus" style="margin:-6px 0 12px 0; font-size:12.5px; font-weight:600; cursor:pointer;"></div>
     <div class="unit-row">
       <button class="unit-btn" data-u="Carlos Prates">Carlos Prates<span class="count" id="countCP">0 rostos prontos</span></button>
       <button class="unit-btn" data-u="Estoril">Estoril<span class="count" id="countES">0 rostos prontos</span></button>
@@ -733,10 +734,48 @@ async function carregarModelosEAlunos(){
     document.getElementById('modelPanel').style.display = 'none';
     document.getElementById('unitPanel').style.display = 'block';
     carregarAlunos();
+    verificarProntidaoOffline();
   }catch(err){
     document.getElementById('modelStatus').textContent = 'Erro ao carregar modelos: ' + err.message;
   }
 }
+
+/* Confere de verdade o que já ficou salvo no aparelho (não é só "achismo") */
+async function verificarProntidaoOffline(){
+  const el = document.getElementById('offlineStatus');
+  if(!el) return;
+  if(!('caches' in window)){
+    el.textContent = '⚠️ Este navegador não guarda cache — uso offline não vai funcionar aqui';
+    el.style.color = '#c94b34';
+    return;
+  }
+  try{
+    const nomes = await caches.keys();
+    let todasChaves = [];
+    for(const nome of nomes){
+      const cache = await caches.open(nome);
+      const reqs = await cache.keys();
+      todasChaves = todasChaves.concat(reqs.map(r=>r.url));
+    }
+    const temModelos = todasChaves.some(u=> u.includes('tiny_face_detector') || u.includes('face_recognition') || u.includes('face_landmark'));
+    const temSons = todasChaves.some(u=> u.includes('palmas-simples') || u.includes('fail-trombeta'));
+    const temFirebase = todasChaves.some(u=> u.includes('firebase'));
+    if(temModelos && temSons && temFirebase){
+      el.textContent = '✅ Pronto para uso offline (toque pra verificar de novo)';
+      el.style.color = '#2e7d32';
+    } else {
+      const faltando = [];
+      if(!temModelos) faltando.push('modelos de reconhecimento');
+      if(!temSons) faltando.push('sons');
+      if(!temFirebase) faltando.push('banco de dados');
+      el.textContent = '⚠️ Ainda faltando salvar: ' + faltando.join(', ') + ' — feche e abra o app de novo com internet';
+      el.style.color = '#c94b34';
+    }
+  }catch(e){
+    el.textContent = '';
+  }
+}
+document.getElementById('offlineStatus').addEventListener('click', verificarProntidaoOffline);
 
 function carregarAlunos(){
   db.collection('alunos').where('faceDescriptor', '!=', null).onSnapshot(snap=>{
