@@ -250,6 +250,28 @@ async function carregarMensalidades(){
   var snap = await db.collection('mensalidades').get();
   state.mensalidades = [];
   snap.forEach(function(doc){ state.mensalidades.push(Object.assign({id:doc.id}, doc.data())); });
+  await sincronizarResponsavelPendentes();
+}
+
+async function sincronizarResponsavelPendentes(){
+  var alunosPorId = {};
+  state.alunos.forEach(function(a){ alunosPorId[a.id] = a; });
+  var batch = db.batch();
+  var alguma = false;
+  state.mensalidades.forEach(function(m){
+    var st = statusComputado(m);
+    if(st==='pago' || st==='isento') return;
+    var a = alunosPorId[m.alunoId];
+    if(!a) return;
+    if(m.responsavelNome !== a.responsavelNome || m.responsavelWhatsapp !== a.responsavelWhatsapp || m.nomeAluno !== a.nome){
+      batch.update(db.collection('mensalidades').doc(m.id), {
+        responsavelNome: a.responsavelNome, responsavelWhatsapp: a.responsavelWhatsapp, nomeAluno: a.nome
+      });
+      m.responsavelNome = a.responsavelNome; m.responsavelWhatsapp = a.responsavelWhatsapp; m.nomeAluno = a.nome;
+      alguma = true;
+    }
+  });
+  if(alguma) await batch.commit();
 }
 
 async function carregarMovimentacoes(){
