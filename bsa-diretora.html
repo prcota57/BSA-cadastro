@@ -1078,16 +1078,22 @@ function mesAtualDiretora(){ const d = new Date(); return d.getFullYear()+'-'+St
 
 function computarVisaoGeral(){
   // Radar de saúde
+  // AVISO: presença e risco de evasão foram temporariamente TIRADOS do cálculo da saúde geral
+  // (mas continuam exibidos nos cartões individuais, só não entram na média ponderada).
+  // Motivo: a chamada não estava sendo registrada com regularidade, o que fazia dia sem
+  // chamada ser contado como "aluno ausente" — gerando alarme falso de evasão em massa.
+  // Reativar os dois (voltar aos pesos 0.4 / 0.35 / 0.25 comentados abaixo) quando o
+  // registro de chamada estiver consistente de novo (combinado: a partir do mês seguinte).
   const presenca = taxaPresenca14dias(null);
   const inadimplencia = taxaInadimplencia(null);
   const risco = alunosEmRisco(null);
   const totalComTreino = alunosCache.filter(a=> a.diasTreino && a.diasTreino.length).length || 1;
 
   const partesValidas = [];
-  if(presenca !== null) partesValidas.push(presenca * 0.4);
-  if(inadimplencia !== null) partesValidas.push((100-inadimplencia) * 0.35);
-  partesValidas.push((100 - clamp((risco/totalComTreino)*100, 0, 100)) * 0.25);
-  const somaPesos = (presenca!==null?0.4:0) + (inadimplencia!==null?0.35:0) + 0.25;
+  // if(presenca !== null) partesValidas.push(presenca * 0.4); // desativado — ver aviso acima
+  if(inadimplencia !== null) partesValidas.push((100-inadimplencia) * 1.0);
+  // partesValidas.push((100 - clamp((risco/totalComTreino)*100, 0, 100)) * 0.25); // desativado — ver aviso acima
+  const somaPesos = (inadimplencia!==null?1.0:0);
   const saude = somaPesos > 0 ? Math.round(partesValidas.reduce((a,b)=>a+b,0) / somaPesos) : null;
 
   document.getElementById('radarNum').textContent = saude !== null ? saude + '%' : '—';
@@ -1201,28 +1207,32 @@ function computarSugestoes(){
   }
 
   // 3. Vários alunos em risco de evasão ao mesmo tempo
-  const riscoTotal = alunosEmRisco(null);
-  if(riscoTotal >= 3){
-    sugestoes.push({ ico:'🚨', titulo:`${riscoTotal} alunos com risco de evasão agora`, texto:'Vários alunos acumulando faltas seguidas ao mesmo tempo pode ser coincidência de calendário (feriado, chuva) ou sinal de algo na rotina da turma. Vale um contato pessoal, não só a mensagem automática.' });
-  }
+  // DESATIVADO TEMPORARIAMENTE: essa sugestão usa faltas seguidas (contarFaltasSeguidas),
+  // que também confunde "chamada não feita" com "aluno ausente" — mesmo problema do radar
+  // de saúde. Reativar junto com a presença no radar (ver AVISO em computarVisaoGeral).
+  // const riscoTotal = alunosEmRisco(null);
+  // if(riscoTotal >= 3){
+  //   sugestoes.push({ ico:'🚨', titulo:`${riscoTotal} alunos com risco de evasão agora`, texto:'Vários alunos acumulando faltas seguidas ao mesmo tempo pode ser coincidência de calendário (feriado, chuva) ou sinal de algo na rotina da turma. Vale um contato pessoal, não só a mensagem automática.' });
+  // }
 
   // 4. Turma com presença historicamente baixa
-  const hoje = diaSemanaHoje();
-  const turmasVistas = {};
-  alunosCache.forEach(a=>{
-    if(!a.horarioTreino) return;
-    (a.diasTreino||[]).forEach(dia=>{
-      const key = a.unidade+'|'+a.horarioTreino;
-      if(!turmasVistas[key]) turmasVistas[key] = { unidade:a.unidade, horario:a.horarioTreino, alunos:[] };
-      if(!turmasVistas[key].alunos.some(x=>x.id===a.id)) turmasVistas[key].alunos.push(a);
-    });
-  });
-  Object.values(turmasVistas).forEach(t=>{
-    const taxa = taxaPresencaTurma(t.unidade, t.horario, t.alunos);
-    if(taxa !== null && taxa < 55){
-      sugestoes.push({ ico:'📉', titulo:`Presença baixa — turma das ${t.horario} (${t.unidade})`, texto:`Essa turma está com taxa de presença de ${taxa}% nas últimas 2 semanas, bem abaixo do ideal. Pode valer entender o motivo — horário difícil, época do ano, ou algo pontual — antes de virar padrão.` });
-    }
-  });
+  // DESATIVADO TEMPORARIAMENTE: mesmo motivo acima (depende de chamada registrada).
+  // const hoje = diaSemanaHoje();
+  // const turmasVistas = {};
+  // alunosCache.forEach(a=>{
+  //   if(!a.horarioTreino) return;
+  //   (a.diasTreino||[]).forEach(dia=>{
+  //     const key = a.unidade+'|'+a.horarioTreino;
+  //     if(!turmasVistas[key]) turmasVistas[key] = { unidade:a.unidade, horario:a.horarioTreino, alunos:[] };
+  //     if(!turmasVistas[key].alunos.some(x=>x.id===a.id)) turmasVistas[key].alunos.push(a);
+  //   });
+  // });
+  // Object.values(turmasVistas).forEach(t=>{
+  //   const taxa = taxaPresencaTurma(t.unidade, t.horario, t.alunos);
+  //   if(taxa !== null && taxa < 55){
+  //     sugestoes.push({ ico:'📉', titulo:`Presença baixa — turma das ${t.horario} (${t.unidade})`, texto:`Essa turma está com taxa de presença de ${taxa}% nas últimas 2 semanas, bem abaixo do ideal. Pode valer entender o motivo — horário difícil, época do ano, ou algo pontual — antes de virar padrão.` });
+  //   }
+  // });
 
   // 5. Tarefas acumuladas
   const agoraMs = Date.now();
@@ -1261,7 +1271,7 @@ function computarSugestoes(){
   const somaPesos = (presenca!==null?0.4:0) + (inadGeral!==null?0.35:0) + 0.25;
   const saudeGeral = somaPesos > 0 ? Math.round(partesValidas.reduce((a,b)=>a+b,0) / somaPesos) : null;
   if(saudeGeral !== null && saudeGeral < 60){
-    sugestoes.push({ ico:'🩺', titulo:'Saúde geral da BSA abaixo do ideal', texto:`O indicador combinado (presença, inadimplência e risco de evasão) está em ${saudeGeral}%. Vale olhar a aba Visão Geral pra entender qual das três frentes está puxando o número pra baixo.` });
+    sugestoes.push({ ico:'🩺', titulo:'Saúde geral da BSA abaixo do ideal', texto:`O indicador (por enquanto baseado só na inadimplência, com presença e risco temporariamente fora do cálculo) está em ${saudeGeral}%. Vale olhar a aba Visão Geral e o financeiro pra entender o que está puxando o número pra baixo.` });
   }
 
   renderSugestoes(sugestoes);
