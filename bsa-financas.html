@@ -337,12 +337,17 @@ function parseLinhaExtrato(linha){
 function conferirExtratoLocal(entradas){
   var autoBaixados = [];
   var revisar = [];
+  var alunosPorId = {};
+  state.alunos.forEach(function(a){ alunosPorId[a.id] = a; });
   entradas.forEach(function(entrada){
     var nomeNorm = normalizeNomeExtrato(entrada.nomeOriginal);
     var jaExisteAlunoComEsseNome = state.alunos.some(function(a){ return normalizeNomeExtrato(a.responsavelNome)===nomeNorm; });
     var pendentes = state.mensalidades.filter(function(m){
       var st = statusComputado(m);
-      return st!=='pago' && st!=='isento' && normalizeNomeExtrato(m.responsavelNome)===nomeNorm;
+      if(st==='pago' || st==='isento') return false;
+      var a = alunosPorId[m.alunoId];
+      if(!a) return false;
+      return normalizeNomeExtrato(a.responsavelNome)===nomeNorm;
     });
     if(pendentes.length===0){
       var tokensExtrato = nomeNorm.split(' ').filter(function(t){ return t.length>=3; });
