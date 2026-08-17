@@ -329,8 +329,8 @@ function parseLinhaExtrato(linha){
   if(!valor || valor<=0) return null;
   // remove o valor (última ocorrência) e caracteres de tabela/markdown que sobraram
   var idx = l.lastIndexOf(valorTxt);
-  var nome = (l.slice(0, idx) + l.slice(idx+valorTxt.length))
-    .replace(/[-–—:]+$/,'').replace(/^[-–—:]+/,'').replace(/\s+/g,' ').trim();
+  var nome = (l.slice(0, idx) + l.slice(idx+valorTxt.length)).trim()
+    .replace(/[-–—:]+$/,'').replace(/^[-–—:]+/,'').trim();
   if(!nome) return null;
   return { nomeOriginal: nome, valor: valor };
 }
