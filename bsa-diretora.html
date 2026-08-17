@@ -511,28 +511,32 @@ function computarChamadaPendenteEFaltantes(){
       });
     }
 
-    // faltantes individuais dessa turma (só depois que já deu tempo/buffer)
-    turma.alunos.forEach(a=>{
-      if(presentesHojeSet.has(a.id)) return;
-      const streak = contarFaltasSeguidas(a);
-      const tempo = clamp(minutosPassados * 0.5, 0, 40);
-      const impacto = streak >= 2 ? 30 : 18;
-      const repeticao = clamp(streak * 9, 0, 30);
-      const score = calcularScore(tempo, impacto, repeticao);
-      const msg = `Olá! Aqui é da equipe do BSA (Brazilian Skills Academy) 🎽⚽. Notamos que ${primeiroNome(a.nome)} não compareceu ao treino hoje. Está tudo bem com ele(a)? Se puder, nos conta rapidinho o motivo. E se quiserem remarcar, agendamos a reposição com prazer! 💚`;
-      const acoes = [];
-      if(a.responsavelWhatsapp) acoes.push({ tipo:'wpp', label:'WhatsApp', url: gerarLinkWhatsApp(a.responsavelWhatsapp, msg) });
-      itens.push({
-        id: 'falta_' + a.id + '_' + hoje,
-        tipo: 'falta', unidade: a.unidade, score, alunoId: a.id, alunoNome: a.nome,
-        ico: streak >= 2 ? '🚨' : '❌',
-        titulo: (streak >= 2 ? 'Risco de evasão — ' : 'Faltou hoje — ') + a.nome,
-        detalhe: streak >= 2
-          ? streak + ' faltas seguidas sem contato · treino ' + a.horarioTreino
-          : 'Não compareceu ao treino de hoje · ' + a.horarioTreino,
-        acoes
+    // faltantes individuais dessa turma (só depois que já deu tempo/buffer, e só se a
+    // chamada da turma foi de fato feita — senão é chamada pendente, não falta individual;
+    // ver AVISO em computarVisaoGeral sobre esse mesmo problema no radar de saúde)
+    if(algumPresente){
+      turma.alunos.forEach(a=>{
+        if(presentesHojeSet.has(a.id)) return;
+        const streak = contarFaltasSeguidas(a);
+        const tempo = clamp(minutosPassados * 0.5, 0, 40);
+        const impacto = streak >= 2 ? 30 : 18;
+        const repeticao = clamp(streak * 9, 0, 30);
+        const score = calcularScore(tempo, impacto, repeticao);
+        const msg = `Olá! Aqui é da equipe do BSA (Brazilian Skills Academy) 🎽⚽. Notamos que ${primeiroNome(a.nome)} não compareceu ao treino hoje. Está tudo bem com ele(a)? Se puder, nos conta rapidinho o motivo. E se quiserem remarcar, agendamos a reposição com prazer! 💚`;
+        const acoes = [];
+        if(a.responsavelWhatsapp) acoes.push({ tipo:'wpp', label:'WhatsApp', url: gerarLinkWhatsApp(a.responsavelWhatsapp, msg) });
+        itens.push({
+          id: 'falta_' + a.id + '_' + hoje,
+          tipo: 'falta', unidade: a.unidade, score, alunoId: a.id, alunoNome: a.nome,
+          ico: streak >= 2 ? '🚨' : '❌',
+          titulo: (streak >= 2 ? 'Risco de evasão — ' : 'Faltou hoje — ') + a.nome,
+          detalhe: streak >= 2
+            ? streak + ' faltas seguidas sem contato · treino ' + a.horarioTreino
+            : 'Não compareceu ao treino de hoje · ' + a.horarioTreino,
+          acoes
+        });
       });
-    });
+    }
   });
 
   return itens;
@@ -1076,15 +1080,15 @@ function alunosEmRisco(unidadeAlvo){
 
 function mesAtualDiretora(){ const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 
-function taxaChamadaHoje(){
-  // % das turmas de hoje que já passaram do horário (+ buffer) e tiveram chamada feita
+function statusChamadaHoje(){
+  // { esperadas, feitas } — turmas de hoje que já passaram do horário (+ buffer)
   const hoje = diaSemanaHoje();
   const nowMin = nowMinutos();
   const turmas = {};
   alunosCache.forEach(a=>{
     if(!a.diasTreino || !a.diasTreino.includes(hoje) || !a.horarioTreino) return;
     const key = a.unidade + '|' + a.horarioTreino;
-    if(!turmas[key]) turmas[key] = { horario: a.horarioTreino, alunos: [] };
+    if(!turmas[key]) turmas[key] = { unidade: a.unidade, horario: a.horarioTreino, alunos: [] };
     turmas[key].alunos.push(a);
   });
   let esperadas = 0, feitas = 0;
@@ -1096,6 +1100,11 @@ function taxaChamadaHoje(){
     esperadas++;
     if(turma.alunos.some(a => presentesHojeSet.has(a.id))) feitas++;
   });
+  return { esperadas, feitas };
+}
+
+function taxaChamadaHoje(){
+  const { esperadas, feitas } = statusChamadaHoje();
   return esperadas > 0 ? Math.round((feitas/esperadas)*100) : null;
 }
 
@@ -1250,33 +1259,18 @@ function computarSugestoes(){
     sugestoes.push({ ico:'💸', titulo:`Inadimplência bem mais alta em ${pior}`, texto:`${pior} está com inadimplência bem acima de ${melhor} (${inadCP}% vs ${inadES}%). Pode valer revisar a rotina de cobrança ou de comunicação nessa unidade especificamente.` });
   }
 
-  // 3. Vários alunos em risco de evasão ao mesmo tempo
-  // DESATIVADO TEMPORARIAMENTE: essa sugestão usa faltas seguidas (contarFaltasSeguidas),
-  // que também confunde "chamada não feita" com "aluno ausente" — mesmo problema do radar
-  // de saúde. Reativar junto com a presença no radar (ver AVISO em computarVisaoGeral).
-  // const riscoTotal = alunosEmRisco(null);
-  // if(riscoTotal >= 3){
-  //   sugestoes.push({ ico:'🚨', titulo:`${riscoTotal} alunos com risco de evasão agora`, texto:'Vários alunos acumulando faltas seguidas ao mesmo tempo pode ser coincidência de calendário (feriado, chuva) ou sinal de algo na rotina da turma. Vale um contato pessoal, não só a mensagem automática.' });
-  // }
+  // 3. Chamada pendente hoje (substitui a antiga "risco de evasão", que usava faltas
+  // seguidas e confundia chamada não feita com aluno ausente)
+  const statusChamada = statusChamadaHoje();
+  const chamadaPendenteHoje = statusChamada.esperadas - statusChamada.feitas;
+  if(chamadaPendenteHoje >= 1){
+    sugestoes.push({ ico:'⏰', titulo:`Chamada pendente em ${chamadaPendenteHoje} turma(s) hoje`, texto:`${chamadaPendenteHoje} de ${statusChamada.esperadas} turma(s) já passaram do horário e ainda não têm chamada registrada hoje. Fazer a chamada agora ajuda o radar de saúde a voltar a refletir a presença de verdade.` });
+  }
 
-  // 4. Turma com presença historicamente baixa
-  // DESATIVADO TEMPORARIAMENTE: mesmo motivo acima (depende de chamada registrada).
-  // const hoje = diaSemanaHoje();
-  // const turmasVistas = {};
-  // alunosCache.forEach(a=>{
-  //   if(!a.horarioTreino) return;
-  //   (a.diasTreino||[]).forEach(dia=>{
-  //     const key = a.unidade+'|'+a.horarioTreino;
-  //     if(!turmasVistas[key]) turmasVistas[key] = { unidade:a.unidade, horario:a.horarioTreino, alunos:[] };
-  //     if(!turmasVistas[key].alunos.some(x=>x.id===a.id)) turmasVistas[key].alunos.push(a);
-  //   });
-  // });
-  // Object.values(turmasVistas).forEach(t=>{
-  //   const taxa = taxaPresencaTurma(t.unidade, t.horario, t.alunos);
-  //   if(taxa !== null && taxa < 55){
-  //     sugestoes.push({ ico:'📉', titulo:`Presença baixa — turma das ${t.horario} (${t.unidade})`, texto:`Essa turma está com taxa de presença de ${taxa}% nas últimas 2 semanas, bem abaixo do ideal. Pode valer entender o motivo — horário difícil, época do ano, ou algo pontual — antes de virar padrão.` });
-  //   }
-  // });
+  // 4. Cadastros pendentes acumulando
+  if(cadastrosPendentesCache.length >= 3){
+    sugestoes.push({ ico:'📝', titulo:`${cadastrosPendentesCache.length} cadastros aguardando aprovação`, texto:'Cadastros vindos do formulário público estão parados. Quanto mais tempo esperando, maior a chance da família desistir antes de virar aluno de verdade.' });
+  }
 
   // 5. Tarefas acumuladas
   const agoraMs = Date.now();
