@@ -141,6 +141,7 @@
       </div>
     </div>
     <div class="pend-badge" id="pendBadge">0</div>
+    <div id="btnNotif" onclick="ativarNotificacoes()" style="font-size:20px;padding:4px 8px;cursor:pointer;" title="Ativar notificações">🔕</div>
   </div>
 </header>
 
@@ -211,6 +212,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
 <script>
 /* ============ CONFIG ============ */
 const firebaseConfig = {
@@ -255,9 +257,49 @@ function definirUsuario(nome){
   localStorage.setItem('bsaTarefasUsuario', nome);
   document.getElementById('quemOverlay').classList.remove('active');
   atualizarHeaderSub();
+  atualizarBotaoNotif();
 }
 function atualizarHeaderSub(){
   document.getElementById('headerSub').textContent = 'Você: ' + usuarioAtual;
+}
+
+/* ============ NOTIFICAÇÕES (FCM) ============ */
+const VAPID_KEY = 'BPdbdb5gn9IK9VTI1IfuvzM0x7RLOKWxl9c-XuHQg3OP3njHNnrZmwEg1nHDLj3dB9rZjZ_O2BNaB5TXuIzmCyg';
+function atualizarBotaoNotif(){
+  const btn = document.getElementById('btnNotif');
+  if(!btn) return;
+  const ativo = localStorage.getItem('bsaNotifAtivo') === '1';
+  btn.textContent = ativo ? '🔔' : '🔕';
+}
+atualizarBotaoNotif();
+
+async function ativarNotificacoes(){
+  try{
+    if(!('Notification' in window) || !('serviceWorker' in navigator)){
+      alert('Esse navegador não suporta notificações. No iPhone, adicione o BSA à Tela de Início e abra por lá (Safari sozinho não recebe notificação em segundo plano).');
+      return;
+    }
+    if(!usuarioAtual){ alert('Escolha quem você é primeiro.'); return; }
+    const perm = await Notification.requestPermission();
+    if(perm !== 'granted'){ alert('Notificação não autorizada. Pra ativar depois, vai em Ajustes do iPhone > Notificações > BSA.'); return; }
+    const reg = await navigator.serviceWorker.register('sw.js');
+    await navigator.serviceWorker.ready;
+    const messaging = firebase.messaging();
+    const token = await messaging.getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
+    if(token){
+      await db.collection('notificacaoTokens').doc(token).set({
+        token: token,
+        pessoa: usuarioAtual,
+        atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      localStorage.setItem('bsaNotifAtivo','1');
+      atualizarBotaoNotif();
+      if(navigator.vibrate) navigator.vibrate(120);
+    }
+  }catch(e){
+    console.error(e);
+    alert('Não deu pra ativar as notificações agora. Confirma que o BSA foi adicionado à Tela de Início.');
+  }
 }
 
 /* ============ NAVEGAÇÃO ============ */
@@ -392,6 +434,38 @@ document.getElementById('screen-captura').addEventListener('click', (e)=>{
 });
 
 /* ============ PARSING DA FALA ============ */
+const DIAS_SEMANA_NOMES = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
+function extrairDataHora(lower){
+  // horário: "21h", "21h30", "21 horas", "9 da manhã/tarde/noite"
+  const mHora = lower.match(/\b(\d{1,2})\s*(?:h|horas?)\s*(\d{2})?\b/);
+  if(!mHora) return null;
+  let hora = parseInt(mHora[1], 10);
+  let min = mHora[2] ? parseInt(mHora[2], 10) : 0;
+  if(hora > 23 || min > 59) return null;
+
+  const agora = new Date();
+  let alvo = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), hora, min, 0, 0);
+
+  if(/\bamanh[ãa]\b/.test(lower)){
+    alvo.setDate(alvo.getDate() + 1);
+  } else {
+    let diaAlvo = -1;
+    DIAS_SEMANA_NOMES.forEach((nome, idx)=>{
+      if(new RegExp('\\b' + nome + '(-feira)?\\b').test(lower)) diaAlvo = idx;
+    });
+    if(diaAlvo >= 0){
+      let dif = (diaAlvo - agora.getDay() + 7) % 7;
+      if(dif === 0) dif = 7; // já passou hoje, pula pra próxima semana
+      alvo.setDate(alvo.getDate() + dif);
+    } else if(/\bhoje\b/.test(lower)){
+      if(alvo <= agora) return null; // "hoje às 9h" falado às 15h não faz sentido, ignora
+    } else {
+      return null; // não achou referência de dia — não é um lembrete agendado
+    }
+  }
+  return { data: alvo, trecho: mHora[0] };
+}
+
 function processarFala(textoOriginal){
   const original = textoOriginal.trim();
   if(!original) return;
@@ -409,6 +483,8 @@ function processarFala(textoOriginal){
   let unidade = unidadeAtual || null;
   if(/carlos\s*prates/.test(lower)) unidade = 'Carlos Prates';
   else if(/estoril/.test(lower)) unidade = 'Estoril';
+
+  const dataHora = extrairDataHora(lower);
 
   // limpa o texto removendo os comandos falados
   let limpo = original
@@ -437,6 +513,21 @@ function processarFala(textoOriginal){
     concluidoPor: null,
     concluidoEm: null
   });
+
+  if(dataHora){
+    db.collection('lembretesAgendados').add({
+      texto: limpo,
+      responsavel: responsavel, // null = notifica Ronaldo e Iasmin
+      dataHora: firebase.firestore.Timestamp.fromDate(dataHora.data),
+      enviado: false,
+      criadoPor: usuarioAtual || 'Desconhecido',
+      criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(()=>{});
+    const toast = document.getElementById('savedToast');
+    const textoOriginalToast = toast.textContent;
+    toast.textContent = '🔔 Lembrete agendado pra ' + dataHora.data.toLocaleString('pt-BR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
+    setTimeout(()=>{ toast.textContent = textoOriginalToast; }, 1600);
+  }
 }
 
 function salvarTarefa(dados){
