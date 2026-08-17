@@ -1076,24 +1076,68 @@ function alunosEmRisco(unidadeAlvo){
 
 function mesAtualDiretora(){ const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 
+function taxaChamadaHoje(){
+  // % das turmas de hoje que já passaram do horário (+ buffer) e tiveram chamada feita
+  const hoje = diaSemanaHoje();
+  const nowMin = nowMinutos();
+  const turmas = {};
+  alunosCache.forEach(a=>{
+    if(!a.diasTreino || !a.diasTreino.includes(hoje) || !a.horarioTreino) return;
+    const key = a.unidade + '|' + a.horarioTreino;
+    if(!turmas[key]) turmas[key] = { horario: a.horarioTreino, alunos: [] };
+    turmas[key].alunos.push(a);
+  });
+  let esperadas = 0, feitas = 0;
+  Object.values(turmas).forEach(turma=>{
+    const horarioMin = horarioParaMinutos(turma.horario);
+    if(horarioMin === null) return;
+    const minutosPassados = nowMin - horarioMin;
+    if(minutosPassados < BUFFER_MIN) return; // ainda não deu tempo de cobrar
+    esperadas++;
+    if(turma.alunos.some(a => presentesHojeSet.has(a.id))) feitas++;
+  });
+  return esperadas > 0 ? Math.round((feitas/esperadas)*100) : null;
+}
+
+function indiceOperacional(){
+  // Substitui presença/risco no radar por enquanto: mede se a operação do dia a dia
+  // está em dia (tarefas, estoque/uniforme, cadastros pendentes, chamada feita hoje) —
+  // sinais que não dependem do histórico de presença dos alunos.
+  const agoraMs = Date.now();
+  const tarefasVelhas = tarefasCache.filter(t=> t.criadoEm && t.criadoEm.toMillis && (agoraMs - t.criadoEm.toMillis()) > 5*86400000).length;
+  const tarefasScore = 100 - clamp(tarefasCache.length*5 + tarefasVelhas*10, 0, 100);
+  const estoqueScore = 100 - clamp(danosCache.length*8, 0, 100);
+  const cadastrosScore = 100 - clamp(cadastrosPendentesCache.length*12, 0, 100);
+  const chamadaScore = taxaChamadaHoje();
+
+  const partes = [tarefasScore*0.3, estoqueScore*0.2, cadastrosScore*0.2];
+  let pesos = 0.3 + 0.2 + 0.2;
+  if(chamadaScore !== null){ partes.push(chamadaScore*0.3); pesos += 0.3; }
+  return pesos > 0 ? Math.round(partes.reduce((a,b)=>a+b,0)/pesos) : null;
+}
+
 function computarVisaoGeral(){
   // Radar de saúde
-  // AVISO: presença e risco de evasão foram temporariamente TIRADOS do cálculo da saúde geral
-  // (mas continuam exibidos nos cartões individuais, só não entram na média ponderada).
+  // AVISO: presença do aluno e risco de evasão foram temporariamente TIRADOS do cálculo
+  // (continuam exibidos nos cartões individuais, só não entram na média ponderada).
   // Motivo: a chamada não estava sendo registrada com regularidade, o que fazia dia sem
   // chamada ser contado como "aluno ausente" — gerando alarme falso de evasão em massa.
-  // Reativar os dois (voltar aos pesos 0.4 / 0.35 / 0.25 comentados abaixo) quando o
-  // registro de chamada estiver consistente de novo (combinado: a partir do mês seguinte).
+  // No lugar entrou o índice operacional (tarefas, estoque, cadastros, chamada do dia),
+  // pra saúde continuar medindo "tudo que a empresa precisa fazer" e não só financeiro.
+  // Reativar presença/risco (pesos 0.4 / 0.25 comentados abaixo) quando o registro de
+  // chamada estiver consistente de novo (combinado: a partir do mês seguinte).
   const presenca = taxaPresenca14dias(null);
   const inadimplencia = taxaInadimplencia(null);
   const risco = alunosEmRisco(null);
+  const operacional = indiceOperacional();
   const totalComTreino = alunosCache.filter(a=> a.diasTreino && a.diasTreino.length).length || 1;
 
   const partesValidas = [];
   // if(presenca !== null) partesValidas.push(presenca * 0.4); // desativado — ver aviso acima
-  if(inadimplencia !== null) partesValidas.push((100-inadimplencia) * 1.0);
+  if(inadimplencia !== null) partesValidas.push((100-inadimplencia) * 0.35);
+  if(operacional !== null) partesValidas.push(operacional * 0.65);
   // partesValidas.push((100 - clamp((risco/totalComTreino)*100, 0, 100)) * 0.25); // desativado — ver aviso acima
-  const somaPesos = (inadimplencia!==null?1.0:0);
+  const somaPesos = (inadimplencia!==null?0.35:0) + (operacional!==null?0.65:0);
   const saude = somaPesos > 0 ? Math.round(partesValidas.reduce((a,b)=>a+b,0) / somaPesos) : null;
 
   document.getElementById('radarNum').textContent = saude !== null ? saude + '%' : '—';
@@ -1271,7 +1315,7 @@ function computarSugestoes(){
   const somaPesos = (presenca!==null?0.4:0) + (inadGeral!==null?0.35:0) + 0.25;
   const saudeGeral = somaPesos > 0 ? Math.round(partesValidas.reduce((a,b)=>a+b,0) / somaPesos) : null;
   if(saudeGeral !== null && saudeGeral < 60){
-    sugestoes.push({ ico:'🩺', titulo:'Saúde geral da BSA abaixo do ideal', texto:`O indicador (por enquanto baseado só na inadimplência, com presença e risco temporariamente fora do cálculo) está em ${saudeGeral}%. Vale olhar a aba Visão Geral e o financeiro pra entender o que está puxando o número pra baixo.` });
+    sugestoes.push({ ico:'🩺', titulo:'Saúde geral da BSA abaixo do ideal', texto:`O indicador (por enquanto baseado em inadimplência e índice operacional — tarefas, estoque, cadastros e chamada do dia — com presença e risco temporariamente fora do cálculo) está em ${saudeGeral}%. Vale olhar a aba Visão Geral pra entender qual frente está puxando o número pra baixo.` });
   }
 
   renderSugestoes(sugestoes);
