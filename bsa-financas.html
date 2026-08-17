@@ -322,7 +322,13 @@ function conferirExtratoLocal(entradas){
       return st!=='pago' && st!=='isento' && normalizeNomeExtrato(m.responsavelNome)===nomeNorm;
     });
     if(pendentes.length===0){
-      revisar.push({ entrada:entrada, motivo:'Nome do responsável não encontrado (ou não bate exatamente) no cadastro.' });
+      var tokensExtrato = nomeNorm.split(' ').filter(function(t){ return t.length>=3; });
+      var parecidos = state.alunos.filter(function(a){
+        var rn = normalizeNomeExtrato(a.responsavelNome);
+        if(!rn) return false;
+        return tokensExtrato.some(function(t){ return rn.indexOf(t)>=0; });
+      }).slice(0,3);
+      revisar.push({ entrada:entrada, motivo:'Nome do responsável não encontrado (ou não bate exatamente) no cadastro.', parecidos:parecidos });
       return;
     }
     var comValorBatendo = pendentes.filter(function(m){ return Math.abs(Number(m.valor)-entrada.valor) < 0.005; });
@@ -466,6 +472,11 @@ function renderExtrato(app){
       html += '<div class="row-card" style="display:block;">'
         + '<div class="info"><div class="name">'+x.entrada.nomeOriginal+'</div><div class="meta">'+fmtMoeda(x.entrada.valor)+'</div></div>'
         + '<div class="hint" style="margin:6px 0;">'+x.motivo+'</div>';
+      if(x.parecidos && x.parecidos.length){
+        html += '<div class="hint" style="margin:6px 0;background:#fff8e1;padding:8px;border-radius:8px;">Nomes parecidos no cadastro (confira a grafia exata):<br>'
+          + x.parecidos.map(function(a){ return '&bull; Responsável: "<b>'+(a.responsavelNome||'(vazio)')+'</b>" — aluno: '+a.nome; }).join('<br>')
+          + '</div>';
+      }
       if(x.candidatos && x.candidatos.length){
         html += x.candidatos.map(function(m){
           return '<button class="btn btn-blue" style="margin:4px 4px 0 0;" data-action="marcarPago" data-id="'+m.id+'">Marcar pago: '+m.nomeAluno+' ('+fmtMoeda(m.valor)+')</button>';
