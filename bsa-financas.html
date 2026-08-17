@@ -339,18 +339,23 @@ function conferirExtratoLocal(entradas){
   var revisar = [];
   entradas.forEach(function(entrada){
     var nomeNorm = normalizeNomeExtrato(entrada.nomeOriginal);
+    var jaExisteAlunoComEsseNome = state.alunos.some(function(a){ return normalizeNomeExtrato(a.responsavelNome)===nomeNorm; });
     var pendentes = state.mensalidades.filter(function(m){
       var st = statusComputado(m);
       return st!=='pago' && st!=='isento' && normalizeNomeExtrato(m.responsavelNome)===nomeNorm;
     });
     if(pendentes.length===0){
       var tokensExtrato = nomeNorm.split(' ').filter(function(t){ return t.length>=3; });
-      var parecidos = state.alunos.filter(function(a){
+      var parecidos = state.alunos.map(function(a){
         var rn = normalizeNomeExtrato(a.responsavelNome);
-        if(!rn) return false;
-        return tokensExtrato.some(function(t){ return rn.indexOf(t)>=0; });
-      }).slice(0,3);
-      revisar.push({ entrada:entrada, motivo:'Nome do responsável não encontrado (ou não bate exatamente) no cadastro.', parecidos:parecidos });
+        if(!rn) return null;
+        var score = tokensExtrato.filter(function(t){ return rn.indexOf(t)>=0; }).length;
+        return score>0 ? { aluno:a, score:score } : null;
+      }).filter(Boolean).sort(function(x,y){ return y.score-x.score; }).slice(0,3).map(function(x){ return x.aluno; });
+      var motivo = jaExisteAlunoComEsseNome
+        ? 'O nome bate com o cadastro, mas não há mensalidade em aberto pra esse responsável — provavelmente já está marcada como paga.'
+        : 'Nome do responsável não encontrado (ou não bate exatamente) no cadastro.';
+      revisar.push({ entrada:entrada, motivo:motivo, parecidos:parecidos });
       return;
     }
     var comValorBatendo = pendentes.filter(function(m){ return Math.abs(Number(m.valor)-entrada.valor) < 0.005; });
