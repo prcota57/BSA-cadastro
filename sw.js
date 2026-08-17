@@ -4,6 +4,30 @@ var CACHE_NAME = 'bsa-hub-cache-v2';
 var PREFIX = 'bsa-hub-cache-';
 var FILES = ['index.html', 'bsa-avaliacao.html', 'bsa-backup.html', 'bsa-cadastro.html', 'bsa-captacao.html', 'bsa-descritores.html', 'bsa-diretora.html', 'bsa-estoque.html', 'bsa-financas.html', 'bsa-mensageiro.html', 'bsa-presenca.html', 'bsa-relatorios.html', 'bsa-tarefas.html', 'bsa-treino-index.html'];
 
+// ---------- NOTIFICAÇÕES (Firebase Cloud Messaging) ----------
+try {
+  importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js');
+  importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js');
+  firebase.initializeApp({
+    apiKey: "AIzaSyDmM2m_QnEeRflAKCyb11TzOrZM7iVgLCA",
+    authDomain: "bsa-app-493c3.firebaseapp.com",
+    projectId: "bsa-app-493c3",
+    storageBucket: "bsa-app-493c3.firebasestorage.app",
+    messagingSenderId: "455452879388",
+    appId: "1:455452879388:web:7135d93c116b2fe7cfcdd9"
+  });
+  var messaging = firebase.messaging();
+  messaging.onBackgroundMessage(function(payload){
+    var titulo = (payload.notification && payload.notification.title) || '🔔 BSA';
+    var opcoes = {
+      body: (payload.notification && payload.notification.body) || '',
+      icon: 'icon-192.png',
+      badge: 'icon-192.png'
+    };
+    self.registration.showNotification(titulo, opcoes);
+  });
+} catch(e) { /* navegador sem suporte a push — segue só com o cache offline */ }
+
 self.addEventListener('install', function(event) {
   self.skipWaiting();
   event.waitUntil(
