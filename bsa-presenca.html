@@ -272,6 +272,21 @@
   }
   .kiosk-fail-icon{ font-size:56px; }
   .kiosk-fail-actions{ display:flex; flex-direction:column; gap:10px; margin-top:22px; width:100%; max-width:340px; }
+  .kiosk-fail-grid{
+    display:flex; flex-wrap:wrap; justify-content:center; gap:10px;
+    max-width:min(90vw,480px); margin:12px 0 6px 0; max-height:26vh; overflow-y:auto;
+  }
+  .kiosk-fail-grid .foto-item{
+    display:flex; flex-direction:column; align-items:center; gap:4px; width:64px; cursor:pointer;
+  }
+  .kiosk-fail-grid img, .kiosk-fail-grid .letra{
+    width:56px; height:56px; border-radius:50%; object-fit:cover; border:2px solid rgba(212,175,55,.5);
+  }
+  .kiosk-fail-grid .letra{
+    display:flex; align-items:center; justify-content:center; background:rgba(212,175,55,.15);
+    color:var(--k-gold-soft); font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:22px;
+  }
+  .kiosk-fail-grid .nome-mini{ color:var(--k-paper); font-size:10.5px; text-align:center; line-height:1.15; max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .kiosk-action-btn{
     font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px;
     border:none; border-radius:14px; padding:15px 18px; cursor:pointer;
@@ -495,6 +510,8 @@
     <div class="kiosk-fail-ring"><span class="kiosk-fail-icon">🙋</span></div>
     <h1 class="kiosk-headline kiosk-fail-headline">Não consegui identificar</h1>
     <p class="kiosk-subline">Sua presença ainda NÃO foi registrada</p>
+    <p class="kiosk-subline" id="kioskFailGridLabel" style="display:none; margin-top:4px;">👇 Ache a sua foto</p>
+    <div class="kiosk-fail-grid" id="kioskFailGrid"></div>
     <div class="kiosk-fail-actions">
       <button class="kiosk-action-btn" id="btnKioskManual">👋 Chamar professor · buscar manualmente</button>
       <button class="kiosk-action-btn secondary" id="btnKioskVoz">🎤 Buscar falando o nome</button>
@@ -827,7 +844,7 @@ function carregarAlunos(){
     snap.forEach(doc=>{
       const d = doc.data();
       if(d.faceDescriptor && Array.isArray(d.faceDescriptor)){
-        alunosCache.push({ id: doc.id, nome: d.nome || '(sem nome)', unidade: d.unidade || '', foto: d.foto || null, faceDescriptor: d.faceDescriptor, diasTreino: d.diasTreino || [], horarioTreino: d.horarioTreino || '' });
+        alunosCache.push({ id: doc.id, nome: d.nome || '(sem nome)', unidade: d.unidade || '', foto: d.foto || null, faceDescriptor: d.faceDescriptor, faceDescriptors: d.faceDescriptors || null, diasTreino: d.diasTreino || [], horarioTreino: d.horarioTreino || '' });
       }
     });
     document.getElementById('countBadge').textContent = alunosCache.length;
@@ -1431,16 +1448,24 @@ async function marcarPresenca(aluno, distance, origem){
   const dataISO = dataHojeISO();
   const docId = aluno.id + '_' + dataISO;
   const ref = db.collection('presencas').doc(docId);
-  let existente;
+  let existente = null;
   try{
     existente = await ref.get();
   }catch(e){
-    // Não conseguiu checar se já existe. NUNCA assume que não existe aqui — isso arriscaria
-    // sobrescrever por cima de um registro correto já feito (ex: em outra unidade). Melhor
-    // avisar e deixar tentar de novo do que arriscar apagar dado certo.
-    throw new Error('Não foi possível confirmar se a presença já existe (falha de rede) — tente de novo');
+    // O modo padrão tenta o servidor primeiro — offline, às vezes demora ou falha antes do
+    // app "perceber" que está sem internet. Tenta de novo forçando ler direto do cache local
+    // (o que já foi salvo no aparelho) antes de desistir de vez.
+    try{
+      existente = await ref.get({ source: 'cache' });
+    }catch(e2){
+      // Sem servidor e sem nada salvo no cache pra esse aluno hoje: na prática isso é o caso
+      // normal de "primeira vez que ele bate presença hoje" enquanto o app está offline —
+      // segue e registra. Risco baixo (só daria problema se o mesmo aluno já tivesse batido
+      // presença em outra unidade bem nesse intervalo offline, o que é raro).
+      existente = null;
+    }
   }
-  if(existente.exists){
+  if(existente && existente.exists){
     const dados = existente.data();
     return { mensagem: dados.tipoRegistro === 'reposicao' ? 'reposição já registrada hoje' : 'presença já registrada hoje', tocarBip: false };
   }
@@ -1568,6 +1593,54 @@ let kioskFacingMode = 'user'; // câmera FRONTAL por padrão — o aluno precisa
 
 function capitalizeKiosk(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
 
+/* janela de tolerância pra considerar um aluno "esperado agora": meia hora antes até 1h depois do horário fixo dele */
+function horarioParaMinutosKiosk(hhmm){
+  if(!hhmm) return null;
+  const m = hhmm.match(/(\d{1,2}):(\d{2})/);
+  if(!m) return null;
+  return parseInt(m[1],10)*60 + parseInt(m[2],10);
+}
+function alunosEsperadosAgora(){
+  if(!kioskUnidade) return [];
+  const hoje = diaSemanaHoje();
+  const agoraMin = new Date().getHours()*60 + new Date().getMinutes();
+  return todosAlunosCache.filter(a=>{
+    if(a.unidade !== kioskUnidade) return false;
+    if(!a.diasTreino || !a.diasTreino.includes(hoje)) return false;
+    const hMin = horarioParaMinutosKiosk(a.horarioTreino);
+    if(hMin === null) return true; // sem horário definido, não filtra por hora — melhor mostrar do que esconder
+    return agoraMin >= (hMin - 30) && agoraMin <= (hMin + 60);
+  });
+}
+function renderKioskFailGrid(){
+  const grid = document.getElementById('kioskFailGrid');
+  const label = document.getElementById('kioskFailGridLabel');
+  const esperados = alunosEsperadosAgora();
+  if(esperados.length === 0){
+    grid.innerHTML = '';
+    label.style.display = 'none';
+    return;
+  }
+  label.style.display = 'block';
+  grid.innerHTML = esperados.map(a=>{
+    const img = a.foto
+      ? `<img src="${a.foto}">`
+      : `<div class="letra">${(a.nome||'?').slice(0,1).toUpperCase()}</div>`;
+    return `<div class="foto-item" onclick="confirmarKioskPorFoto('${a.id}')">${img}<div class="nome-mini">${(a.nome||'').split(' ')[0]}</div></div>`;
+  }).join('');
+}
+
+async function confirmarKioskPorFoto(alunoId){
+  const aluno = todosAlunosCache.find(a=>a.id === alunoId);
+  if(!aluno) return;
+  try{
+    const resultado = await marcarPresenca(aluno, null, 'manual');
+    mostrarKioskSucesso(aluno, resultado);
+  }catch(err){
+    toast('⚠️ Erro ao registrar: ' + err.message);
+  }
+}
+
 function setKioskState(novoEstado){
   if(kioskState === novoEstado) return;
   kioskState = novoEstado;
@@ -1575,7 +1648,7 @@ function setKioskState(novoEstado){
   const tela = document.getElementById('kioskScreen' + capitalizeKiosk(novoEstado));
   if(tela) tela.classList.add('active');
   if(novoEstado === 'warn'){ somAvisoKiosk(); if(navigator.vibrate) navigator.vibrate(60); }
-  if(novoEstado === 'fail'){ somFalhaKiosk(); if(navigator.vibrate) navigator.vibrate([80,60,80]); }
+  if(novoEstado === 'fail'){ somFalhaKiosk(); if(navigator.vibrate) navigator.vibrate([80,60,80]); renderKioskFailGrid(); }
 }
 
 function tickKioskClock(){
