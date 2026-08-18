@@ -94,9 +94,13 @@
     transform:translateY(100%); transition:transform 0.25s ease-out;
   }
   .recognition-card.show{transform:translateY(0);}
-  .recognition-card img{width:56px; height:56px; border-radius:50%; object-fit:cover; border:2.5px solid var(--gold);}
-  .recognition-card .name{color:#fff; font-family:'Space Grotesk'; font-weight:700; font-size:16px;}
-  .recognition-card .status{color:var(--gold); font-size:12.5px; margin-top:2px; font-weight:600;}
+  .recognition-card img{width:104px; height:104px; border-radius:50%; object-fit:cover; border:3px solid var(--gold); flex:0 0 auto;}
+  .recognition-card .name{color:#fff; font-family:'Space Grotesk'; font-weight:700; font-size:24px; line-height:1.15;}
+  .recognition-card .status{color:var(--gold); font-size:14.5px; margin-top:3px; font-weight:600;}
+  #btnRecErrado{
+    display:none; flex:0 0 auto; width:44px; height:44px; border-radius:50%; border:none;
+    background:rgba(217,85,62,0.18); color:#ff8a70; font-size:18px; align-items:center; justify-content:center;
+  }
   .scan-hint{
     position:absolute; bottom:20px; left:0; right:0; text-align:center; color:rgba(255,255,255,0.65);
     font-size:12.5px; z-index:4;
@@ -451,11 +455,12 @@
     <div class="scan-hint" id="scanHint">Procurando rosto...</div>
     <div class="recognition-card" id="recognitionCard">
       <img id="recImg" src="">
-      <div>
+      <div style="flex:1;">
         <div class="name" id="recName">—</div>
         <div class="status" id="recStatus">presença registrada</div>
         <div class="schedule" id="recSchedule"></div>
       </div>
+      <button id="btnRecErrado" title="Reconheceu a pessoa errada">❌</button>
     </div>
   </div>
 </div>
@@ -524,7 +529,16 @@
 
 <script>
 const MODEL_URL = "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js/weights/";
-const DISTANCE_THRESHOLD = 0.5; // mais baixo = mais exigente (menos chance de confundir alunos)
+const DISTANCE_THRESHOLD = 0.45; // mais baixo = mais exigente (menos chance de confundir alunos)
+const DISTANCIA_DUVIDOSA = 0.40; // reconhecimentos entre esse valor e o threshold são "no limite" — ficam marcados pra revisão
+
+/* aluno pode ter 1 descritor (cadastro antigo) ou vários (3 fotos) — sempre devolve lista pronta pro FaceMatcher */
+function descritoresDoAluno(a){
+  if(Array.isArray(a.faceDescriptors) && a.faceDescriptors.length){
+    return a.faceDescriptors.map(d=> new Float32Array(d));
+  }
+  return [new Float32Array(a.faceDescriptor)];
+}
 
 const firebaseConfig = {
   apiKey: "AIzaSyDmM2m_QnEeRflAKCyb11TzOrZM7iVgLCA",
@@ -1167,9 +1181,10 @@ function renderHistorico(itens){
     const selo = p.tipoRegistro === 'reposicao' ? ' <span class="badge-repo">reposição</span>'
       : (p.tipoRegistro === 'fora_horario' ? ' <span class="badge-alerta">fora do horário</span>' : '');
     const seloManual = p.origemRegistro === 'manual' ? ' <span class="badge-repo">manual</span>' : '';
+    const seloDuvidoso = p.duvidoso ? ' <span class="badge-alerta" style="background:rgba(255,200,51,.16); color:#8a6d1f;" title="Reconhecimento no limite — vale conferir">🔎 conferir</span>' : '';
     const seloUnidade = p.unidadeDivergente ? ` <span class="badge-repo" style="background:rgba(212,175,55,.18); color:#8a6d1f;">📍 aluno do ${p.unidade}</span>` : '';
     const seloInadimplente = alunoEstaInadimplente(p.alunoId) ? ' <span class="badge-alerta" style="background:rgba(217,85,62,.15); color:#c94b34;">💸 atrasado</span>' : '';
-    return `<div class="presenca-item" style="cursor:pointer;" onclick="abrirEmNovaAba('bsa-cadastro.html?abrirAluno=${p.alunoId}')">${foto}<div class="info"><div class="name">${p.nome}${selo}${seloManual}${seloUnidade}${seloInadimplente}</div><div class="time">${p.hora}</div></div><button class="btn-excluir" data-docid="${p._docId}" data-nome="${(p.nome||'').replace(/"/g,'&quot;')}" title="Remover presença" onclick="event.stopPropagation()">🗑️</button></div>`;
+    return `<div class="presenca-item" style="cursor:pointer;" onclick="abrirEmNovaAba('bsa-cadastro.html?abrirAluno=${p.alunoId}')">${foto}<div class="info"><div class="name">${p.nome}${selo}${seloManual}${seloDuvidoso}${seloUnidade}${seloInadimplente}</div><div class="time">${p.hora}</div></div><button class="btn-excluir" data-docid="${p._docId}" data-nome="${(p.nome||'').replace(/"/g,'&quot;')}" title="Remover presença" onclick="event.stopPropagation()">🗑️</button></div>`;
   }).join('');
   cont.querySelectorAll('.btn-excluir').forEach(btn=>{
     btn.addEventListener('click', ()=> excluirPresenca(btn.dataset.docid, btn.dataset.nome));
@@ -1189,7 +1204,7 @@ async function iniciarCamera(){
     toast('Nenhum aluno com rosto processado ainda');
     return;
   }
-  const labeled = alunosUnidade.map(a=> new faceapi.LabeledFaceDescriptors(a.id, [new Float32Array(a.faceDescriptor)]));
+  const labeled = alunosUnidade.map(a=> new faceapi.LabeledFaceDescriptors(a.id, descritoresDoAluno(a)));
   faceMatcher = new faceapi.FaceMatcher(labeled, DISTANCE_THRESHOLD);
 
   document.getElementById('camUnitLabel').innerHTML = unidadeAtual + '<small>aponte a câmera para o rosto do aluno</small>';
@@ -1198,6 +1213,7 @@ async function iniciarCamera(){
     streamAtivo = await navigator.mediaDevices.getUserMedia({ video: { facingMode: presencaFacingMode }, audio: false });
     const video = document.getElementById('video');
     video.srcObject = streamAtivo;
+    video.play().catch(()=>{}); // iOS às vezes não retoma sozinho ao trocar o stream — força o play
     document.getElementById('cameraOverlay').classList.add('active');
     pedirWakeLock();
     video.onloadedmetadata = ()=>{
@@ -1219,6 +1235,7 @@ async function trocarCameraPresenca(){
     streamAtivo = await navigator.mediaDevices.getUserMedia({ video: { facingMode: presencaFacingMode }, audio: false });
     const video = document.getElementById('video');
     video.srcObject = streamAtivo;
+    video.play().catch(()=>{}); // iOS às vezes não retoma sozinho ao trocar o stream — força o play
     video.classList.toggle('mirror-video', presencaFacingMode === 'user');
     toast(presencaFacingMode === 'user' ? '📷 Câmera frontal' : '📷 Câmera traseira');
   }catch(err){
@@ -1240,14 +1257,20 @@ function fecharCamera(){
 /* ---------- Correção automática de balanço de branco (lona azul, etc.) ---------- */
 function corrigirBalancoBranco(ctx, w, h){
   try{
-    const imgData = ctx.getImageData(0, 0, w, h);
-    const d = imgData.data;
+    // amostra só a região central (onde o rosto fica, já que a captura/reconhecimento é sempre de perto) —
+    // evita que o fundo (lona azul, chão, arquibancada) domine o cálculo da correção de cor
+    const cw = Math.round(w * 0.55), ch = Math.round(h * 0.55);
+    const cx = Math.round((w - cw) / 2), cy = Math.round((h - ch) / 2);
+    const imgDataCentro = ctx.getImageData(cx, cy, cw, ch);
+    const dCentro = imgDataCentro.data;
     let rSum=0, gSum=0, bSum=0, n=0;
     const passo = 16; // amostra 1 a cada 4 pixels (4 canais) pra ficar rápido
-    for(let i=0; i<d.length; i+=passo){
-      rSum += d[i]; gSum += d[i+1]; bSum += d[i+2]; n++;
+    for(let i=0; i<dCentro.length; i+=passo){
+      rSum += dCentro[i]; gSum += dCentro[i+1]; bSum += dCentro[i+2]; n++;
     }
     if(n === 0) return;
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const d = imgData.data;
     const rAvg = rSum/n, gAvg = gSum/n, bAvg = bSum/n;
     const grayAvg = (rAvg + gAvg + bAvg) / 3;
     if(grayAvg < 1) return;
@@ -1295,6 +1318,12 @@ async function loopReconhecimento(){
       for(const det of deteccoes){
         const match = faceMatcher.findBestMatch(det.descriptor);
         const box = det.detection.box;
+        // rosto pequeno no quadro = descritor de qualidade pior — pede pra aproximar em vez de arriscar confundir
+        if(box.width < procCanvas.width * 0.20){
+          document.getElementById('scanHint').style.display = 'block';
+          document.getElementById('scanHint').textContent = '👉 peça pro aluno se aproximar mais';
+          continue;
+        }
         const reconhecido = match.label !== 'unknown';
 
         ctx.strokeStyle = reconhecido ? '#FFC800' : 'rgba(255,255,255,0.6)';
@@ -1324,7 +1353,7 @@ async function processarReconhecimento(aluno, distance){
 
   try{
     const resultado = await marcarPresenca(aluno, distance);
-    mostrarCardReconhecimento(aluno, resultado.mensagem);
+    mostrarCardReconhecimento(aluno, resultado.mensagem, resultado.docId, resultado.duvidoso);
     if(resultado.tocarBip) bip();
   }catch(err){
     console.error('Erro ao marcar presença:', err);
@@ -1334,17 +1363,55 @@ async function processarReconhecimento(aluno, distance){
   }
 }
 
-function mostrarCardReconhecimento(aluno, statusTexto){
+function mostrarCardReconhecimento(aluno, statusTexto, docId, duvidoso){
   document.getElementById('recImg').src = aluno.foto || '';
   document.getElementById('recName').textContent = aluno.nome;
-  document.getElementById('recStatus').textContent = statusTexto;
+  document.getElementById('recStatus').textContent = (duvidoso ? '🔎 ' : '') + statusTexto;
   document.getElementById('recSchedule').textContent = formatarHorarioAluno(aluno);
   const card = document.getElementById('recognitionCard');
   card.classList.add('show');
   card.onclick = ()=> abrirEmNovaAba('bsa-cadastro.html?abrirAluno=' + aluno.id);
   card.style.cursor = 'pointer';
+  const btnX = document.getElementById('btnRecErrado');
+  if(docId){
+    btnX.style.display = 'flex';
+    btnX.onclick = (ev)=>{ ev.stopPropagation(); marcarReconhecimentoErrado(docId, aluno); };
+  } else {
+    btnX.style.display = 'none';
+  }
   clearTimeout(window._cardTimer);
   window._cardTimer = setTimeout(()=> card.classList.remove('show'), 3200);
+}
+
+/* ---------- corrigir reconhecimento errado direto no card ---------- */
+let pendenciaReconhecimentoAberta = null;
+
+async function marcarReconhecimentoErrado(docId, aluno){
+  document.getElementById('recognitionCard').classList.remove('show');
+  try{
+    await db.collection('presencas').doc(docId).delete();
+  }catch(e){ /* se falhar em apagar, segue mesmo assim pro reconhecimento manual */ }
+  toast('Presença de ' + aluno.nome + ' removida — escolha o aluno certo');
+  // se o professor fechar o reconhecimento manual sem escolher ninguém (ocupado no meio da aula),
+  // fica uma pendência registrada em vez de esquecer o problema
+  pendenciaReconhecimentoAberta = { unidade: unidadeAtual, alunoErradoNome: aluno.nome, hora: new Date().toTimeString().slice(0,5) };
+  abrirManualModal();
+}
+
+async function registrarPendenciaReconhecimentoSeAberta(){
+  if(!pendenciaReconhecimentoAberta) return;
+  const p = pendenciaReconhecimentoAberta;
+  pendenciaReconhecimentoAberta = null;
+  try{
+    await db.collection('pendenciasReconhecimento').add({
+      unidade: p.unidade,
+      alunoErradoNome: p.alunoErradoNome,
+      hora: p.hora,
+      data: dataHojeISO(),
+      resolvido: false,
+      criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }catch(e){ /* se falhar em registrar a pendência, não trava o app — pior caso é só não aparecer no Diretora */ }
 }
 
 async function buscarReposicaoAgendadaHoje(aluno){
@@ -1385,6 +1452,8 @@ async function marcarPresenca(aluno, distance, origem){
   const foraDoHorario = !reposicao && estaForaDoHorario(aluno);
   const unidadeDivergente = aluno.unidade !== unidadeAtual;
 
+  const duvidoso = (origem === 'facial') && (distance !== null && distance !== undefined) && (distance >= DISTANCIA_DUVIDOSA);
+
   await ref.set({
     alunoId: aluno.id,
     nome: aluno.nome,
@@ -1396,6 +1465,7 @@ async function marcarPresenca(aluno, distance, origem){
     hora: hora,
     horaTimestamp: agora.getTime(),
     confianca: (distance !== null && distance !== undefined) ? Math.round(Math.max(0, (1 - distance/0.6)) * 100) : null,
+    duvidoso: duvidoso,
     origemRegistro: origem,
     tipoRegistro: reposicao ? 'reposicao' : (foraDoHorario ? 'fora_horario' : 'normal'),
     reposicaoId: reposicao ? reposicao._docId : null,
@@ -1410,15 +1480,15 @@ async function marcarPresenca(aluno, distance, origem){
       status: 'usada',
       usadoEm: firebase.firestore.FieldValue.serverTimestamp()
     });
-    return { mensagem: 'reposição registrada ✓ (direito utilizado)' + avisoUnidade, tocarBip: true };
+    return { mensagem: 'reposição registrada ✓ (direito utilizado)' + avisoUnidade, tocarBip: true, docId, duvidoso };
   }
   if(foraDoHorario){
-    return { mensagem: '⚠️ presença registrada — fora do horário fixo dele' + avisoUnidade, tocarBip: true };
+    return { mensagem: '⚠️ presença registrada — fora do horário fixo dele' + avisoUnidade, tocarBip: true, docId, duvidoso };
   }
   if(unidadeDivergente){
-    return { mensagem: '📍 presença registrada — aluno da unidade ' + aluno.unidade, tocarBip: true };
+    return { mensagem: '📍 presença registrada — aluno da unidade ' + aluno.unidade, tocarBip: true, docId, duvidoso };
   }
-  return { mensagem: 'presença registrada ✓', tocarBip: true };
+  return { mensagem: 'presença registrada ✓', tocarBip: true, docId, duvidoso };
 }
 
 /* ---------- Reconhecimento manual ---------- */
@@ -1432,6 +1502,7 @@ function abrirManualModal(){
 }
 function fecharManualModal(){
   document.getElementById('manualModal').classList.remove('active');
+  registrarPendenciaReconhecimentoSeAberta();
 }
 function renderManualLista(termo){
   const lista = document.getElementById('manualLista');
@@ -1459,6 +1530,7 @@ function renderManualLista(termo){
 async function confirmarManual(alunoId){
   const aluno = todosAlunosCache.find(a=>a.id === alunoId);
   if(!aluno) return;
+  pendenciaReconhecimentoAberta = null; // resolveu escolhendo alguém — não precisa mais da pendência
   fecharManualModal();
   toast('Registrando presença de ' + aluno.nome + '...');
   try{
@@ -1523,7 +1595,7 @@ async function iniciarKiosk(){
   const alunosUnidade = alunosCache;
   if(alunosUnidade.length === 0){ toast('Nenhum aluno com rosto processado ainda'); return; }
 
-  const labeled = alunosUnidade.map(a=> new faceapi.LabeledFaceDescriptors(a.id, [new Float32Array(a.faceDescriptor)]));
+  const labeled = alunosUnidade.map(a=> new faceapi.LabeledFaceDescriptors(a.id, descritoresDoAluno(a)));
   kioskFaceMatcher = new faceapi.FaceMatcher(labeled, DISTANCE_THRESHOLD);
   kioskUnidade = unidadeAtual;
   document.getElementById('kioskUnitPill').textContent = kioskUnidade.toUpperCase();
@@ -1532,6 +1604,7 @@ async function iniciarKiosk(){
     kioskStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: kioskFacingMode }, audio:false });
     const video = document.getElementById('kioskVideo');
     video.srcObject = kioskStream;
+    video.play().catch(()=>{}); // iOS às vezes não retoma sozinho ao trocar o stream — força o play
     video.classList.toggle('mirror', kioskFacingMode === 'user');
     document.getElementById('kioskOverlay').classList.add('active');
     kioskAtivo = true;
@@ -1561,6 +1634,7 @@ async function trocarCameraKiosk(){
     kioskStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: kioskFacingMode }, audio:false });
     const video = document.getElementById('kioskVideo');
     video.srcObject = kioskStream;
+    video.play().catch(()=>{}); // iOS às vezes não retoma sozinho ao trocar o stream — força o play
     video.classList.toggle('mirror', kioskFacingMode === 'user');
     video.onloadedmetadata = ()=>{
       const proc = document.getElementById('kioskProcCanvas');
