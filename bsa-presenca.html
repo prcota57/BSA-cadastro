@@ -551,8 +551,9 @@ const DISTANCIA_DUVIDOSA = 0.40; // reconhecimentos entre esse valor e o thresho
 
 /* aluno pode ter 1 descritor (cadastro antigo) ou vários (3 fotos) — sempre devolve lista pronta pro FaceMatcher */
 function descritoresDoAluno(a){
+  // Firestore não aceita "lista dentro de lista" — cada foto extra vem guardada como {v:[...]}
   if(Array.isArray(a.faceDescriptors) && a.faceDescriptors.length){
-    return a.faceDescriptors.map(d=> new Float32Array(d));
+    return a.faceDescriptors.map(item => new Float32Array((item && Array.isArray(item.v)) ? item.v : item));
   }
   return [new Float32Array(a.faceDescriptor)];
 }
