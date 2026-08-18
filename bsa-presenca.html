@@ -1609,19 +1609,22 @@ function alunosEsperadosAgora(){
     if(!a.diasTreino || !a.diasTreino.includes(hoje)) return false;
     const hMin = horarioParaMinutosKiosk(a.horarioTreino);
     if(hMin === null) return true; // sem horário definido, não filtra por hora — melhor mostrar do que esconder
-    return agoraMin >= (hMin - 30) && agoraMin <= (hMin + 60);
+    return agoraMin >= (hMin - 30) && agoraMin <= (hMin + 90);
   });
 }
 function renderKioskFailGrid(){
   const grid = document.getElementById('kioskFailGrid');
   const label = document.getElementById('kioskFailGridLabel');
   const esperados = alunosEsperadosAgora();
+  console.log('[kiosk-fail-grid] unidade=', kioskUnidade, 'total alunos=', todosAlunosCache.length, 'esperados agora=', esperados.length);
   if(esperados.length === 0){
     grid.innerHTML = '';
-    label.style.display = 'none';
+    label.style.display = 'block';
+    label.textContent = 'Nenhum aluno esperado nesse horário — chame o professor';
     return;
   }
   label.style.display = 'block';
+  label.textContent = '👇 Ache a sua foto';
   grid.innerHTML = esperados.map(a=>{
     const img = a.foto
       ? `<img src="${a.foto}">`
