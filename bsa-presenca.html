@@ -1020,6 +1020,7 @@ function aquecerCacheDasDuasUnidades(){
   const hoje = dataHojeISO();
   ['Carlos Prates', 'Estoril'].forEach(u=>{
     db.collection('presencas').where('unidadeCheckin','==',u).where('data','==',hoje).get().catch(()=>{});
+    db.collection('reposicoes').where('status','==','agendada').where('unidadeReposicao','==',u).where('dataReposicao','==',hoje).get().catch(()=>{});
   });
 }
 
@@ -1382,20 +1383,25 @@ async function processarReconhecimento(aluno, distance){
 }
 
 function mostrarCardReconhecimento(aluno, statusTexto, docId, duvidoso){
-  document.getElementById('recImg').src = aluno.foto || '';
-  document.getElementById('recName').textContent = aluno.nome;
-  document.getElementById('recStatus').textContent = (duvidoso ? '🔎 ' : '') + statusTexto;
-  document.getElementById('recSchedule').textContent = formatarHorarioAluno(aluno);
+  // Mostra a confirmação visual primeiro (garantida), preenche detalhes depois com segurança
   const card = document.getElementById('recognitionCard');
   card.classList.add('show');
-  card.onclick = ()=> abrirEmNovaAba('bsa-cadastro.html?abrirAluno=' + aluno.id);
-  card.style.cursor = 'pointer';
-  const btnX = document.getElementById('btnRecErrado');
-  if(docId){
-    btnX.style.display = 'flex';
-    btnX.onclick = (ev)=>{ ev.stopPropagation(); marcarReconhecimentoErrado(docId, aluno); };
-  } else {
-    btnX.style.display = 'none';
+  try{
+    document.getElementById('recImg').src = aluno.foto || '';
+    document.getElementById('recName').textContent = aluno.nome;
+    document.getElementById('recStatus').textContent = (duvidoso ? '🔎 ' : '') + statusTexto;
+    document.getElementById('recSchedule').textContent = formatarHorarioAluno(aluno);
+    card.onclick = ()=> abrirEmNovaAba('bsa-cadastro.html?abrirAluno=' + aluno.id);
+    card.style.cursor = 'pointer';
+    const btnX = document.getElementById('btnRecErrado');
+    if(docId){
+      btnX.style.display = 'flex';
+      btnX.onclick = (ev)=>{ ev.stopPropagation(); marcarReconhecimentoErrado(docId, aluno); };
+    } else {
+      btnX.style.display = 'none';
+    }
+  }catch(err){
+    console.error('Erro ao preencher detalhes do card (mas a confirmação já foi mostrada):', err);
   }
   clearTimeout(window._cardTimer);
   window._cardTimer = setTimeout(()=> card.classList.remove('show'), 3200);
@@ -1434,14 +1440,23 @@ async function registrarPendenciaReconhecimentoSeAberta(){
 
 async function buscarReposicaoAgendadaHoje(aluno){
   const dataISO = dataHojeISO();
-  const snap = await db.collection('reposicoes')
-    .where('alunoId', '==', aluno.id)
-    .where('status', '==', 'agendada')
-    .where('unidadeReposicao', '==', unidadeAtual)
-    .where('dataReposicao', '==', dataISO)
-    .limit(1)
-    .get();
-  return snap.empty ? null : { _docId: snap.docs[0].id, ...snap.docs[0].data() };
+  try{
+    const snap = await db.collection('reposicoes')
+      .where('alunoId', '==', aluno.id)
+      .where('status', '==', 'agendada')
+      .where('unidadeReposicao', '==', unidadeAtual)
+      .where('dataReposicao', '==', dataISO)
+      .limit(1)
+      .get();
+    return snap.empty ? null : { _docId: snap.docs[0].id, ...snap.docs[0].data() };
+  }catch(err){
+    // Não deixa essa checagem secundária travar o registro da presença em si (ex: offline
+    // e essa consulta específica nunca foi feita antes, sem nada em cache pra responder).
+    // Pior caso: não dá baixa na reposição agora, mas a presença é registrada normalmente
+    // e a reposição pode ser conferida manualmente depois.
+    console.error('Não foi possível checar reposição agendada (seguindo sem ela):', err);
+    return null;
+  }
 }
 
 async function marcarPresenca(aluno, distance, origem){
@@ -1817,25 +1832,31 @@ async function kioskRegistrarSucesso(aluno, distance){
 }
 
 function mostrarKioskSucesso(aluno, resultado){
-  const jaRegistrado = resultado.mensagem.includes('já registrada');
-  const foto = document.getElementById('kioskSuccessFoto');
-  const letra = document.getElementById('kioskSuccessAvatarLetra');
-  if(aluno.foto){
-    foto.src = aluno.foto; foto.style.display = 'block'; letra.style.display = 'none';
-  } else {
-    letra.textContent = (aluno.nome || '?').slice(0,1).toUpperCase();
-    letra.style.display = 'flex'; foto.style.display = 'none';
-  }
-  document.getElementById('kioskAlreadyFlag').style.display = jaRegistrado ? 'block' : 'none';
-  document.getElementById('kioskSuccessNome').textContent = aluno.nome;
-  const agora = new Date();
-  const hora = String(agora.getHours()).padStart(2,'0') + ':' + String(agora.getMinutes()).padStart(2,'0');
-  document.getElementById('kioskSuccessMeta').textContent = 'Presença às ' + hora;
-  document.getElementById('kioskSuccessBadge').textContent = (jaRegistrado ? 'ℹ️ ' : '✓ ') + resultado.mensagem;
-
+  // Confirmação principal primeiro (tela muda + som), sempre — antes de qualquer detalhe
+  // cosmético que possa falhar (foto, etc.), pra nunca ficar sem confirmar pro aluno
   setKioskState('success');
   if(resultado.tocarBip) somSucessoKiosk();
   if(navigator.vibrate) navigator.vibrate(40);
+
+  try{
+    const jaRegistrado = resultado.mensagem.includes('já registrada');
+    const foto = document.getElementById('kioskSuccessFoto');
+    const letra = document.getElementById('kioskSuccessAvatarLetra');
+    if(aluno.foto){
+      foto.src = aluno.foto; foto.style.display = 'block'; letra.style.display = 'none';
+    } else {
+      letra.textContent = (aluno.nome || '?').slice(0,1).toUpperCase();
+      letra.style.display = 'flex'; foto.style.display = 'none';
+    }
+    document.getElementById('kioskAlreadyFlag').style.display = jaRegistrado ? 'block' : 'none';
+    document.getElementById('kioskSuccessNome').textContent = aluno.nome;
+    const agora = new Date();
+    const hora = String(agora.getHours()).padStart(2,'0') + ':' + String(agora.getMinutes()).padStart(2,'0');
+    document.getElementById('kioskSuccessMeta').textContent = 'Presença às ' + hora;
+    document.getElementById('kioskSuccessBadge').textContent = (jaRegistrado ? 'ℹ️ ' : '✓ ') + resultado.mensagem;
+  }catch(err){
+    console.error('Erro ao preencher detalhes da tela de sucesso (mas a confirmação já foi mostrada):', err);
+  }
 
   clearTimeout(window._kioskSuccessTimer);
   window._kioskSuccessTimer = setTimeout(()=>{
