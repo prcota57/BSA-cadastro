@@ -632,6 +632,30 @@ let editingId = null;
 let capturedPhoto = null;
 let capturedFaceDescriptor = null;
 let currentStream = null;
+let modoFotoExtraAlunoId = null; // quando setado, a captura vai direto pro Firestore desse aluno em vez do form de cadastro
+const REDUNDANCIA_DISTANCIA = 0.22; // abaixo disso, a foto nova é considerada "igual demais" às que já existem
+
+function distanciaEuclidiana(d1, d2){
+  let soma = 0;
+  for(let i=0; i<d1.length; i++){ const diff = d1[i]-d2[i]; soma += diff*diff; }
+  return Math.sqrt(soma);
+}
+
+function descritoresExistentes(aluno){
+  if(Array.isArray(aluno.faceDescriptors) && aluno.faceDescriptors.length) return aluno.faceDescriptors;
+  if(aluno.faceDescriptor) return [aluno.faceDescriptor];
+  return [];
+}
+
+function abrirCompletarFotos(alunoId){
+  const aluno = alunosCache.find(a => a._docId === alunoId);
+  if(!aluno) return;
+  const qtd = descritoresExistentes(aluno).length;
+  if(qtd >= 3){ showToast('Esse aluno já tem as 3 fotos.'); return; }
+  modoFotoExtraAlunoId = alunoId;
+  openCameraStream(currentFacingMode);
+  garantirModelosIdent();
+}
 let filterUnit = "todas";
 let filterStatus = "todos";
 
@@ -1075,19 +1099,26 @@ function closeCamera(){
     currentStream.getTracks().forEach(t=>t.stop());
     currentStream = null;
   }
+  modoFotoExtraAlunoId = null;
 }
 document.getElementById('btnCancelCamera').addEventListener('click', closeCamera);
 /* ---------- Correção automática de balanço de branco (lona azul, etc.) ---------- */
 function corrigirBalancoBranco(ctx, w, h){
   try{
-    const imgData = ctx.getImageData(0, 0, w, h);
-    const d = imgData.data;
+    // amostra só a região central (onde o rosto fica, já que a foto agora é de perto) — evita
+    // que o fundo (lona azul, chão, arquibancada) domine o cálculo da correção de cor
+    const cw = Math.round(w * 0.55), ch = Math.round(h * 0.55);
+    const cx = Math.round((w - cw) / 2), cy = Math.round((h - ch) / 2);
+    const imgDataCentro = ctx.getImageData(cx, cy, cw, ch);
+    const dCentro = imgDataCentro.data;
     let rSum=0, gSum=0, bSum=0, n=0;
     const passo = 16; // amostra 1 a cada 4 pixels (4 canais) pra ficar rápido
-    for(let i=0; i<d.length; i+=passo){
-      rSum += d[i]; gSum += d[i+1]; bSum += d[i+2]; n++;
+    for(let i=0; i<dCentro.length; i+=passo){
+      rSum += dCentro[i]; gSum += dCentro[i+1]; bSum += dCentro[i+2]; n++;
     }
     if(n === 0) return;
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const d = imgData.data;
     const rAvg = rSum/n, gAvg = gSum/n, bAvg = bSum/n;
     const grayAvg = (rAvg + gAvg + bAvg) / 3;
     if(grayAvg < 1) return;
@@ -1129,6 +1160,62 @@ document.getElementById('btnCapture').addEventListener('click', async ()=>{
   status.style.display = 'block';
   status.textContent = 'Verificando foto...';
 
+  // ---------- modo "completar fotos" (adiciona foto extra a um aluno já cadastrado) ----------
+  if(modoFotoExtraAlunoId){
+    const alunoId = modoFotoExtraAlunoId;
+    try{
+      const ok = await garantirModelosIdent();
+      if(!ok){ status.textContent = 'Não foi possível verificar a foto agora. Tente de novo.'; btnCapture.disabled = false; return; }
+      const opcoes = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
+      const deteccao = await faceapi.detectSingleFace(canvas, opcoes).withFaceLandmarks().withFaceDescriptor();
+      if(!deteccao){
+        status.textContent = '⚠️ Rosto não identificado. Ajuste a luz/enquadramento e tire novamente.';
+        btnCapture.disabled = false;
+        setTimeout(()=>{ status.style.display = 'none'; }, 2600);
+        return;
+      }
+      const aluno = alunosCache.find(a => a._docId === alunoId);
+      const existentes = descritoresExistentes(aluno);
+      const novoDescArr = Array.from(deteccao.descriptor);
+      const menorDistancia = existentes.length ? Math.min(...existentes.map(d => distanciaEuclidiana(d, novoDescArr))) : 999;
+      if(menorDistancia < REDUNDANCIA_DISTANCIA){
+        const salvarMesmoAssim = confirm(
+          'Essa foto ficou parecida com uma que ' + (aluno ? aluno.nome : 'o aluno') + ' já tem.\n\n' +
+          'Pra ajudar de verdade o reconhecimento, o ideal é tirar em outro momento (luz diferente).\n\n' +
+          'Toque OK pra salvar mesmo assim, ou Cancelar pra tentar de novo agora.'
+        );
+        if(!salvarMesmoAssim){
+          status.style.display = 'none';
+          btnCapture.disabled = false;
+          return; // deixa tentar de novo sem fechar a câmera
+        }
+      }
+      const fotoDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+      const novosDescritores = existentes.concat([novoDescArr]);
+      const updateData = { faceDescriptors: novosDescritores };
+      if(!aluno.foto) updateData.foto = fotoDataUrl; // só usa como foto de capa se ainda não tiver nenhuma
+      await db.collection('alunos').doc(alunoId).update(updateData);
+      if(aluno){ aluno.faceDescriptors = novosDescritores; if(!aluno.foto) aluno.foto = fotoDataUrl; }
+      status.style.display = 'none';
+      btnCapture.disabled = false;
+      closeCamera();
+      showToast('Foto ' + novosDescritores.length + '/3 salva ✓');
+      if(novosDescritores.length < 3){
+        setTimeout(()=>{ if(confirm('Foto salva! Quer tirar a próxima agora?')) abrirCompletarFotos(alunoId); }, 300);
+      } else {
+        showToast('3/3 fotos completas — reconhecimento reforçado ✓');
+      }
+      if(typeof abrirDetalhe === 'function' && document.getElementById('detailModal').classList.contains('active')){
+        abrirDetalhe(alunoId);
+      }
+    }catch(err){
+      console.error(err);
+      status.textContent = 'Erro ao salvar a foto. Tente de novo.';
+      btnCapture.disabled = false;
+    }
+    return;
+  }
+
   try{
     const ok = await garantirModelosIdent();
     if(!ok){
@@ -1151,10 +1238,10 @@ document.getElementById('btnCapture').addEventListener('click', async ()=>{
     }
 
     // checa duplicidade contra alunos já cadastrados (exclui o próprio, se estiver editando)
-    const comRosto = alunosCache.filter(a => a.faceDescriptor && Array.isArray(a.faceDescriptor) && a._docId !== editingId);
+    const comRosto = alunosCache.filter(a => descritoresExistentes(a).length > 0 && a._docId !== editingId);
     if(comRosto.length > 0){
       const matcher = new faceapi.FaceMatcher(
-        comRosto.map(a => new faceapi.LabeledFaceDescriptors(a._docId, [new Float32Array(a.faceDescriptor)])),
+        comRosto.map(a => new faceapi.LabeledFaceDescriptors(a._docId, descritoresExistentes(a).map(d => new Float32Array(d)))),
         CADASTRO_DISTANCE_THRESHOLD
       );
       const match = matcher.findBestMatch(deteccao.descriptor);
@@ -1283,7 +1370,13 @@ document.getElementById('btnSalvar').addEventListener('click', async ()=>{
     atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
   };
   if(capturedPhoto) dados.foto = capturedPhoto;
-  if(capturedFaceDescriptor) dados.faceDescriptor = Array.from(capturedFaceDescriptor);
+  if(capturedFaceDescriptor){
+    dados.faceDescriptor = Array.from(capturedFaceDescriptor);
+    // na edição, essa foto tirada aqui substitui só a 1ª — preserva fotos extras já salvas via "completar fotos"
+    const alunoAtual = editingId ? alunosCache.find(a => a._docId === editingId) : null;
+    const extrasExistentes = alunoAtual ? descritoresExistentes(alunoAtual).slice(1) : [];
+    dados.faceDescriptors = [Array.from(capturedFaceDescriptor), ...extrasExistentes];
+  }
 
   try{
     if(editingId){
@@ -1345,6 +1438,8 @@ function renderLista(){
   container.innerHTML = lista.map(a=>{
     const iniciais = a.nome.split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase();
     const foto = a.foto ? `<img class="avatar" src="${a.foto}">` : `<div class="avatar placeholder">${iniciais}</div>`;
+    const qtdFotos = descritoresExistentes(a).length;
+    const seloFotos = qtdFotos < 3 ? `<span class="schedule-pill" style="background:rgba(255,200,51,.16); color:#8a6d1f;">📷 ${qtdFotos}/3</span>` : '';
     return `
       <div class="card ${a.statusGeral === 'inativo' ? 'inativo' : ''}" onclick="abrirDetalhe('${a._docId}')">
         <div class="avatar-wrap">
@@ -1358,6 +1453,7 @@ function renderLista(){
             <span>${a.categoria || ''}</span>
             <span>· ${a.unidade}</span>
             ${a.diasTreino && a.diasTreino.length ? `<span class="schedule-pill">${formatarHorarioFixo(a.diasTreino, a.horarioTreino)}</span>` : ''}
+            ${seloFotos}
           </div>
         </div>
         <div class="chevron">›</div>
@@ -1506,6 +1602,11 @@ function abrirDetalhe(docId){
       <b>${a.bancoPagamento || '—'}</b>
     </div>
     ${a.observacoes ? `<div class="card" style="display:block; margin-bottom:16px;"><div class="hint">Observações</div>${a.observacoes}</div>` : ''}
+    <div class="card" style="display:block; margin-bottom:16px;">
+      <div class="hint">Fotos para reconhecimento facial</div>
+      <b>${descritoresExistentes(a).length}/3 fotos</b>
+      ${descritoresExistentes(a).length < 3 ? `<button class="btn btn-outline btn-block" style="margin-top:10px;" onclick="abrirCompletarFotos('${docId}')">➕ Adicionar foto</button>` : ''}
+    </div>
     <button class="btn btn-primary btn-block" onclick="editarAluno('${docId}')">Editar</button>
     <button class="btn btn-outline btn-block" onclick="toggleAtivo('${docId}')">${a.statusGeral === 'inativo' ? 'Reativar aluno' : 'Marcar como inativo'}</button>
     <button class="btn btn-danger btn-block" onclick="excluirAluno('${docId}')">Excluir cadastro</button>
