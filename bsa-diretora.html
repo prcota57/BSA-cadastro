@@ -371,6 +371,7 @@ let danosCache = [];
 let tarefasCache = [];
 let avaliacoesCache = [];
 let cadastrosPendentesCache = [];
+let pendReconhecimentoCache = [];
 let unidadeFiltro = 'todas';
 let itensAtuais = [];
 let itensResolvidosNestaSessao = new Set();
@@ -407,15 +408,19 @@ async function init(){
 
 async function carregarTudo(){
   document.getElementById('subStatus').textContent = 'atualizando…';
-  const [alunosSnap, presencasSnap, mensalidadesSnap, danosSnap, tarefasSnap, avaliacoesSnap, cadastrosPendentesSnap] = await Promise.all([
+  const [alunosSnap, presencasSnap, mensalidadesSnap, danosSnap, tarefasSnap, avaliacoesSnap, cadastrosPendentesSnap, pendReconhecimentoSnap] = await Promise.all([
     db.collection('alunos').get(),
     db.collection('presencas').where('data','>=', dataISOOffset(40)).get(),
     db.collection('mensalidades').get(),
     db.collection('movimentacoes').where('tipo','==','dano').where('status','==','pendente').get(),
     db.collection('tarefas').where('concluido','==', false).get(),
     db.collection('avaliacoesFisicas').get(),
-    db.collection('cadastrosPendentes').where('status','==','pendente').get()
+    db.collection('cadastrosPendentes').where('status','==','pendente').get(),
+    db.collection('pendenciasReconhecimento').where('resolvido','==', false).get()
   ]);
+
+  pendReconhecimentoCache = [];
+  pendReconhecimentoSnap.forEach(doc=> pendReconhecimentoCache.push({ id: doc.id, ...doc.data() }));
 
   cadastrosPendentesCache = [];
   cadastrosPendentesSnap.forEach(doc=> cadastrosPendentesCache.push({ id: doc.id, ...doc.data() }));
@@ -669,6 +674,25 @@ function computarCadastrosPendentes(){
   return itens;
 }
 
+function computarPendenciasReconhecimento(){
+  const itens = [];
+  pendReconhecimentoCache.forEach(p=>{
+    const minutos = p.criadoEm && p.criadoEm.toMillis ? (Date.now()-p.criadoEm.toMillis())/60000 : 0;
+    const score = 70 + clamp(Math.floor(minutos/30), 0, 20); // sobe aos poucos, mas não é tão urgente quanto financeiro/chamada
+    itens.push({
+      id: 'reco_' + p.id, tipo:'reconhecimento', unidade: p.unidade || 'todas', score,
+      ico: '🔎',
+      titulo: 'Reconhecimento a confirmar — ' + (p.alunoErradoNome || '?'),
+      detalhe: (p.unidade || '') + ' · ' + (p.hora || '') + ' · marcou presença errada, professor não resolveu na hora ainda',
+      acoes: [
+        { tipo:'link', label:'Abrir Presença', url:'bsa-presenca.html' },
+        { tipo:'resolverReco', label:'Marcar resolvido', pendReconId: p.id, primaria:true }
+      ]
+    });
+  });
+  return itens;
+}
+
 function computarERenderizar(){
   let todos = [
     ...computarCadastrosPendentes(),
@@ -676,7 +700,8 @@ function computarERenderizar(){
     ...computarMensalidades(),
     ...computarDanos(),
     ...computarTarefas(),
-    ...computarAniversarios()
+    ...computarAniversarios(),
+    ...computarPendenciasReconhecimento()
   ];
 
   if(unidadeFiltro !== 'todas'){
@@ -769,6 +794,22 @@ function renderLista(itens){
   cont.querySelectorAll('button[data-revisar]').forEach(btn=>{
     btn.addEventListener('click', (ev)=>{ ev.stopPropagation(); abrirModalRevisao(btn.dataset.revisar); });
   });
+  cont.querySelectorAll('button[data-reco]').forEach(btn=>{
+    btn.addEventListener('click', (ev)=>{ ev.stopPropagation(); resolverPendenciaReconhecimento(btn.dataset.reco); });
+  });
+}
+
+async function resolverPendenciaReconhecimento(id){
+  try{
+    await db.collection('pendenciasReconhecimento').doc(id).update({ resolvido:true, resolvidoEm: firebase.firestore.FieldValue.serverTimestamp() });
+    itensResolvidosNestaSessao.add('reco_' + id);
+    pendReconhecimentoCache = pendReconhecimentoCache.filter(p=> p.id !== id);
+    if(navigator.vibrate) navigator.vibrate(80);
+    toast('Pendência marcada como resolvida ✓');
+    computarERenderizar();
+  }catch(err){
+    toast('Erro ao marcar como resolvido. Tente de novo.');
+  }
 }
 
 // ---------- revisão de cadastro pendente ----------
@@ -890,6 +931,7 @@ function cardHtml(item){
     if(a.tipo === 'link') return `<a class="${a.primaria?'primaria':''}" href="${a.url}" onclick="event.stopPropagation()">${a.label}</a>`;
     if(a.tipo === 'concluir') return `<button class="primaria" data-tarefa="${a.tarefaId}">${a.label}</button>`;
     if(a.tipo === 'revisar') return `<button class="primaria" data-revisar="${a.pendenteId}">${a.label}</button>`;
+    if(a.tipo === 'resolverReco') return `<button class="primaria" data-reco="${a.pendReconId}">${a.label}</button>`;
     return '';
   }).join('');
   return `<div class="card nivel-${nivel}" data-id="${item.id}">
