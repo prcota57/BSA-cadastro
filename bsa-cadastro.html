@@ -194,6 +194,13 @@
     color:var(--ink-soft); font-size:26px; flex:0 0 auto;
   }
   .photo-preview img{width:100%; height:100%; border-radius:50%; object-fit:cover;}
+  .photo-preview-wrap{position:relative; flex:0 0 auto;}
+  .btn-remove-foto{
+    position:absolute; top:-4px; right:-4px; width:26px; height:26px; border-radius:50%;
+    background:var(--coral); color:#fff; border:2px solid var(--surface); font-size:13px; font-weight:700;
+    display:none; align-items:center; justify-content:center; cursor:pointer; padding:0; line-height:1;
+  }
+  .photo-preview-wrap.has-foto .btn-remove-foto{display:flex;}
   .btn{
     border:none; border-radius:14px; padding:13px 18px; font-family:'Space Grotesk';
     font-weight:600; font-size:14.5px; cursor:pointer; text-align:center;
@@ -370,7 +377,10 @@
     <h2 id="formTitle">Novo aluno</h2>
 
     <div class="photo-box">
-      <div class="photo-preview" id="photoPreview">📷</div>
+      <div class="photo-preview-wrap" id="photoPreviewWrap">
+        <div class="photo-preview" id="photoPreview">📷</div>
+        <button class="btn-remove-foto" id="btnRemoverFoto" type="button" title="Remover foto">✕</button>
+      </div>
       <div style="flex:1;">
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <button class="btn btn-gold" id="btnOpenCamera" type="button">Tirar foto</button>
@@ -378,7 +388,7 @@
         </div>
         <input type="file" id="galeriaInput" accept="image/*" style="display:none;">
         <div class="hint" style="margin-top:6px; font-weight:600;">📌 Foto deve ser de rosto nítida, com boa iluminação e fundo branco.</div>
-        <div class="hint">Foto de frente, boa luz — usada no reconhecimento facial da presença.</div>
+        <div class="hint">Foto de frente, boa luz — usada no reconhecimento facial da presença. Toque em "Tirar foto" de novo pra trocar, ou no ✕ pra remover.</div>
       </div>
     </div>
 
@@ -636,6 +646,11 @@ let alunosCache = [];
 let editingId = null;
 let capturedPhoto = null;
 let capturedFaceDescriptor = null;
+let fotoFoiRemovida = false; // true quando o usuário apagou a foto explicitamente (precisa gravar foto:null ao salvar)
+
+function atualizarBotaoRemoverFoto(temFoto){
+  document.getElementById('photoPreviewWrap').classList.toggle('has-foto', !!temFoto);
+}
 let currentStream = null;
 let modoFotoExtraAlunoId = null; // quando setado, a captura vai direto pro Firestore desse aluno em vez do form de cadastro
 const REDUNDANCIA_DISTANCIA = 0.22; // abaixo disso, a foto nova é considerada "igual demais" às que já existem
@@ -1115,6 +1130,16 @@ function closeCamera(){
   modoFotoExtraAlunoId = null;
 }
 document.getElementById('btnCancelCamera').addEventListener('click', closeCamera);
+
+document.getElementById('btnRemoverFoto').addEventListener('click', ()=>{
+  if(!confirm('Remover a foto atual? Você pode tirar ou escolher uma nova na hora que quiser.')) return;
+  capturedPhoto = null;
+  capturedFaceDescriptor = null;
+  fotoFoiRemovida = true;
+  document.getElementById('photoPreview').innerHTML = '📷';
+  atualizarBotaoRemoverFoto(false);
+  showToast('Foto removida');
+});
 /* ---------- Correção automática de balanço de branco (lona azul, etc.) ---------- */
 function corrigirBalancoBranco(ctx, w, h){
   try{
@@ -1235,8 +1260,10 @@ async function processarFotoCapturada(canvas){
     if(!ok){
       status.textContent = 'Não foi possível verificar a foto agora, mas ela foi salva.';
       capturedPhoto = canvas.toDataURL('image/jpeg', 0.7);
+      fotoFoiRemovida = false;
       const preview = document.getElementById('photoPreview');
       preview.innerHTML = '<img src="'+capturedPhoto+'">';
+      atualizarBotaoRemoverFoto(true);
       setTimeout(closeCamera, 900);
       return;
     }
@@ -1280,8 +1307,10 @@ async function processarFotoCapturada(canvas){
 
     capturedFaceDescriptor = deteccao.descriptor;
     capturedPhoto = canvas.toDataURL('image/jpeg', 0.7);
+    fotoFoiRemovida = false;
     const preview = document.getElementById('photoPreview');
     preview.innerHTML = '<img src="'+capturedPhoto+'">';
+    atualizarBotaoRemoverFoto(true);
     status.style.display = 'none';
     if(btnCapture) btnCapture.disabled = false;
     closeCamera();
@@ -1290,8 +1319,10 @@ async function processarFotoCapturada(canvas){
     console.error(err);
     status.textContent = 'Erro ao verificar a foto, mas ela foi salva.';
     capturedPhoto = canvas.toDataURL('image/jpeg', 0.7);
+    fotoFoiRemovida = false;
     const preview = document.getElementById('photoPreview');
     preview.innerHTML = '<img src="'+capturedPhoto+'">';
+    atualizarBotaoRemoverFoto(true);
     if(btnCapture) btnCapture.disabled = false;
     setTimeout(closeCamera, 900);
   }
@@ -1372,6 +1403,7 @@ function resetForm(){
   editingId = null;
   capturedPhoto = null;
   capturedFaceDescriptor = null;
+  fotoFoiRemovida = false;
   document.getElementById('formTitle').textContent = 'Novo aluno';
   document.getElementById('fNome').value = '';
   document.getElementById('fNascimento').value = '';
@@ -1391,6 +1423,7 @@ function resetForm(){
   document.getElementById('fStatusGeral').value = 'ativo';
   document.getElementById('fObs').value = '';
   document.getElementById('photoPreview').innerHTML = '📷';
+  atualizarBotaoRemoverFoto(false);
 }
 
 async function gerarProximoId(){
@@ -1430,6 +1463,7 @@ document.getElementById('btnSalvar').addEventListener('click', async ()=>{
     atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
   };
   if(capturedPhoto) dados.foto = capturedPhoto;
+  else if(fotoFoiRemovida) dados.foto = null;
   if(capturedFaceDescriptor){
     dados.faceDescriptor = Array.from(capturedFaceDescriptor);
     // na edição, essa foto tirada aqui substitui só a 1ª — preserva fotos extras já salvas via "completar fotos"
@@ -1687,6 +1721,7 @@ function editarAluno(docId){
   editingId = docId;
   capturedPhoto = null;
   capturedFaceDescriptor = null;
+  fotoFoiRemovida = false;
   fecharDetalhe();
   goToScreen('cadastro');
   document.getElementById('formTitle').textContent = 'Editar aluno';
@@ -1706,6 +1741,7 @@ function editarAluno(docId){
   document.getElementById('fStatusGeral').value = a.statusGeral === 'inativo' ? 'inativo' : 'ativo';
   document.getElementById('fObs').value = a.observacoes || '';
   document.getElementById('photoPreview').innerHTML = a.foto ? `<img src="${a.foto}">` : '📷';
+  atualizarBotaoRemoverFoto(!!a.foto);
 }
 
 async function zerarPendenciasFinanceiras(alunoId){
