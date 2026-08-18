@@ -372,7 +372,12 @@
     <div class="photo-box">
       <div class="photo-preview" id="photoPreview">📷</div>
       <div style="flex:1;">
-        <button class="btn btn-gold" id="btnOpenCamera" type="button">Tirar foto</button>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-gold" id="btnOpenCamera" type="button">Tirar foto</button>
+          <button class="btn btn-outline" id="btnEscolherGaleria" type="button">📁 Escolher da galeria</button>
+        </div>
+        <input type="file" id="galeriaInput" accept="image/*" style="display:none;">
+        <div class="hint" style="margin-top:6px; font-weight:600;">📌 Foto deve ser de rosto nítida, com boa iluminação e fundo branco.</div>
         <div class="hint">Foto de frente, boa luz — usada no reconhecimento facial da presença.</div>
       </div>
     </div>
@@ -1149,48 +1154,38 @@ function corrigirBalancoBranco(ctx, w, h){
 
 const CADASTRO_DISTANCE_THRESHOLD = 0.45;
 
-document.getElementById('btnCapture').addEventListener('click', async ()=>{
-  const video = document.getElementById('cameraVideo');
-  const canvas = document.getElementById('cameraCanvas');
+/* Verifica rosto + duplicidade e aceita a foto — usado tanto pela câmera quanto pela galeria.
+   Recebe o canvas 480x480 já desenhado (e com correção de cor já aplicada). */
+async function processarFotoCapturada(canvas){
   const status = document.getElementById('captureStatus');
   const btnCapture = document.getElementById('btnCapture');
-  const size = 480;
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  const vw = video.videoWidth, vh = video.videoHeight;
-  const side = Math.min(vw, vh);
-  const sx = (vw - side)/2, sy = (vh - side)/2;
-  ctx.drawImage(video, sx, sy, side, side, 0, 0, size, size);
-  corrigirBalancoBranco(ctx, size, size);
-
-  btnCapture.disabled = true;
   status.style.display = 'block';
   status.textContent = 'Verificando foto...';
+  if(btnCapture) btnCapture.disabled = true;
 
   // ---------- modo "completar fotos" (adiciona foto extra a um aluno já cadastrado) ----------
   if(modoFotoExtraAlunoId){
     const alunoId = modoFotoExtraAlunoId;
     try{
       const ok = await garantirModelosIdent();
-      if(!ok){ status.textContent = 'Não foi possível verificar a foto agora. Tente de novo.'; btnCapture.disabled = false; return; }
+      if(!ok){ status.textContent = 'Não foi possível verificar a foto agora. Tente de novo.'; showToast('Não foi possível verificar a foto agora.'); if(btnCapture) btnCapture.disabled = false; return; }
       const opcoes = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
       let deteccao = await faceapi.detectSingleFace(canvas, opcoes).withFaceLandmarks().withFaceDescriptor();
       if(!deteccao){
-        // primeira tentativa pode pegar o vídeo num frame ruim (câmera ainda ajustando foco/exposição) — espera um instante e tenta mais uma vez antes de pedir pra repetir
         await new Promise(r=>setTimeout(r, 400));
         deteccao = await faceapi.detectSingleFace(canvas, opcoes).withFaceLandmarks().withFaceDescriptor();
       }
       if(!deteccao){
-        status.textContent = '⚠️ Rosto não identificado. Ajuste a luz/enquadramento e tire novamente.';
-        btnCapture.disabled = false;
+        status.textContent = '⚠️ Rosto não identificado. Ajuste a luz/enquadramento e tente novamente.';
+        showToast('⚠️ Rosto não identificado na foto.');
+        if(btnCapture) btnCapture.disabled = false;
         setTimeout(()=>{ status.style.display = 'none'; }, 2600);
         return;
       }
       const aluno = alunosCache.find(a => a._docId === alunoId);
       if(!aluno){
         status.textContent = '⚠️ Não achei o cadastro desse aluno na lista carregada. Feche e abra o app de novo.';
-        btnCapture.disabled = false;
+        if(btnCapture) btnCapture.disabled = false;
         return;
       }
       const existentes = descritoresExistentes(aluno);
@@ -1199,27 +1194,27 @@ document.getElementById('btnCapture').addEventListener('click', async ()=>{
       if(menorDistancia < REDUNDANCIA_DISTANCIA){
         const salvarMesmoAssim = confirm(
           'Essa foto ficou parecida com uma que ' + (aluno ? aluno.nome : 'o aluno') + ' já tem.\n\n' +
-          'Pra ajudar de verdade o reconhecimento, o ideal é tirar em outro momento (luz diferente).\n\n' +
-          'Toque OK pra salvar mesmo assim, ou Cancelar pra tentar de novo agora.'
+          'Pra ajudar de verdade o reconhecimento, o ideal é usar outra foto (luz diferente).\n\n' +
+          'Toque OK pra salvar mesmo assim, ou Cancelar pra tentar de novo.'
         );
         if(!salvarMesmoAssim){
           status.style.display = 'none';
-          btnCapture.disabled = false;
-          return; // deixa tentar de novo sem fechar a câmera
+          if(btnCapture) btnCapture.disabled = false;
+          return;
         }
       }
       const fotoDataUrl = canvas.toDataURL('image/jpeg', 0.7);
       const novosDescritores = existentes.concat([novoDescArr]);
       const updateData = { faceDescriptors: embrulharDescritores(novosDescritores) };
-      if(!aluno.foto) updateData.foto = fotoDataUrl; // só usa como foto de capa se ainda não tiver nenhuma
+      if(!aluno.foto) updateData.foto = fotoDataUrl;
       await db.collection('alunos').doc(alunoId).update(updateData);
       if(aluno){ aluno.faceDescriptors = novosDescritores; if(!aluno.foto) aluno.foto = fotoDataUrl; }
       status.style.display = 'none';
-      btnCapture.disabled = false;
+      if(btnCapture) btnCapture.disabled = false;
       closeCamera();
       showToast('Foto ' + novosDescritores.length + '/3 salva ✓');
       if(novosDescritores.length < 3){
-        setTimeout(()=>{ if(confirm('Foto salva! Quer tirar a próxima agora?')) abrirCompletarFotos(alunoId); }, 300);
+        setTimeout(()=>{ if(confirm('Foto salva! Quer adicionar a próxima agora?')) abrirCompletarFotos(alunoId); }, 300);
       } else {
         showToast('3/3 fotos completas — reconhecimento reforçado ✓');
       }
@@ -1229,7 +1224,8 @@ document.getElementById('btnCapture').addEventListener('click', async ()=>{
     }catch(err){
       console.error(err);
       status.textContent = 'Erro ao salvar a foto: ' + (err && err.message ? err.message : 'desconhecido') + '. Tente de novo.';
-      btnCapture.disabled = false;
+      showToast('Erro ao salvar a foto.');
+      if(btnCapture) btnCapture.disabled = false;
     }
     return;
   }
@@ -1249,13 +1245,13 @@ document.getElementById('btnCapture').addEventListener('click', async ()=>{
     const deteccao = await faceapi.detectSingleFace(canvas, opcoes).withFaceLandmarks().withFaceDescriptor();
 
     if(!deteccao){
-      status.textContent = '⚠️ Rosto não identificado na foto. Ajuste a luz/enquadramento e tire novamente.';
-      btnCapture.disabled = false;
+      status.textContent = '⚠️ Rosto não identificado na foto. Ajuste a luz/enquadramento e tente novamente.';
+      showToast('⚠️ Rosto não identificado nessa foto — escolha outra ou tire com a câmera.');
+      if(btnCapture) btnCapture.disabled = false;
       setTimeout(()=>{ status.style.display = 'none'; }, 2600);
-      return; // não fecha a câmera, deixa tentar de novo
+      return;
     }
 
-    // checa duplicidade contra alunos já cadastrados (exclui o próprio, se estiver editando)
     const comRosto = alunosCache.filter(a => descritoresExistentes(a).length > 0 && a._docId !== editingId);
     if(comRosto.length > 0){
       const matcher = new faceapi.FaceMatcher(
@@ -1266,8 +1262,6 @@ document.getElementById('btnCapture').addEventListener('click', async ()=>{
       if(match.label !== 'unknown'){
         const alunoExistente = alunosCache.find(a => a._docId === match.label);
         if(alunoExistente){
-          // Não bloqueia mais automaticamente — só avisa e pergunta, porque rostos parecidos
-          // (irmãos, feições semelhantes) geram falso positivo com facilidade
           const mesmaPessoa = confirm(
             'Esse rosto se parece com "' + alunoExistente.nome + '", que já está cadastrado(a).\n\n' +
             'Toque OK se for a MESMA pessoa (abre o cadastro dele).\n' +
@@ -1275,32 +1269,80 @@ document.getElementById('btnCapture').addEventListener('click', async ()=>{
           );
           if(mesmaPessoa){
             status.style.display = 'none';
-            btnCapture.disabled = false;
+            if(btnCapture) btnCapture.disabled = false;
             closeCamera();
             setTimeout(()=> abrirDetalhe(alunoExistente._docId), 250);
             return;
           }
-          // Confirmou que é pessoa diferente — segue o fluxo normal abaixo, aceitando a foto
         }
       }
     }
 
-    // rosto ok e sem duplicidade: aceita a foto e guarda o descritor pra já salvar processado
     capturedFaceDescriptor = deteccao.descriptor;
     capturedPhoto = canvas.toDataURL('image/jpeg', 0.7);
     const preview = document.getElementById('photoPreview');
     preview.innerHTML = '<img src="'+capturedPhoto+'">';
     status.style.display = 'none';
-    btnCapture.disabled = false;
+    if(btnCapture) btnCapture.disabled = false;
     closeCamera();
+    showToast('Foto aceita ✓');
   }catch(err){
     console.error(err);
     status.textContent = 'Erro ao verificar a foto, mas ela foi salva.';
     capturedPhoto = canvas.toDataURL('image/jpeg', 0.7);
     const preview = document.getElementById('photoPreview');
     preview.innerHTML = '<img src="'+capturedPhoto+'">';
-    btnCapture.disabled = false;
+    if(btnCapture) btnCapture.disabled = false;
     setTimeout(closeCamera, 900);
+  }
+}
+
+document.getElementById('btnCapture').addEventListener('click', async ()=>{
+  const video = document.getElementById('cameraVideo');
+  const canvas = document.getElementById('cameraCanvas');
+  const size = 480;
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const side = Math.min(vw, vh);
+  const sx = (vw - side)/2, sy = (vh - side)/2;
+  ctx.drawImage(video, sx, sy, side, side, 0, 0, size, size);
+  corrigirBalancoBranco(ctx, size, size);
+  await processarFotoCapturada(canvas);
+});
+
+/* ---------- Escolher foto da galeria (mesma verificação da câmera) ---------- */
+document.getElementById('btnEscolherGaleria').addEventListener('click', ()=>{
+  garantirModelosIdent();
+  document.getElementById('galeriaInput').click();
+});
+document.getElementById('galeriaInput').addEventListener('change', async (ev)=>{
+  const file = ev.target.files[0];
+  ev.target.value = '';
+  if(!file) return;
+  showToast('Verificando foto...');
+  try{
+    const img = await new Promise((resolve, reject)=>{
+      const image = new Image();
+      image.onload = ()=> resolve(image);
+      image.onerror = ()=> reject(new Error('Não foi possível abrir essa imagem'));
+      image.src = URL.createObjectURL(file);
+    });
+    const canvas = document.getElementById('cameraCanvas');
+    const size = 480;
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const iw = img.width, ih = img.height;
+    const side = Math.min(iw, ih);
+    const sx = (iw - side) / 2, sy = (ih - side) / 2;
+    ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+    corrigirBalancoBranco(ctx, size, size);
+    await processarFotoCapturada(canvas);
+  }catch(err){
+    console.error(err);
+    showToast('Erro ao carregar essa foto: ' + err.message);
   }
 });
 
