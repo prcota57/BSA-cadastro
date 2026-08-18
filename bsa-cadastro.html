@@ -642,9 +642,17 @@ function distanciaEuclidiana(d1, d2){
 }
 
 function descritoresExistentes(aluno){
-  if(Array.isArray(aluno.faceDescriptors) && aluno.faceDescriptors.length) return aluno.faceDescriptors;
+  // Firestore não aceita "lista dentro de lista" direto — cada foto vem guardada como {v:[...]}.
+  // Aqui devolve sempre uma lista simples de listas de números, pronta pra usar/comparar.
+  if(Array.isArray(aluno.faceDescriptors) && aluno.faceDescriptors.length){
+    return aluno.faceDescriptors.map(item => (item && Array.isArray(item.v)) ? item.v : item);
+  }
   if(aluno.faceDescriptor) return [aluno.faceDescriptor];
   return [];
+}
+function embrulharDescritores(listaDeArrays){
+  // formato que o Firestore aceita salvar: cada foto embrulhada num objeto {v:[...]}
+  return listaDeArrays.map(arr => ({ v: arr }));
 }
 
 function abrirCompletarFotos(alunoId){
@@ -1202,7 +1210,7 @@ document.getElementById('btnCapture').addEventListener('click', async ()=>{
       }
       const fotoDataUrl = canvas.toDataURL('image/jpeg', 0.7);
       const novosDescritores = existentes.concat([novoDescArr]);
-      const updateData = { faceDescriptors: novosDescritores };
+      const updateData = { faceDescriptors: embrulharDescritores(novosDescritores) };
       if(!aluno.foto) updateData.foto = fotoDataUrl; // só usa como foto de capa se ainda não tiver nenhuma
       await db.collection('alunos').doc(alunoId).update(updateData);
       if(aluno){ aluno.faceDescriptors = novosDescritores; if(!aluno.foto) aluno.foto = fotoDataUrl; }
@@ -1385,7 +1393,7 @@ document.getElementById('btnSalvar').addEventListener('click', async ()=>{
     // na edição, essa foto tirada aqui substitui só a 1ª — preserva fotos extras já salvas via "completar fotos"
     const alunoAtual = editingId ? alunosCache.find(a => a._docId === editingId) : null;
     const extrasExistentes = alunoAtual ? descritoresExistentes(alunoAtual).slice(1) : [];
-    dados.faceDescriptors = [Array.from(capturedFaceDescriptor), ...extrasExistentes];
+    dados.faceDescriptors = embrulharDescritores([Array.from(capturedFaceDescriptor), ...extrasExistentes]);
   }
 
   try{
