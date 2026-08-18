@@ -1167,7 +1167,12 @@ document.getElementById('btnCapture').addEventListener('click', async ()=>{
       const ok = await garantirModelosIdent();
       if(!ok){ status.textContent = 'Não foi possível verificar a foto agora. Tente de novo.'; btnCapture.disabled = false; return; }
       const opcoes = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
-      const deteccao = await faceapi.detectSingleFace(canvas, opcoes).withFaceLandmarks().withFaceDescriptor();
+      let deteccao = await faceapi.detectSingleFace(canvas, opcoes).withFaceLandmarks().withFaceDescriptor();
+      if(!deteccao){
+        // primeira tentativa pode pegar o vídeo num frame ruim (câmera ainda ajustando foco/exposição) — espera um instante e tenta mais uma vez antes de pedir pra repetir
+        await new Promise(r=>setTimeout(r, 400));
+        deteccao = await faceapi.detectSingleFace(canvas, opcoes).withFaceLandmarks().withFaceDescriptor();
+      }
       if(!deteccao){
         status.textContent = '⚠️ Rosto não identificado. Ajuste a luz/enquadramento e tire novamente.';
         btnCapture.disabled = false;
@@ -1175,6 +1180,11 @@ document.getElementById('btnCapture').addEventListener('click', async ()=>{
         return;
       }
       const aluno = alunosCache.find(a => a._docId === alunoId);
+      if(!aluno){
+        status.textContent = '⚠️ Não achei o cadastro desse aluno na lista carregada. Feche e abra o app de novo.';
+        btnCapture.disabled = false;
+        return;
+      }
       const existentes = descritoresExistentes(aluno);
       const novoDescArr = Array.from(deteccao.descriptor);
       const menorDistancia = existentes.length ? Math.min(...existentes.map(d => distanciaEuclidiana(d, novoDescArr))) : 999;
@@ -1210,7 +1220,7 @@ document.getElementById('btnCapture').addEventListener('click', async ()=>{
       }
     }catch(err){
       console.error(err);
-      status.textContent = 'Erro ao salvar a foto. Tente de novo.';
+      status.textContent = 'Erro ao salvar a foto: ' + (err && err.message ? err.message : 'desconhecido') + '. Tente de novo.';
       btnCapture.disabled = false;
     }
     return;
