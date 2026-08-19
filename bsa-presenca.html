@@ -1514,7 +1514,13 @@ async function marcarPresenca(aluno, distance, origem){
 
   const duvidoso = (origem === 'facial') && (distance !== null && distance !== undefined) && (distance >= DISTANCIA_DUVIDOSA);
 
-  await ref.set({
+  // IMPORTANTE: não usa "await" aqui. O Firestore só resolve a promise de .set() quando o
+  // SERVIDOR confirma o recebimento — offline, isso nunca chega, e a promise fica pendurada
+  // pra sempre (mesmo já tendo salvo local e aparecendo na lista). A gravação no cache local
+  // acontece na hora (por isso o aluno já aparece na lista mesmo sem internet); então
+  // consideramos "registrado" nesse momento, e deixamos o Firestore sincronizar com o
+  // servidor sozinho, em segundo plano, quando a internet voltar.
+  ref.set({
     alunoId: aluno.id,
     nome: aluno.nome,
     unidade: aluno.unidade,
@@ -1531,14 +1537,19 @@ async function marcarPresenca(aluno, distance, origem){
     reposicaoId: reposicao ? reposicao._docId : null,
     diasTreino: aluno.diasTreino || [],
     horarioTreino: aluno.horarioTreino || ''
+  }).catch(err=>{
+    console.error('Presença ficou na fila local pra sincronizar depois (sem internet agora):', err);
   });
 
   const avisoUnidade = unidadeDivergente ? (' · aluno da unidade ' + aluno.unidade) : '';
 
   if(reposicao){
-    await db.collection('reposicoes').doc(reposicao._docId).update({
+    // Mesma lógica: não espera confirmação do servidor pra seguir.
+    db.collection('reposicoes').doc(reposicao._docId).update({
       status: 'usada',
       usadoEm: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(err=>{
+      console.error('Baixa da reposição ficou na fila local pra sincronizar depois:', err);
     });
     return { mensagem: 'reposição registrada ✓ (direito utilizado)' + avisoUnidade, tocarBip: true, docId, duvidoso };
   }
