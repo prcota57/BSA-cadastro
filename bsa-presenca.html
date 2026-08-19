@@ -636,6 +636,16 @@ function abrirEmNovaAba(url){
   document.body.removeChild(a);
 }
 
+/* Corre uma promise contra um limite de tempo — evita que uma leitura do Firestore
+   fique pendurada indefinidamente em wifi fraco/instável (sem internet de verdade, mas
+   sem o app "perceber" isso a tempo) */
+function comTimeout(promise, ms){
+  return Promise.race([
+    promise,
+    new Promise((_, reject)=> setTimeout(()=> reject(new Error('tempo esgotado')), ms))
+  ]);
+}
+
 function toast(msg, clickUrl){
   t.textContent = msg;
   t.classList.add('show');
@@ -1440,22 +1450,31 @@ async function registrarPendenciaReconhecimentoSeAberta(){
 
 async function buscarReposicaoAgendadaHoje(aluno){
   const dataISO = dataHojeISO();
+  const query = db.collection('reposicoes')
+    .where('alunoId', '==', aluno.id)
+    .where('status', '==', 'agendada')
+    .where('unidadeReposicao', '==', unidadeAtual)
+    .where('dataReposicao', '==', dataISO)
+    .limit(1);
+  // Cache primeiro: o app já mantém as reposições agendadas sincronizadas localmente em
+  // tempo real (onSnapshot), então o cache local é rápido e confiável — não precisa
+  // esperar o servidor pra isso, o que é o que trava tudo em wifi fraco/instável.
   try{
-    const snap = await db.collection('reposicoes')
-      .where('alunoId', '==', aluno.id)
-      .where('status', '==', 'agendada')
-      .where('unidadeReposicao', '==', unidadeAtual)
-      .where('dataReposicao', '==', dataISO)
-      .limit(1)
-      .get();
+    const snap = await comTimeout(query.get({ source: 'cache' }), 2000);
     return snap.empty ? null : { _docId: snap.docs[0].id, ...snap.docs[0].data() };
-  }catch(err){
-    // Não deixa essa checagem secundária travar o registro da presença em si (ex: offline
-    // e essa consulta específica nunca foi feita antes, sem nada em cache pra responder).
-    // Pior caso: não dá baixa na reposição agora, mas a presença é registrada normalmente
-    // e a reposição pode ser conferida manualmente depois.
-    console.error('Não foi possível checar reposição agendada (seguindo sem ela):', err);
-    return null;
+  }catch(e){
+    // Sem nada em cache ainda (ex: primeiro uso do dia sem ter sincronizado nada) — tenta
+    // o servidor, mas com limite de tempo curto pra nunca travar o reconhecimento.
+    try{
+      const snap = await comTimeout(query.get(), 2500);
+      return snap.empty ? null : { _docId: snap.docs[0].id, ...snap.docs[0].data() };
+    }catch(err){
+      // Não deixa essa checagem secundária travar o registro da presença em si.
+      // Pior caso: não dá baixa na reposição agora, mas a presença é registrada normalmente
+      // e a reposição pode ser conferida manualmente depois.
+      console.error('Não foi possível checar reposição agendada (seguindo sem ela):', err);
+      return null;
+    }
   }
 }
 
@@ -1465,19 +1484,19 @@ async function marcarPresenca(aluno, distance, origem){
   const docId = aluno.id + '_' + dataISO;
   const ref = db.collection('presencas').doc(docId);
   let existente = null;
+  // Cache primeiro: a lista de presenças de hoje já fica sincronizada localmente em tempo
+  // real (onSnapshot), então checar o cache é rápido e confiável — evita esperar o servidor,
+  // que é o que trava a confirmação (som + card) em wifi fraco/instável.
   try{
-    existente = await ref.get();
+    existente = await comTimeout(ref.get({ source: 'cache' }), 2000);
   }catch(e){
-    // O modo padrão tenta o servidor primeiro — offline, às vezes demora ou falha antes do
-    // app "perceber" que está sem internet. Tenta de novo forçando ler direto do cache local
-    // (o que já foi salvo no aparelho) antes de desistir de vez.
+    // Sem nada em cache ainda — tenta o servidor, mas com limite de tempo curto pra nunca
+    // travar o reconhecimento. Pior caso (sem servidor e sem cache): segue e registra —
+    // risco baixo (só daria problema se o mesmo aluno já tivesse batido presença em outra
+    // unidade bem nesse intervalo offline, o que é raro).
     try{
-      existente = await ref.get({ source: 'cache' });
+      existente = await comTimeout(ref.get(), 2500);
     }catch(e2){
-      // Sem servidor e sem nada salvo no cache pra esse aluno hoje: na prática isso é o caso
-      // normal de "primeira vez que ele bate presença hoje" enquanto o app está offline —
-      // segue e registra. Risco baixo (só daria problema se o mesmo aluno já tivesse batido
-      // presença em outra unidade bem nesse intervalo offline, o que é raro).
       existente = null;
     }
   }
