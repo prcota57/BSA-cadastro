@@ -445,7 +445,7 @@
 <div class="modal-overlay" id="manualModal">
   <div class="modal-sheet">
     <div class="modal-close-row"><button class="modal-close-btn" id="btnFecharManualModal">✕</button></div>
-    <h2>Reconhecimento manual <span style="font-size:11px; color:#c94b34; font-weight:700;">[diag-v3]</span></h2>
+    <h2>Reconhecimento manual</h2>
     <div class="field">
       <label>Buscar aluno da unidade <span id="manualUnidadeLabel"></span></label>
       <input type="text" id="manualBusca" placeholder="Digite o nome do aluno...">
@@ -649,6 +649,13 @@ function comTimeout(promise, ms){
 }
 
 function toast(msg, clickUrl){
+  // BUG REAL ENCONTRADO: essa função usava a variável "t" pra pegar o elemento do toast na
+  // tela, mas "t" nunca tinha sido declarada em lugar nenhum do arquivo — então TODA chamada
+  // de toast() (sucesso, erro, qualquer aviso) quebrava por dentro (ReferenceError) antes de
+  // conseguir mostrar qualquer coisa. Por isso nada nunca aparecia, mesmo com internet ligada.
+  // Corrigido: busca o elemento direto pelo id, sem depender de variável externa nenhuma.
+  const t = document.getElementById('toast');
+  if(!t) return;
   t.textContent = msg;
   t.classList.add('show');
   if(clickUrl){
@@ -1609,9 +1616,6 @@ function renderManualLista(termo){
   }).join('');
 }
 async function confirmarManual(alunoId){
-  // DIAGNÓSTICO TEMPORÁRIO: alert() trava a tela até você tocar OK — impossível de não perceber.
-  // Isso confirma, sem sombra de dúvida, se o toque está realmente chegando até aqui.
-  alert('🔧 DIAGNÓSTICO: toque detectado, aluno id=' + alunoId);
   // Reescrito pra NUNCA falhar em silêncio: toda saída possível agora mostra algum toast,
   // mesmo em casos que antes só faziam "return" sem avisar nada (ex: aluno não encontrado).
   try{
