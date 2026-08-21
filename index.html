@@ -296,6 +296,9 @@
   // TODOS os apps já estão prontos pra uso offline de novo, sem precisar abrir cada um manualmente
   // depois. Só esse processo todo precisa de internet; depois disso, offline até o próximo Atualizar.
   var MODULOS_PARA_REAQUECER = [
+    // Presença primeiro (é o mais crítico e o que demora mais — Firebase + modelos de rosto);
+    // assim, mesmo que o usuário feche antes do fim, o Presença já foi atualizado.
+    location.origin + '/BSA-cadastro/bsa-presenca.html',
     'https://prcota57.github.io/bsa-treino/',
     'https://prcota57.github.io/bsa-cores/',
     'https://prcota57.github.io/bsa-alerta/',
@@ -303,8 +306,7 @@
     'https://prcota57.github.io/bsa-velocidade/',
     'https://prcota57.github.io/bsa-salto/',
     'https://prcota57.github.io/bsa-aquecimento/',
-    'https://prcota57.github.io/bsa-radar/',
-    location.origin + '/BSA-cadastro/bsa-presenca.html'
+    'https://prcota57.github.io/bsa-radar/'
   ];
 
   function reaquecerModulo(url){
@@ -359,8 +361,16 @@
         return;
       }
       return reaquecerTodosOsModulos();
+    }).then(function(){
+      updateBtnLabel.textContent = '✅ Atualizado — pronto pra usar offline';
+    }).catch(function(){
+      updateBtnLabel.textContent = '✅ Atualizado — pronto pra usar offline';
     }).finally(function(){
-      setTimeout(function(){ location.href = location.pathname + '?upd=' + Date.now(); }, 500);
+      updateBtn.classList.remove('spin');
+      // Espera mais tempo antes de recarregar, pra dar tempo do usuário LER a confirmação
+      // "Atualizado" antes da tela mudar — antes recarregava em 0,5s, sem nenhuma confirmação
+      // visível de que o processo (que leva ~25-30s) realmente tinha terminado.
+      setTimeout(function(){ location.href = location.pathname + '?upd=' + Date.now(); }, 2000);
     });
   });
 </script>
