@@ -377,6 +377,7 @@
     <button class="btn btn-primary" id="btnIniciar" disabled>Selecione uma unidade</button>
     <button class="btn btn-outline-pitch" id="btnKiosk" disabled style="margin-top:10px;">🖥️ Modo Quiosque (porta da quadra)</button>
     <button class="btn btn-outline-pitch" id="btnManual" disabled style="margin-top:10px;">✋ Reconhecimento manual</button>
+    <div id="modelLoadStatus" style="margin-top:8px; font-size:12.5px; font-weight:600; color:var(--ink-soft);"></div>
   </div>
 
   <div class="panel" id="historyPanel" style="display:none;">
@@ -573,6 +574,7 @@ let todosAlunosCache = [];
 let reposicoesAgendadas = [];
 let unidadeAtual = null;
 let faceMatcher = null;
+let modelosProntos = false; // true só depois que os 3 modelos de reconhecimento facial baixarem com sucesso
 let streamAtivo = null;
 let loopAtivo = false;
 let ultimoReconhecidoId = null;
@@ -766,6 +768,13 @@ function initFirebase(){
     if(user){
       clearTimeout(timeoutOffline);
       document.getElementById('statusLine').textContent = navigator.onLine ? 'conectado' : 'offline (usando dados salvos no aparelho)';
+      // Mostra a escolha de unidade (e libera o Reconhecimento manual) na hora — não espera
+      // o reconhecimento facial baixar/carregar, pra manual funcionar mesmo com internet fraca/instável.
+      document.getElementById('modelPanel').style.display = 'none';
+      document.getElementById('unitPanel').style.display = 'block';
+      retomarUltimaUnidade();
+      aquecerCacheDasDuasUnidades();
+      listenPresencasHojeGlobal();
       carregarModelosEAlunos();
       carregarTodosAlunos();
       listenReposicoes();
@@ -776,27 +785,42 @@ function initFirebase(){
 window.addEventListener('online', ()=>{ if(auth && auth.currentUser) document.getElementById('statusLine').textContent = 'conectado'; });
 window.addEventListener('offline', ()=>{ if(auth && auth.currentUser) document.getElementById('statusLine').textContent = 'offline (usando dados salvos no aparelho)'; });
 
+function statusModelo(msg){
+  const el = document.getElementById('modelLoadStatus');
+  if(el) el.textContent = msg;
+}
+
+/* Libera os botões que dependem da câmera (Iniciar câmera e Modo Quiosque) assim que os modelos
+   ficarem prontos — se o professor já tinha escolhido a unidade, atualiza o botão na hora. */
+function habilitarBotoesDeCamera(){
+  if(!unidadeAtual) return;
+  const btnIni = document.getElementById('btnIniciar');
+  const btnKiosk = document.getElementById('btnKiosk');
+  if(btnIni){ btnIni.disabled = false; btnIni.textContent = 'Iniciar câmera — ' + unidadeAtual; }
+  if(btnKiosk){ btnKiosk.disabled = false; }
+}
+
+/* Reconhecimento manual não depende disto — só a câmera (Iniciar câmera / Modo Quiosque) precisa
+   dos modelos de reconhecimento facial baixados. Rodando em segundo plano, sem travar a tela. */
 async function carregarModelosEAlunos(){
   try{
-    document.getElementById('modelStatus').textContent = 'Baixando modelos (detector)...';
+    statusModelo('Câmera: baixando modelos (detector)...');
     await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-    document.getElementById('modelStatus').textContent = 'Baixando modelos (landmarks)...';
+    statusModelo('Câmera: baixando modelos (landmarks)...');
     await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-    document.getElementById('modelStatus').textContent = 'Baixando modelos (reconhecimento)...';
+    statusModelo('Câmera: baixando modelos (reconhecimento)...');
     await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
 
-    document.getElementById('modelPanel').style.display = 'none';
-    document.getElementById('unitPanel').style.display = 'block';
+    modelosProntos = true;
+    statusModelo('');
     carregarAlunos();
-    retomarUltimaUnidade();
-    aquecerCacheDasDuasUnidades();
-    listenPresencasHojeGlobal();
+    habilitarBotoesDeCamera();
     // força o download dos sons explicitamente — o iOS às vezes não baixa <audio preload> sozinho pra economizar dados
     fetch('sounds/palmas-simples.wav').catch(()=>{});
     fetch('sounds/fail-trombeta.wav').catch(()=>{});
     setTimeout(verificarProntidaoOffline, 2500); // dá um tempo pro cache terminar de salvar em segundo plano
   }catch(err){
-    document.getElementById('modelStatus').textContent = 'Erro ao carregar modelos: ' + err.message;
+    statusModelo('⚠️ Câmera indisponível agora (' + err.message + ') — use o Reconhecimento manual normalmente');
   }
 }
 
@@ -1040,10 +1064,17 @@ document.querySelectorAll('.unit-btn').forEach(btn=>{
     btn.classList.add('active');
     unidadeAtual = btn.dataset.u;
     try{ localStorage.setItem('bsaPresencaUltimaUnidade', unidadeAtual); }catch(e){}
-    document.getElementById('btnIniciar').disabled = false;
-    document.getElementById('btnIniciar').textContent = 'Iniciar câmera — ' + unidadeAtual;
+    // Reconhecimento manual não depende dos modelos de câmera — libera na hora.
     document.getElementById('btnManual').disabled = false;
-    document.getElementById('btnKiosk').disabled = false;
+    if(modelosProntos){
+      document.getElementById('btnIniciar').disabled = false;
+      document.getElementById('btnIniciar').textContent = 'Iniciar câmera — ' + unidadeAtual;
+      document.getElementById('btnKiosk').disabled = false;
+    } else {
+      document.getElementById('btnIniciar').disabled = true;
+      document.getElementById('btnIniciar').textContent = 'Carregando câmera... (use o Manual enquanto isso)';
+      document.getElementById('btnKiosk').disabled = true;
+    }
     document.getElementById('historyPanel').style.display = 'block';
     document.getElementById('historyUnitLabel').textContent = '· ' + unidadeAtual;
     document.getElementById('faltantesPanel').style.display = 'block';
