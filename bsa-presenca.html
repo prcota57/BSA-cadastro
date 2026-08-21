@@ -1595,7 +1595,11 @@ function renderManualLista(termo){
     })
     .slice(0, 30);
   if(encontrados.length === 0){
-    lista.innerHTML = '<div class="empty">Nenhum aluno encontrado.</div>';
+    // Mensagem diferente quando o problema é a lista de alunos estar vazia (cache não
+    // carregado) do que quando é só a busca não achar ninguém — ajuda a diagnosticar.
+    lista.innerHTML = todosAlunosCache.length === 0
+      ? '<div class="empty">Lista de alunos ainda não carregou (0 no cache). Abra este app com internet pelo menos uma vez, depois toque em Atualizar no Hub.</div>'
+      : '<div class="empty">Nenhum aluno encontrado.</div>';
     return;
   }
   lista.innerHTML = encontrados.map(a=>{
@@ -1605,19 +1609,35 @@ function renderManualLista(termo){
   }).join('');
 }
 async function confirmarManual(alunoId){
-  const aluno = todosAlunosCache.find(a=>a.id === alunoId);
-  if(!aluno) return;
-  pendenciaReconhecimentoAberta = null; // resolveu escolhendo alguém — não precisa mais da pendência
-  fecharManualModal();
-  toast('Registrando presença de ' + aluno.nome + '...');
+  // Reescrito pra NUNCA falhar em silêncio: toda saída possível agora mostra algum toast,
+  // mesmo em casos que antes só faziam "return" sem avisar nada (ex: aluno não encontrado).
   try{
+    const aluno = todosAlunosCache.find(a=>a.id === alunoId);
+    if(!aluno){
+      toast('Não encontrei esse aluno na lista carregada — tente fechar e abrir o Manual de novo');
+      return;
+    }
+    pendenciaReconhecimentoAberta = null; // resolveu escolhendo alguém — não precisa mais da pendência
+    fecharManualModal();
+    toast('Registrando presença de ' + aluno.nome + '...');
     const resultado = await marcarPresenca(aluno, null, 'manual');
     toast(resultado.mensagem + ' (manual) — toque pra abrir o cadastro', 'bsa-cadastro.html?abrirAluno=' + aluno.id);
     if(resultado.tocarBip) bip();
   }catch(err){
-    toast('Erro ao registrar: ' + err.message);
+    toast('Erro ao registrar: ' + (err && err.message ? err.message : err));
   }
 }
+// Rede de segurança extra: qualquer erro de script ou promise não tratada em qualquer parte
+// do app agora aparece como toast (antes podia falhar em silêncio, sem log visível no iPhone/iPad).
+window.addEventListener('error', function(e){
+  try{ toast('Erro inesperado: ' + (e && e.message ? e.message : 'ver detalhes no código')); }catch(_){}
+});
+window.addEventListener('unhandledrejection', function(e){
+  try{
+    const msg = (e && e.reason && e.reason.message) ? e.reason.message : String(e && e.reason);
+    toast('Erro inesperado (promise): ' + msg);
+  }catch(_){}
+});
 document.getElementById('btnManual').addEventListener('click', abrirManualModal);
 document.getElementById('btnManualNaCamera').addEventListener('click', ()=>{ fecharCamera(); abrirManualModal(); });
 document.getElementById('btnFecharManualModal').addEventListener('click', fecharManualModal);
