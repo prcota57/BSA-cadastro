@@ -291,7 +291,52 @@
   }
 
   // Botão "Atualizar": limpa o cache de TODOS os apps do BSA APP (Hub + todos os módulos,
-  // já que todos vivem no mesmo endereço prcota57.github.io) e recarrega — precisa de internet.
+  // já que todos vivem no mesmo endereço prcota57.github.io), depois abre cada módulo escondido
+  // (iframe invisível) pra reconstruir o cache dele na hora, um por um — assim, quando terminar,
+  // TODOS os apps já estão prontos pra uso offline de novo, sem precisar abrir cada um manualmente
+  // depois. Só esse processo todo precisa de internet; depois disso, offline até o próximo Atualizar.
+  var MODULOS_PARA_REAQUECER = [
+    'https://prcota57.github.io/bsa-treino/',
+    'https://prcota57.github.io/bsa-cores/',
+    'https://prcota57.github.io/bsa-alerta/',
+    'https://prcota57.github.io/bsa-reflexo/',
+    'https://prcota57.github.io/bsa-velocidade/',
+    'https://prcota57.github.io/bsa-salto/',
+    'https://prcota57.github.io/bsa-aquecimento/',
+    'https://prcota57.github.io/bsa-radar/',
+    location.origin + '/BSA-cadastro/bsa-presenca.html'
+  ];
+
+  function reaquecerModulo(url){
+    return new Promise(function(resolve){
+      var frame = document.createElement('iframe');
+      frame.style.display = 'none';
+      var resolvido = false;
+      function terminar(){
+        if(resolvido) return;
+        resolvido = true;
+        setTimeout(function(){ frame.remove(); }, 100);
+        resolve();
+      }
+      // Dá um tempo depois do carregamento pro service worker de dentro do módulo se registrar
+      // e guardar os arquivos em cache — não dá pra saber exatamente quando terminou, então
+      // usamos uma folga fixa (maior pro Presença, que carrega mais coisa: Firebase + modelos).
+      var folga = url.indexOf('bsa-presenca') !== -1 ? 5000 : 2500;
+      frame.onload = function(){ setTimeout(terminar, folga); };
+      frame.onerror = terminar;
+      setTimeout(terminar, 12000); // nunca trava mais que isso num módulo, mesmo se algo der errado
+      frame.src = url;
+      document.body.appendChild(frame);
+    });
+  }
+
+  async function reaquecerTodosOsModulos(){
+    for(var i=0;i<MODULOS_PARA_REAQUECER.length;i++){
+      updateBtnLabel.textContent = 'Atualizando (' + (i+1) + '/' + MODULOS_PARA_REAQUECER.length + ')...';
+      await reaquecerModulo(MODULOS_PARA_REAQUECER[i]);
+    }
+  }
+
   var updateBtn = document.getElementById('updateBtn');
   var updateBtnLabel = document.getElementById('updateBtnLabel');
   updateBtn.addEventListener('click', function(){
@@ -308,7 +353,13 @@
         return Promise.all(keys.map(function(k){ return caches.delete(k); }));
       }));
     }
-    Promise.all(tasks).finally(function(){
+    Promise.all(tasks).then(function(){
+      if(!navigator.onLine){
+        updateBtnLabel.textContent = 'Sem internet — abrindo cada app 1x depois recria o cache dele';
+        return;
+      }
+      return reaquecerTodosOsModulos();
+    }).finally(function(){
       setTimeout(function(){ location.href = location.pathname + '?upd=' + Date.now(); }, 500);
     });
   });
