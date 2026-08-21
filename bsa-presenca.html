@@ -1592,7 +1592,10 @@ function renderManualLista(termo){
   const lista = document.getElementById('manualLista');
   const t = (termo||'').trim().toLowerCase();
   const encontrados = todosAlunosCache
-    .filter(a => t.length === 0 || a.nome.toLowerCase().includes(t))
+    // Sem busca (lista inicial): só alunos da unidade escolhida, sem misturar com a outra.
+    // Com busca (digitou algo): pode achar aluno de qualquer unidade também — útil pra
+    // registrar reposição de um aluno visitante — mostrando a etiqueta da unidade dele.
+    .filter(a => t.length === 0 ? a.unidade === unidadeAtual : a.nome.toLowerCase().includes(t))
     .sort((a,b)=>{
       // alunos da unidade atual aparecem primeiro; alunos de outra unidade (reposição) vêm depois
       const da = a.unidade === unidadeAtual ? 0 : 1;
