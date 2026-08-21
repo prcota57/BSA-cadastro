@@ -1115,6 +1115,7 @@ function formatarHorarioAluno(aluno){
 }
 
 let presentesHojeIds = new Set();
+let presencasHojeMap = new Map(); // alunoId -> dados da presença de hoje (mantido em memória via onSnapshot, sem depender de leituras avulsas do Firestore)
 let unsubHistorico = null;
 let unsubPresencasHojeGlobal = null;
 let dataHistoricoAtual = dataHojeISO();
@@ -1129,6 +1130,7 @@ function listenPresencasHojeGlobal(){
     .where('data', '==', hoje)
     .onSnapshot(snap=>{
       presentesHojeIds = new Set(snap.docs.map(d=> d.data().alunoId));
+      presencasHojeMap = new Map(snap.docs.map(d=> [d.data().alunoId, d.data()]));
       renderFaltantes();
     }, err=>{ console.error(err); });
 }
@@ -1480,33 +1482,18 @@ async function registrarPendenciaReconhecimentoSeAberta(){
 }
 
 async function buscarReposicaoAgendadaHoje(aluno){
+  // Antes isso fazia uma consulta avulsa ao Firestore (.get(), com ou sem "source: cache") na
+  // hora do reconhecimento. 100% offline (modo avião), essa leitura podia nunca resolver nem
+  // dar erro — travando o registro da presença pra sempre (nem sucesso nem "erro ao registrar").
+  // Agora usa só o array "reposicoesAgendadas", que já fica sincronizado em memória em tempo
+  // real (onSnapshot, desde a abertura do app) — leitura local, síncrona, sem risco de travar.
   const dataISO = dataHojeISO();
-  const query = db.collection('reposicoes')
-    .where('alunoId', '==', aluno.id)
-    .where('status', '==', 'agendada')
-    .where('unidadeReposicao', '==', unidadeAtual)
-    .where('dataReposicao', '==', dataISO)
-    .limit(1);
-  // Cache primeiro: o app já mantém as reposições agendadas sincronizadas localmente em
-  // tempo real (onSnapshot), então o cache local é rápido e confiável — não precisa
-  // esperar o servidor pra isso, o que é o que trava tudo em wifi fraco/instável.
-  try{
-    const snap = await comTimeout(query.get({ source: 'cache' }), 2000);
-    return snap.empty ? null : { _docId: snap.docs[0].id, ...snap.docs[0].data() };
-  }catch(e){
-    // Sem nada em cache ainda (ex: primeiro uso do dia sem ter sincronizado nada) — tenta
-    // o servidor, mas com limite de tempo curto pra nunca travar o reconhecimento.
-    try{
-      const snap = await comTimeout(query.get(), 2500);
-      return snap.empty ? null : { _docId: snap.docs[0].id, ...snap.docs[0].data() };
-    }catch(err){
-      // Não deixa essa checagem secundária travar o registro da presença em si.
-      // Pior caso: não dá baixa na reposição agora, mas a presença é registrada normalmente
-      // e a reposição pode ser conferida manualmente depois.
-      console.error('Não foi possível checar reposição agendada (seguindo sem ela):', err);
-      return null;
-    }
-  }
+  const encontrada = reposicoesAgendadas.find(r=>
+    r.alunoId === aluno.id &&
+    r.unidadeReposicao === unidadeAtual &&
+    r.dataReposicao === dataISO
+  );
+  return encontrada || null;
 }
 
 async function marcarPresenca(aluno, distance, origem){
@@ -1514,26 +1501,14 @@ async function marcarPresenca(aluno, distance, origem){
   const dataISO = dataHojeISO();
   const docId = aluno.id + '_' + dataISO;
   const ref = db.collection('presencas').doc(docId);
-  let existente = null;
-  // Cache primeiro: a lista de presenças de hoje já fica sincronizada localmente em tempo
-  // real (onSnapshot), então checar o cache é rápido e confiável — evita esperar o servidor,
-  // que é o que trava a confirmação (som + card) em wifi fraco/instável.
-  try{
-    existente = await comTimeout(ref.get({ source: 'cache' }), 2000);
-  }catch(e){
-    // Sem nada em cache ainda — tenta o servidor, mas com limite de tempo curto pra nunca
-    // travar o reconhecimento. Pior caso (sem servidor e sem cache): segue e registra —
-    // risco baixo (só daria problema se o mesmo aluno já tivesse batido presença em outra
-    // unidade bem nesse intervalo offline, o que é raro).
-    try{
-      existente = await comTimeout(ref.get(), 2500);
-    }catch(e2){
-      existente = null;
-    }
-  }
-  if(existente && existente.exists){
-    const dados = existente.data();
-    return { mensagem: dados.tipoRegistro === 'reposicao' ? 'reposição já registrada hoje' : 'presença já registrada hoje', tocarBip: false };
+  // Antes isso fazia uma leitura avulsa ao Firestore (ref.get, com ou sem "source: cache") na
+  // hora do reconhecimento pra checar duplicidade. 100% offline (modo avião), essa leitura
+  // podia nunca resolver nem dar erro — travando a confirmação pra sempre (nem sucesso nem
+  // "erro ao registrar"). Agora usa "presencasHojeMap", que já fica sincronizado em memória em
+  // tempo real (onSnapshot, desde a abertura do app) — leitura local, síncrona, sem risco de travar.
+  const dadosExistente = presencasHojeMap.get(aluno.id);
+  if(dadosExistente){
+    return { mensagem: dadosExistente.tipoRegistro === 'reposicao' ? 'reposição já registrada hoje' : 'presença já registrada hoje', tocarBip: false };
   }
 
   const agora = new Date();
