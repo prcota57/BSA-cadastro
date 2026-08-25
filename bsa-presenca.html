@@ -182,6 +182,21 @@
     width:30px; height:30px; border-radius:50%; font-size:16px; font-weight:700; cursor:pointer;
   }
 
+  .modal-overlay-center{
+    position:fixed; inset:0; background:rgba(10,20,15,0.6); z-index:250; display:none;
+    align-items:center; justify-content:center; padding:20px;
+  }
+  .modal-overlay-center.active{display:flex;}
+  .alert-sheet{
+    background:var(--bg); width:100%; max-width:420px; border-radius:20px;
+    padding:30px 22px 22px; text-align:center; border:3px solid #D64545;
+    box-shadow:0 12px 40px rgba(0,0,0,0.4);
+  }
+  .alert-sheet .alert-icon{font-size:52px; line-height:1; margin-bottom:12px;}
+  .alert-sheet h2{font-family:'Space Grotesk'; font-size:21px; margin:0 0 12px; color:#D64545;}
+  .alert-sheet p{font-size:15px; line-height:1.5; color:var(--ink); margin:0 0 22px;}
+  .alert-sheet .btn{width:100%;}
+
   /* ===================== MODO QUIOSQUE ===================== */
   :root{
     --k-field-900:#0A1F16; --k-field-800:#0F2A1E; --k-line:#2A4636;
@@ -405,6 +420,15 @@
   </div>
 
 </main>
+
+<div class="modal-overlay-center" id="unidadeFechadaOverlay">
+  <div class="alert-sheet">
+    <div class="alert-icon">⛔</div>
+    <h2 id="unidadeFechadaTitulo">Unidade não funciona hoje</h2>
+    <p id="unidadeFechadaTexto"></p>
+    <button class="btn btn-primary" id="btnFecharUnidadeFechada" type="button">Entendi</button>
+  </div>
+</div>
 
 <div class="modal-overlay" id="repoModal">
   <div class="modal-sheet">
@@ -1067,9 +1091,14 @@ function aquecerCacheDasDuasUnidades(){
 
 document.querySelectorAll('.unit-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
+    const unidadeClicada = btn.dataset.u;
+    if(!unidadeFuncionaHoje(unidadeClicada)){
+      mostrarAvisoUnidadeFechada(unidadeClicada);
+      return;
+    }
     document.querySelectorAll('.unit-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
-    unidadeAtual = btn.dataset.u;
+    unidadeAtual = unidadeClicada;
     try{ localStorage.setItem('bsaPresencaUltimaUnidade', unidadeAtual); }catch(e){}
     // Reconhecimento manual não depende dos modelos de câmera — libera na hora.
     document.getElementById('btnManual').disabled = false;
@@ -1115,6 +1144,29 @@ function estaForaDoHorario(aluno){
   if(!aluno.diasTreino || aluno.diasTreino.length === 0) return false; // sem horário cadastrado, não alertamos
   return !aluno.diasTreino.includes(diaSemanaHoje());
 }
+
+/* Dias em que cada unidade de fato tem aula. Usado pra bloquear a seleção da unidade
+   (e portanto qualquer registro de presença nela) em dias que ela não funciona de jeito
+   nenhum — evita marcar presença de todo mundo na unidade errada por engano. */
+const UNIDADE_DIAS_FUNCIONAMENTO = {
+  'Carlos Prates': ['ter','qui','sex'],
+  'Estoril': ['sab','dom']
+};
+function unidadeFuncionaHoje(unidade){
+  const dias = UNIDADE_DIAS_FUNCIONAMENTO[unidade];
+  if(!dias) return true; // unidade desconhecida (não deveria acontecer) — não bloqueia
+  return dias.includes(diaSemanaHoje());
+}
+function mostrarAvisoUnidadeFechada(unidade){
+  const dias = (UNIDADE_DIAS_FUNCIONAMENTO[unidade] || []).map(d => DIA_LABEL[d] || d).join(' e ');
+  document.getElementById('unidadeFechadaTitulo').textContent = unidade + ' não funciona hoje';
+  document.getElementById('unidadeFechadaTexto').textContent =
+    'Hoje é ' + (DIA_LABEL[diaSemanaHoje()] || diaSemanaHoje()) + '. O ' + unidade + ' só tem aula ' + dias + '. Não é possível selecionar essa unidade nem registrar presença nela hoje.';
+  document.getElementById('unidadeFechadaOverlay').classList.add('active');
+}
+document.getElementById('btnFecharUnidadeFechada').addEventListener('click', ()=>{
+  document.getElementById('unidadeFechadaOverlay').classList.remove('active');
+});
 function formatarHorarioAluno(aluno){
   if(!aluno.diasTreino || aluno.diasTreino.length === 0) return '';
   const dias = aluno.diasTreino.map(d => DIA_LABEL[d] || d).join(', ');
