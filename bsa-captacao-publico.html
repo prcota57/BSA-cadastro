@@ -265,11 +265,14 @@ function calcAge(birthDateStr){
   return idade;
 }
 
-document.getElementById('fNascimento').addEventListener('change', function(){
-  const idade = calcAge(this.value);
-  const el = document.getElementById('idadeCalculada');
-  el.textContent = (idade === null) ? '' : (idade < 0 ? 'Data inválida' : idade + ' ano(s)');
-});
+function atualizarIdade(){
+  var el = document.getElementById('fNascimento');
+  var idade = calcAge(el.value);
+  var out = document.getElementById('idadeCalculada');
+  out.textContent = (idade === null) ? '' : (idade < 0 ? 'Data inválida' : idade + ' ano(s)');
+}
+document.getElementById('fNascimento').addEventListener('input', atualizarIdade);
+document.getElementById('fNascimento').addEventListener('change', atualizarIdade);
 
 function limparWhats(v){ return (v||'').replace(/\D/g,''); }
 
