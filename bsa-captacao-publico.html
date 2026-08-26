@@ -102,6 +102,7 @@
     <div class="field">
       <label>Data de nascimento do aluno</label>
       <input type="date" id="fNascimento">
+      <div class="hint" id="idadeCalculada"></div>
     </div>
 
     <div class="field">
@@ -193,8 +194,8 @@ const auth = firebase.auth();
 auth.signInAnonymously().catch(()=>{});
 
 const TURMAS = {
-  'Carlos Prates': ['Terça e Quinta às 18h', 'Sexta às 9h'],
-  'Estoril': ['Sábado e Domingo às 8h (Avançado)', 'Sábado e Domingo às 9h (Iniciante)', 'Sábado e Domingo às 10h (Intermediário)']
+  'Carlos Prates': ['Terça às 18h', 'Quinta às 18h', 'Sexta às 9h'],
+  'Estoril': ['Sábado às 8h', 'Sábado às 9h', 'Sábado às 10h', 'Domingo às 8h', 'Domingo às 9h', 'Domingo às 10h']
 };
 const HOW_FOUND = ['Instagram','Indicação de amigo','Google','Panfleto / anúncio local','Outro'];
 
@@ -251,6 +252,23 @@ needsSwitch.addEventListener('click', ()=>{
   needsOn = !needsOn;
   needsSwitch.classList.toggle('on', needsOn);
   document.getElementById('campoNeeds').style.display = needsOn ? 'block' : 'none';
+});
+
+function calcAge(birthDateStr){
+  if(!birthDateStr) return null;
+  const b = new Date(birthDateStr + 'T00:00:00');
+  if(isNaN(b.getTime())) return null;
+  const hoje = new Date();
+  let idade = hoje.getFullYear() - b.getFullYear();
+  const m = hoje.getMonth() - b.getMonth();
+  if(m < 0 || (m === 0 && hoje.getDate() < b.getDate())) idade--;
+  return idade;
+}
+
+document.getElementById('fNascimento').addEventListener('change', function(){
+  const idade = calcAge(this.value);
+  const el = document.getElementById('idadeCalculada');
+  el.textContent = (idade === null) ? '' : (idade < 0 ? 'Data inválida' : idade + ' ano(s)');
 });
 
 function limparWhats(v){ return (v||'').replace(/\D/g,''); }
