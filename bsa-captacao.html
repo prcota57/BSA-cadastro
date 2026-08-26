@@ -341,14 +341,14 @@ function renderReviewPendentePublico(app){
   if(!p){ state.screen='pendentesPublicos'; return renderPendentesPublicos(app); }
   setHeader('Revisar interesse','Confirme os dados e marque a aula',true);
   var f = state.form;
-  var weekdayLabel = (p.weekdays||[]).join(', ') || '—';
   var html = ''
     + '<div class="info-grid">'
-    + infoRow('Aluno', escapeHtml(p.studentName||'?') + (p.age?' · '+p.age+' anos':''))
+    + infoRow('Aluno', escapeHtml(p.studentName||'?'))
+    + infoRow('Nascimento', p.birthDate ? fmtDate(p.birthDate) : '—')
     + infoRow('Responsável', escapeHtml(p.parentName||'?') + ' · ' + escapeHtml(p.parentPhone||'?'))
     + infoRow('Unidade desejada', escapeHtml(p.unit||'?'))
+    + infoRow('Turma de interesse', escapeHtml(p.turma||'?'))
     + infoRow('Experiência', p.experience==='ja_treina' ? 'Já treina' : 'Começando agora')
-    + infoRow('Dias de interesse', escapeHtml(weekdayLabel))
     + (p.howFound ? infoRow('Como conheceu', escapeHtml(p.howFound)) : '')
     + '</div>'
     + (p.hasNeeds ? '<div class="needs-box"><strong>⚠️ Necessidade específica:</strong> '+escapeHtml(p.needsDetails||'—')+'</div>' : '')
@@ -846,8 +846,8 @@ var Actions = {
     if(!f.trialDate){ showToast('Escolha a data da aula experimental.'); return; }
     var lead = {
       id:uid(), studentName:p.studentName||'', parentName:p.parentName||'', parentPhone:p.parentPhone||'',
-      unit:p.unit||'', trialDate:f.trialDate, trialTime:f.trialTime||'', age:p.age||'', experience:p.experience||'iniciante',
-      weekdays:p.weekdays||[], hasNeeds:!!p.hasNeeds, needsDetails:p.needsDetails||'', howFound:p.howFound||'', notes:p.notes||'',
+      unit:p.unit||'', trialDate:f.trialDate, trialTime:f.trialTime||'', birthDate:p.birthDate||'', experience:p.experience||'iniciante',
+      turma:p.turma||'', hasNeeds:!!p.hasNeeds, needsDetails:p.needsDetails||'', howFound:p.howFound||'', notes:p.notes||'',
       status:'agendado', createdAt:new Date().toISOString()
     };
     state.leads.push(lead);
@@ -864,16 +864,14 @@ async function criarAlunoSeNecessario(l){
   if(l.alunoId || !db) return;
   try{
     var obsPartes = ['Origem: BSA Captação (aula experimental em ' + fmtDate(l.trialDate) + ')'];
-    if(l.age) obsPartes.push('Idade informada no interesse: ' + l.age + ' anos');
     if(l.experience) obsPartes.push(l.experience==='ja_treina' ? 'Já treinava antes de vir pra BSA' : 'Estava começando a treinar agora');
     if(l.hasNeeds && l.needsDetails) obsPartes.push('Necessidade específica: ' + l.needsDetails);
     if(l.notes) obsPartes.push('Observações do responsável: ' + l.notes);
-    var diasSugeridos = (l.weekdays && l.weekdays.length) ? l.weekdays.join(', ') : '';
-    if(diasSugeridos) obsPartes.push('Dias de interesse informados: ' + diasSugeridos + ' — confira/ajuste o dia e horário fixo de treino no cadastro.');
+    if(l.turma) obsPartes.push('Turma de interesse informada no formulário: ' + l.turma + ' — confira/ajuste o dia e horário fixo de treino no cadastro.');
 
     var ref = await db.collection('alunos').add({
       nome: l.studentName,
-      dataNascimento: '',
+      dataNascimento: l.birthDate || '',
       categoria: '',
       unidade: l.unit,
       foto: null,
