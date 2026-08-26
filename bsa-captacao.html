@@ -819,7 +819,7 @@ var Actions = {
     render();
   },
   copyPublicLink:function(el){
-    var link = 'https://prcota57.github.io/BSA-cadastro/bsa-captacao-publico.html';
+    var link = 'https://prcota57.github.io/BSA-cadastro/bsa-captacao-publico.html?v=' + Date.now();
     var original = el.textContent;
     function done(ok){ el.textContent = ok ? '✅ Link copiado!' : '⚠️ Não foi possível copiar'; setTimeout(function(){ el.textContent = original; }, 2200); }
     if(navigator.clipboard && navigator.clipboard.writeText){
