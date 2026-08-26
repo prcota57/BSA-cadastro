@@ -99,17 +99,16 @@
       <input type="text" id="fNome" placeholder="Nome completo">
     </div>
 
-    <div class="field-row">
-      <div class="field">
-        <label>Idade do aluno</label>
-        <input type="number" id="fIdade" min="3" max="18" placeholder="ex: 8">
-      </div>
-      <div class="field">
-        <label>Unidade desejada</label>
-        <select id="fUnidade">
-          <option value="Carlos Prates">Carlos Prates</option>
-          <option value="Estoril">Estoril</option>
-        </select>
+    <div class="field">
+      <label>Data de nascimento do aluno</label>
+      <input type="date" id="fNascimento">
+    </div>
+
+    <div class="field">
+      <label>Unidade desejada</label>
+      <div class="seg-row" id="unidadeRow">
+        <div class="seg-btn" data-val="Carlos Prates">Carlos Prates<br><span style="font-weight:400;font-size:11px;">(dias de semana)</span></div>
+        <div class="seg-btn" data-val="Estoril">Estoril<br><span style="font-weight:400;font-size:11px;">(fim de semana)</span></div>
       </div>
     </div>
 
@@ -122,8 +121,9 @@
     </div>
 
     <div class="field">
-      <label>Dia(s) da semana de interesse</label>
-      <div class="chip-row" id="diaChips"></div>
+      <label>Turma de interesse</label>
+      <div class="chip-row" id="turmaChips"></div>
+      <div class="hint">Selecione a unidade acima primeiro pra ver os horários.</div>
     </div>
 
     <div class="section-title">Responsável</div>
@@ -192,36 +192,48 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 auth.signInAnonymously().catch(()=>{});
 
-const WEEKDAYS = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
+const TURMAS = {
+  'Carlos Prates': ['Terça e Quinta às 18h', 'Sexta às 9h'],
+  'Estoril': ['Sábado e Domingo às 8h (Avançado)', 'Sábado e Domingo às 9h (Iniciante)', 'Sábado e Domingo às 10h (Intermediário)']
+};
 const HOW_FOUND = ['Instagram','Indicação de amigo','Google','Panfleto / anúncio local','Outro'];
 
 let experienceSel = null;
-let diasSelecionados = [];
+let unidadeSel = null;
+let turmaSel = null;
 let howFoundSel = null;
 
-document.getElementById('diaChips').innerHTML = WEEKDAYS.map(d=>
-  `<div class="chip" data-dia="${d}">${d.slice(0,3)}</div>`
-).join('');
 document.getElementById('howFoundChips').innerHTML = HOW_FOUND.map(h=>
   `<div class="chip" data-h="${h}">${h}</div>`
 ).join('');
+
+function renderTurmas(){
+  const container = document.getElementById('turmaChips');
+  turmaSel = null;
+  if(!unidadeSel){ container.innerHTML = ''; return; }
+  container.innerHTML = TURMAS[unidadeSel].map(t=>
+    `<div class="chip" data-turma="${t}" style="width:100%;">${t}</div>`
+  ).join('');
+  container.querySelectorAll('.chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      turmaSel = chip.dataset.turma;
+      container.querySelectorAll('.chip').forEach(c=> c.classList.toggle('sel', c.dataset.turma===turmaSel));
+    });
+  });
+}
+
+document.querySelectorAll('#unidadeRow .seg-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    unidadeSel = btn.dataset.val;
+    document.querySelectorAll('#unidadeRow .seg-btn').forEach(b=> b.classList.toggle('sel', b===btn));
+    renderTurmas();
+  });
+});
 
 document.querySelectorAll('#expRow .seg-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     experienceSel = btn.dataset.val;
     document.querySelectorAll('#expRow .seg-btn').forEach(b=> b.classList.toggle('sel', b===btn));
-  });
-});
-
-document.querySelectorAll('#diaChips .chip').forEach(chip=>{
-  chip.addEventListener('click', ()=>{
-    const d = chip.dataset.dia;
-    if(diasSelecionados.includes(d)){
-      diasSelecionados = diasSelecionados.filter(x=>x!==d);
-    }else{
-      diasSelecionados.push(d);
-    }
-    chip.classList.toggle('sel', diasSelecionados.includes(d));
   });
 });
 
@@ -245,16 +257,15 @@ function limparWhats(v){ return (v||'').replace(/\D/g,''); }
 
 document.getElementById('btnEnviar').addEventListener('click', async ()=>{
   const nome = document.getElementById('fNome').value.trim();
-  const idade = document.getElementById('fIdade').value;
-  const unidade = document.getElementById('fUnidade').value;
+  const nascimento = document.getElementById('fNascimento').value;
   const respNome = document.getElementById('fRespNome').value.trim();
   const respWhats = document.getElementById('fRespWhats').value.trim();
   const needsDetails = document.getElementById('fNeedsDetails').value.trim();
   const obs = document.getElementById('fObs').value.trim();
   const statusEl = document.getElementById('statusMsg');
 
-  if(!nome || !respNome || limparWhats(respWhats).length < 10){
-    statusEl.textContent = 'Preencha o nome do aluno, o nome do responsável e um WhatsApp válido.';
+  if(!nome || !nascimento || !unidadeSel || !turmaSel || !respNome || limparWhats(respWhats).length < 10){
+    statusEl.textContent = 'Preencha nome, data de nascimento, unidade, turma, nome do responsável e um WhatsApp válido.';
     return;
   }
 
@@ -266,10 +277,10 @@ document.getElementById('btnEnviar').addEventListener('click', async ()=>{
   try{
     await db.collection('captacaoPublica').add({
       studentName: nome,
-      age: idade || '',
-      unit: unidade,
+      birthDate: nascimento,
+      unit: unidadeSel,
+      turma: turmaSel,
       experience: experienceSel || 'iniciante',
-      weekdays: diasSelecionados,
       parentName: respNome,
       parentPhone: respWhats,
       hasNeeds: needsOn,
