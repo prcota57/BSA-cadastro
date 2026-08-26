@@ -43,7 +43,7 @@
   .section-label{font-family:var(--font-mono);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#8a8a80;margin:22px 0 10px;}
   .section-label:first-child{margin-top:0;}
 
-  .shortcuts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:6px;}
+  .shortcuts{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;}
   .shortcut{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 6px;text-align:center;cursor:pointer;position:relative;}
   .shortcut .ic{font-size:20px;display:block;margin-bottom:4px;}
   .shortcut .lb{font-family:var(--font-display);font-weight:600;font-size:11px;color:var(--pitch-800);line-height:1.2;}
@@ -182,9 +182,16 @@ function initFirebase(){
     var auth = firebase.auth();
     auth.signInAnonymously().catch(function(){});
     auth.onAuthStateChanged(function(user){
-      if(user) loadLeads().then(boot).catch(boot);
+      if(user){ loadLeads().then(boot).catch(boot); listenPendentesPublicos(); }
     });
   }catch(e){ boot(); }
+}
+
+function listenPendentesPublicos(){
+  db.collection('captacaoPublica').where('status','==','pendente').onSnapshot(function(snap){
+    state.pendentesPublicos = snap.docs.map(function(d){ var data=d.data(); data._docId=d.id; return data; });
+    if(state.screen==='home' || state.screen==='pendentesPublicos') render();
+  }, function(e){ /* silencioso — não impede o resto do app */ });
 }
 
 var WEEKDAYS = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
@@ -235,7 +242,7 @@ function waitSubLabel(l){
 }
 var FOLLOWUP_DAYS = 2;
 
-var state = {screen:'loading', leads:[], currentId:null, form:{}, filterStatus:'todos'};
+var state = {screen:'loading', leads:[], currentId:null, form:{}, filterStatus:'todos', pendentesPublicos:[]};
 
 function uid(){ return 'l' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function todayStr(){ return new Date().toISOString().slice(0,10); }
@@ -298,6 +305,59 @@ function render(){
   if(state.screen==='leadDetail') return renderLeadDetail(app);
   if(state.screen==='reports') return renderReports(app);
   if(state.screen==='markWaiting') return renderMarkWaiting(app);
+  if(state.screen==='pendentesPublicos') return renderPendentesPublicos(app);
+  if(state.screen==='reviewPendentePublico') return renderReviewPendentePublico(app);
+}
+
+function tempoDecorridoPend(timestamp){
+  if(!timestamp || !timestamp.toMillis) return 'agora há pouco';
+  var min = Math.floor((Date.now() - timestamp.toMillis())/60000);
+  if(min < 1) return 'agora há pouco';
+  if(min < 60) return min + ' min atrás';
+  var h = Math.floor(min/60);
+  if(h < 24) return h + 'h atrás';
+  return Math.floor(h/24) + ' dia(s) atrás';
+}
+
+function renderPendentesPublicos(app){
+  setHeader('Pendentes','Interesses enviados pelo formulário público',true);
+  var html = '';
+  if(state.pendentesPublicos.length===0){
+    html += '<div class="empty-state">Nenhum interesse pendente no momento.</div>';
+  } else {
+    state.pendentesPublicos.forEach(function(p){
+      html += '<div class="lead-card" data-action="openPendentePublico" data-id="'+p._docId+'">'
+        + '<div class="l-top"><p class="l-name">'+escapeHtml(p.studentName||'(sem nome)')+'</p><span class="status-pill" style="background:var(--chalk-200);color:var(--pitch-800);">'+tempoDecorridoPend(p.criadoEm)+'</span></div>'
+        + '<p class="l-sub">'+escapeHtml(p.unit||'?')+' · resp.: '+escapeHtml(p.parentName||'?')+'</p>'
+        + '</div>';
+    });
+  }
+  html += '<div style="height:20px"></div>';
+  app.innerHTML = html;
+}
+
+function renderReviewPendentePublico(app){
+  var p = state.pendentesPublicos.find(function(x){ return x._docId===state.currentPendId; });
+  if(!p){ state.screen='pendentesPublicos'; return renderPendentesPublicos(app); }
+  setHeader('Revisar interesse','Confirme os dados e marque a aula',true);
+  var f = state.form;
+  var weekdayLabel = (p.weekdays||[]).join(', ') || '—';
+  var html = ''
+    + '<div class="info-grid">'
+    + infoRow('Aluno', escapeHtml(p.studentName||'?') + (p.age?' · '+p.age+' anos':''))
+    + infoRow('Responsável', escapeHtml(p.parentName||'?') + ' · ' + escapeHtml(p.parentPhone||'?'))
+    + infoRow('Unidade desejada', escapeHtml(p.unit||'?'))
+    + infoRow('Experiência', p.experience==='ja_treina' ? 'Já treina' : 'Começando agora')
+    + infoRow('Dias de interesse', escapeHtml(weekdayLabel))
+    + (p.howFound ? infoRow('Como conheceu', escapeHtml(p.howFound)) : '')
+    + '</div>'
+    + (p.hasNeeds ? '<div class="needs-box"><strong>⚠️ Necessidade específica:</strong> '+escapeHtml(p.needsDetails||'—')+'</div>' : '')
+    + (p.notes ? '<div class="needs-box" style="background:var(--chalk-200);border-color:var(--line);border-left-color:var(--line);color:var(--ink-700);"><strong>Observações:</strong> '+escapeHtml(p.notes)+'</div>' : '')
+    + '<div class="field"><label>Dia da aula experimental</label><input type="date" id="f_trialDate" value="'+(f.trialDate||todayStr())+'"></div>'
+    + '<div class="field"><label>Horário da aula experimental</label><input type="time" id="f_trialTime" value="'+(f.trialTime||'')+'"></div>'
+    + '<button class="btn btn-primary" style="margin-bottom:10px;" data-action="approvePendentePublico" data-id="'+p._docId+'">✓ Confirmar aula experimental</button>'
+    + '<button class="btn btn-danger-ghost" data-action="rejectPendentePublico" data-id="'+p._docId+'">Rejeitar / descartar</button>';
+  app.innerHTML = html;
 }
 
 function renderHome(app){
@@ -306,12 +366,16 @@ function renderHome(app){
   var counts = {agendado:0,realizada:0,matriculado:0,desistencia:0,nao_compareceu:0,aguardando:0};
   state.leads.forEach(function(l){ counts[l.status] = (counts[l.status]||0)+1; });
   var prontos = state.leads.filter(function(l){ return l.status==='aguardando' && isWaitReady(l); });
+  var pendCount = state.pendentesPublicos.length;
 
   var html = '<div class="shortcuts">'
     + '<div class="shortcut" data-action="showNewLead"><span class="ic">&#10133;</span><span class="lb">Nova aula<br>experimental</span></div>'
     + '<div class="shortcut" data-action="showPipeline"><span class="ic">&#128203;</span><span class="lb">Pipeline</span>'+(alerts.length?'<div class="badge">'+alerts.length+'</div>':'')+'</div>'
     + '<div class="shortcut" data-action="showReports"><span class="ic">&#128202;</span><span class="lb">Relatórios</span></div>'
+    + '<div class="shortcut" data-action="showPendentesPublicos"><span class="ic">🆕</span><span class="lb">Pendentes</span>'+(pendCount?'<div class="badge">'+pendCount+'</div>':'')+'</div>'
     + '</div>';
+
+  html += '<button class="btn btn-secondary" style="margin-bottom:16px;" data-action="copyPublicLink">🔗 Copiar link para o pai preencher</button>';
 
   html += '<div class="funnel-mini">'
     + '<div class="f"><div class="n">'+counts.agendado+'</div><div class="l">AGENDADAS</div></div>'
@@ -746,12 +810,67 @@ var Actions = {
   closeCelebration:function(){
     var ov = document.getElementById('celebrateOverlay'); if(ov) ov.remove();
     state.screen='leadDetail'; render();
+  },
+  showPendentesPublicos:function(){ state.screen='pendentesPublicos'; render(); },
+  openPendentePublico:function(el){
+    state.currentPendId = el.dataset.id;
+    state.form = {};
+    state.screen = 'reviewPendentePublico';
+    render();
+  },
+  copyPublicLink:function(el){
+    var link = 'https://prcota57.github.io/BSA-cadastro/bsa-captacao-publico.html';
+    var original = el.textContent;
+    function done(ok){ el.textContent = ok ? '✅ Link copiado!' : '⚠️ Não foi possível copiar'; setTimeout(function(){ el.textContent = original; }, 2200); }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(link).then(function(){ done(true); }).catch(function(){ done(false); });
+    } else {
+      var temp = document.createElement('textarea');
+      temp.value = link; temp.style.position='fixed'; temp.style.opacity='0';
+      document.body.appendChild(temp); temp.focus(); temp.select();
+      try{ document.execCommand('copy'); done(true); } catch(e){ done(false); }
+      document.body.removeChild(temp);
+    }
+  },
+  rejectPendentePublico:function(el){
+    if(!confirm('Descartar este interesse? Essa ação não pode ser desfeita.')) return;
+    db.collection('captacaoPublica').doc(el.dataset.id).delete().then(function(){
+      state.screen='pendentesPublicos'; render(); showToast('Interesse descartado.');
+    }).catch(function(){ showToast('Erro ao descartar. Tente de novo.'); });
+  },
+  approvePendentePublico:function(el){
+    syncFormInputs();
+    var p = state.pendentesPublicos.find(function(x){ return x._docId===el.dataset.id; });
+    if(!p) return;
+    var f = state.form;
+    if(!f.trialDate){ showToast('Escolha a data da aula experimental.'); return; }
+    var lead = {
+      id:uid(), studentName:p.studentName||'', parentName:p.parentName||'', parentPhone:p.parentPhone||'',
+      unit:p.unit||'', trialDate:f.trialDate, trialTime:f.trialTime||'', age:p.age||'', experience:p.experience||'iniciante',
+      weekdays:p.weekdays||[], hasNeeds:!!p.hasNeeds, needsDetails:p.needsDetails||'', howFound:p.howFound||'', notes:p.notes||'',
+      status:'agendado', createdAt:new Date().toISOString()
+    };
+    state.leads.push(lead);
+    saveLeads();
+    db.collection('captacaoPublica').doc(p._docId).delete().catch(function(){});
+    state.currentId = lead.id;
+    state.screen='leadDetail';
+    render();
+    showToast('Aula experimental confirmada!');
   }
 };
 
 async function criarAlunoSeNecessario(l){
   if(l.alunoId || !db) return;
   try{
+    var obsPartes = ['Origem: BSA Captação (aula experimental em ' + fmtDate(l.trialDate) + ')'];
+    if(l.age) obsPartes.push('Idade informada no interesse: ' + l.age + ' anos');
+    if(l.experience) obsPartes.push(l.experience==='ja_treina' ? 'Já treinava antes de vir pra BSA' : 'Estava começando a treinar agora');
+    if(l.hasNeeds && l.needsDetails) obsPartes.push('Necessidade específica: ' + l.needsDetails);
+    if(l.notes) obsPartes.push('Observações do responsável: ' + l.notes);
+    var diasSugeridos = (l.weekdays && l.weekdays.length) ? l.weekdays.join(', ') : '';
+    if(diasSugeridos) obsPartes.push('Dias de interesse informados: ' + diasSugeridos + ' — confira/ajuste o dia e horário fixo de treino no cadastro.');
+
     var ref = await db.collection('alunos').add({
       nome: l.studentName,
       dataNascimento: '',
@@ -760,10 +879,12 @@ async function criarAlunoSeNecessario(l){
       foto: null,
       responsavelNome: l.parentName,
       responsavelWhatsapp: onlyDigits(l.parentPhone),
+      diasTreino: [],
+      horarioTreino: '',
       statusMensalidade: 'ativo',
       statusGeral: 'ativo',
       dataMatricula: todayStr(),
-      observacoes: 'Origem: BSA Captação (aula experimental em ' + fmtDate(l.trialDate) + ')'
+      observacoes: obsPartes.join(' · ')
     });
     l.alunoId = ref.id;
   }catch(e){
@@ -811,6 +932,8 @@ document.getElementById('backBtn').addEventListener('click', function(){
   else if(state.screen==='pipeline'){ state.screen='home'; }
   else if(state.screen==='reports'){ state.screen='home'; }
   else if(state.screen==='leadDetail'){ state.screen='pipeline'; }
+  else if(state.screen==='pendentesPublicos'){ state.screen='home'; }
+  else if(state.screen==='reviewPendentePublico'){ state.screen='pendentesPublicos'; }
   render();
 });
 
