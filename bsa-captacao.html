@@ -790,7 +790,7 @@ var Actions = {
     var l = getLead(el.dataset.id);
     var digits = onlyDigits(l.parentPhone);
     var quandoTxt = fmtDate(l.trialDate) + (l.trialTime ? ' às ' + l.trialTime : '');
-    var msg = 'Olá, '+l.parentName+'! Aqui é da BSA falando sobre a aula experimental de '+l.studentName+', marcada para o dia '+quandoTxt+' na unidade '+l.unit+'. Qualquer dúvida, estamos à disposição!';
+    var msg = 'Aula experimental de '+l.studentName+' agendada para dia '+quandoTxt+'. Segue abaixo orientações. Até breve!';
     window.open('https://wa.me/55'+digits+'?text='+encodeURIComponent(msg), '_blank');
   },
   markAttended:function(el){ var l=getLead(el.dataset.id); l.status='realizada'; l.attendedAt=new Date().toISOString(); saveLeads(); render(); showToast('Presença confirmada.'); },
