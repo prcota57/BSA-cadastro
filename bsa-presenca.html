@@ -433,7 +433,7 @@
 <div class="modal-overlay" id="repoModal">
   <div class="modal-sheet">
     <div class="modal-close-row"><button class="modal-close-btn" id="btnFecharRepoModal">✕</button></div>
-    <h2>Agendar reposição</h2>
+    <h2 id="repoModalTitulo">Agendar reposição</h2>
     <div class="field">
       <label>Aluno</label>
       <input type="text" id="repoBuscaAluno" placeholder="Digite o nome do aluno...">
@@ -463,6 +463,7 @@
       <input type="date" id="repoDataReposicao">
     </div>
     <button class="btn btn-primary" id="btnSalvarRepo" type="button">Agendar reposição</button>
+    <button class="btn" id="btnExcluirRepo" type="button" style="margin-top:8px; display:none; background:var(--coral-soft); color:#B23A20;">Excluir reposição</button>
   </div>
 </div>
 
@@ -968,20 +969,54 @@ function dataHojeInputValue(){
 }
 
 let repoAlunoSelecionado = null;
+let repoEditandoId = null;
 
-function abrirRepoModal(){
+function abrirRepoModal(repoParaEditar){
   document.getElementById('repoBuscaAluno').value = '';
   document.getElementById('repoAlunoLista').innerHTML = '';
   document.getElementById('repoAlunoSelecionadoChip').style.display = 'none';
   repoAlunoSelecionado = null;
-  document.getElementById('repoDataFalta').value = dataHojeInputValue();
-  document.getElementById('repoDataReposicao').value = dataHojeInputValue();
+  repoEditandoId = null;
+
+  if(repoParaEditar){
+    repoEditandoId = repoParaEditar._docId;
+    repoAlunoSelecionado = {
+      id: repoParaEditar.alunoId,
+      nome: repoParaEditar.nome,
+      unidade: repoParaEditar.unidadeOrigem
+    };
+    document.getElementById('repoBuscaAluno').value = repoParaEditar.nome;
+    const chip = document.getElementById('repoAlunoSelecionadoChip');
+    chip.style.display = 'block';
+    chip.textContent = '✓ ' + repoParaEditar.nome + ' (troque a busca acima pra selecionar outro aluno)';
+    document.getElementById('repoUnidadeFalta').value = repoParaEditar.unidadeOrigem || 'Carlos Prates';
+    document.getElementById('repoDataFalta').value = repoParaEditar.dataFalta || dataHojeInputValue();
+    document.getElementById('repoUnidadeReposicao').value = repoParaEditar.unidadeReposicao || 'Carlos Prates';
+    document.getElementById('repoDataReposicao').value = repoParaEditar.dataReposicao || dataHojeInputValue();
+    document.getElementById('repoModalTitulo').textContent = 'Editar reposição';
+    document.getElementById('btnSalvarRepo').textContent = 'Salvar alterações';
+    document.getElementById('btnExcluirRepo').style.display = 'block';
+  }else{
+    document.getElementById('repoDataFalta').value = dataHojeInputValue();
+    document.getElementById('repoDataReposicao').value = dataHojeInputValue();
+    document.getElementById('repoModalTitulo').textContent = 'Agendar reposição';
+    document.getElementById('btnSalvarRepo').textContent = 'Agendar reposição';
+    document.getElementById('btnExcluirRepo').style.display = 'none';
+  }
+
   document.getElementById('repoModal').classList.add('active');
 }
+
+function abrirRepoModalEdicao(docId){
+  const repo = reposicoesAgendadas.find(r=> r._docId === docId);
+  if(!repo){ toast('Reposição não encontrada'); return; }
+  abrirRepoModal(repo);
+}
+
 function fecharRepoModal(){
   document.getElementById('repoModal').classList.remove('active');
 }
-document.getElementById('btnNovaRepo').addEventListener('click', abrirRepoModal);
+document.getElementById('btnNovaRepo').addEventListener('click', ()=> abrirRepoModal());
 document.getElementById('btnFecharRepoModal').addEventListener('click', fecharRepoModal);
 document.getElementById('repoModal').addEventListener('click', e=>{
   if(e.target.id === 'repoModal') fecharRepoModal();
@@ -1023,21 +1058,41 @@ document.getElementById('btnSalvarRepo').addEventListener('click', async ()=>{
   const dataFalta = document.getElementById('repoDataFalta').value;
   const dataReposicao = document.getElementById('repoDataReposicao').value;
   if(!dataFalta || !dataReposicao){ toast('Preencha as duas datas'); return; }
+  const dados = {
+    alunoId: repoAlunoSelecionado.id,
+    nome: repoAlunoSelecionado.nome,
+    unidadeOrigem: document.getElementById('repoUnidadeFalta').value,
+    dataFalta: dataFalta,
+    unidadeReposicao: document.getElementById('repoUnidadeReposicao').value,
+    dataReposicao: dataReposicao
+  };
   try{
-    await db.collection('reposicoes').add({
-      alunoId: repoAlunoSelecionado.id,
-      nome: repoAlunoSelecionado.nome,
-      unidadeOrigem: document.getElementById('repoUnidadeFalta').value,
-      dataFalta: dataFalta,
-      unidadeReposicao: document.getElementById('repoUnidadeReposicao').value,
-      dataReposicao: dataReposicao,
-      status: 'agendada',
-      criadoEm: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    toast('Reposição agendada para ' + repoAlunoSelecionado.nome);
+    if(repoEditandoId){
+      await db.collection('reposicoes').doc(repoEditandoId).update(dados);
+      toast('Reposição atualizada');
+    }else{
+      await db.collection('reposicoes').add({
+        ...dados,
+        status: 'agendada',
+        criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      toast('Reposição agendada para ' + repoAlunoSelecionado.nome);
+    }
     fecharRepoModal();
   }catch(err){
-    toast('Erro ao agendar: ' + err.message);
+    toast('Erro ao salvar: ' + err.message);
+  }
+});
+
+document.getElementById('btnExcluirRepo').addEventListener('click', async ()=>{
+  if(!repoEditandoId) return;
+  if(!confirm('Excluir esta reposição permanentemente?')) return;
+  try{
+    await db.collection('reposicoes').doc(repoEditandoId).delete();
+    toast('Reposição excluída');
+    fecharRepoModal();
+  }catch(err){
+    toast('Erro ao excluir: ' + err.message);
   }
 });
 
@@ -1067,6 +1122,7 @@ function renderRepoList(){
           <div class="m">faltou em ${r.unidadeOrigem} (${(r.dataFalta||'').split('-').reverse().join('/')}) · repõe em ${r.unidadeReposicao} dia ${dataFmt}</div>
         </div>
         <span class="badge-repo">agendada</span>
+        <button class="btn-cancel" onclick="abrirRepoModalEdicao('${r._docId}')" style="background:var(--pitch-soft); color:var(--pitch);">editar</button>
         <button class="btn-cancel" onclick="cancelarRepo('${r._docId}')">cancelar</button>
       </div>`;
   }).join('');
