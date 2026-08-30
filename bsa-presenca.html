@@ -1341,9 +1341,25 @@ function gerarLinkWhatsApp(numero, mensagem){
   if(n && !n.startsWith('55')) n = '55' + n;
   return 'https://wa.me/' + n + '?text=' + encodeURIComponent(mensagem);
 }
-function mensagemFalta(nome){
+const MENSAGENS_FALTA = [
+  (nome) => `Olá! Aqui é da equipe do BSA (Brazilian Skills Academy) 🎽⚽. Notamos que ${nome} não compareceu ao treino hoje. Está tudo bem com ele(a)? Se puder, nos conta rapidinho o motivo da ausência. E se quiserem remarcar, é só nos chamar por aqui que a gente agenda a reposição com prazer! 💚`,
+  (nome) => `Oi! Tudo bem? Aqui é do BSA ⚽ Sentimos a falta de ${nome} no treino de hoje e ficamos na torcida pra que esteja tudo certo com ele(a). Qualquer coisa, nos avisa o motivo pra gente organizar por aqui 😊 E se quiserem remarcar, é só chamar que a gente agenda a reposição!`,
+  (nome) => `Olá! Equipe BSA aqui 🎽 ${nome} faltou ao treino de hoje. Pode nos confirmar se está tudo bem e qual foi o motivo? Se quiserem, já deixamos a reposição agendada.`,
+  (nome) => `Oi! Aqui é do BSA ⚽ Notamos a ausência de ${nome} no treino de hoje e queremos saber se está tudo bem com a saúde dele(a). Nos conta o que houve, por favor? Estamos à disposição pra remarcar quando quiserem.`,
+  (nome) => `Prezados, aqui é da equipe do Brazilian Skills Academy. Informamos que ${nome} não esteve presente no treino de hoje. Pedimos a gentileza de nos informar o motivo da ausência. Ficamos à disposição para agendar a reposição.`,
+  (nome) => `Olá! Time do BSA por aqui 🎽⚽ Sentimos falta de ${nome} no treino de hoje! Está tudo bem? Nos conta o motivo, e já deixamos o espaço garantido pra próxima aula 💪`
+];
+function mensagemFalta(alunoId, nome){
   const primeiroNome = (nome||'').trim().split(' ')[0] || nome;
-  return `Olá! Aqui é da equipe do BSA (Brazilian Skills Academy) 🎽⚽. Notamos que ${primeiroNome} não compareceu ao treino hoje. Está tudo bem com ele(a)? Se puder, nos conta rapidinho o motivo da ausência. E se quiserem remarcar, é só nos chamar por aqui que a gente agenda a reposição com prazer! 💚`;
+  const chaveStorage = `bsaUltimaMsgFalta_${alunoId}`;
+  const ultimoIndice = parseInt(localStorage.getItem(chaveStorage), 10);
+  let indicesDisponiveis = MENSAGENS_FALTA.map((_, i) => i);
+  if(!isNaN(ultimoIndice)){
+    indicesDisponiveis = indicesDisponiveis.filter(i => i !== ultimoIndice);
+  }
+  const novoIndice = indicesDisponiveis[Math.floor(Math.random() * indicesDisponiveis.length)];
+  localStorage.setItem(chaveStorage, novoIndice);
+  return MENSAGENS_FALTA[novoIndice](primeiroNome);
 }
 
 function renderFaltantes(){
@@ -1374,7 +1390,7 @@ function renderFaltantes(){
   }
   vazio.style.display = 'none';
   cont.innerHTML = faltantes.map(a=>{
-    const link = a.responsavelWhatsapp ? gerarLinkWhatsApp(a.responsavelWhatsapp, mensagemFalta(a.nome)) : null;
+    const link = a.responsavelWhatsapp ? gerarLinkWhatsApp(a.responsavelWhatsapp, mensagemFalta(a.id, a.nome)) : null;
     return `
       <div class="falt-row">
         <div class="info">
