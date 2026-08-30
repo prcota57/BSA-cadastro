@@ -94,6 +94,21 @@
     transform:translateY(100%); transition:transform 0.25s ease-out;
   }
   .recognition-card.show{transform:translateY(0);}
+  .alerta-inativo-overlay{
+    position:absolute; inset:0; z-index:9; display:none; flex-direction:column; align-items:center; justify-content:center;
+    background:linear-gradient(180deg, rgba(160,20,10,0.97), rgba(110,8,4,0.98)); padding:24px; text-align:center;
+    animation:alertaInativoPisca 0.9s ease-in-out infinite;
+  }
+  .alerta-inativo-overlay.show{display:flex;}
+  @keyframes alertaInativoPisca{ 0%,100%{background-color:rgba(160,20,10,0.97);} 50%{background-color:rgba(90,5,2,0.99);} }
+  .alerta-inativo-icone{font-size:72px; line-height:1; margin-bottom:10px;}
+  .alerta-inativo-titulo{color:#fff; font-family:'Space Grotesk'; font-weight:800; font-size:clamp(28px,9vw,40px); letter-spacing:.02em;}
+  .alerta-inativo-nome{color:#fff; font-family:'Space Grotesk'; font-weight:700; font-size:20px; margin-top:8px;}
+  .alerta-inativo-sub{color:#ffe0da; font-size:15px; margin-top:6px; font-weight:600;}
+  .alerta-inativo-fechar{
+    margin-top:26px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px;
+    border:none; border-radius:14px; padding:14px 26px; cursor:pointer; background:#fff; color:#8c1a10;
+  }
   .recognition-card img{width:120px; height:120px; border-radius:50%; object-fit:cover; border:3px solid var(--gold); flex:0 0 auto;}
   .recognition-card .name{color:#fff; font-family:'Space Grotesk'; font-weight:700; font-size:28px; line-height:1.15;}
   .recognition-card .status{color:var(--gold); font-size:14.5px; margin-top:3px; font-weight:600;}
@@ -286,6 +301,20 @@
     box-shadow:0 0 0 14px var(--k-fail-glow);
   }
   .kiosk-fail-icon{ font-size:56px; }
+
+  #kioskScreenInativo.active{
+    background:linear-gradient(180deg, rgba(160,20,10,.97), rgba(90,5,2,.99));
+    animation:kioskInativoPisca 0.9s ease-in-out infinite;
+  }
+  @keyframes kioskInativoPisca{ 0%,100%{background-color:rgba(160,20,10,.97);} 50%{background-color:rgba(90,5,2,.99);} }
+  .kiosk-inativo-ring{
+    width:min(58vw,230px); height:min(58vw,230px); border-radius:50%; border:4px solid #fff;
+    display:flex; align-items:center; justify-content:center; margin-bottom:24px;
+    background:rgba(255,255,255,.08); box-shadow:0 0 0 14px rgba(255,255,255,.18);
+  }
+  .kiosk-inativo-icon{ font-size:64px; }
+  .kiosk-inativo-headline{ color:#fff; }
+  .kiosk-inativo-sub{ color:#ffe0da !important; font-weight:600; }
   .kiosk-fail-actions{ display:flex; flex-direction:column; gap:10px; margin-top:22px; width:100%; max-width:340px; }
   .kiosk-fail-grid{
     display:flex; flex-wrap:wrap; justify-content:center; gap:10px;
@@ -503,6 +532,13 @@
       </div>
       <button id="btnRecErrado" title="Reconheceu a pessoa errada">❌</button>
     </div>
+    <div class="alerta-inativo-overlay" id="alertaInativoOverlay">
+      <div class="alerta-inativo-icone">🚫</div>
+      <div class="alerta-inativo-titulo">ALUNO INATIVO</div>
+      <div class="alerta-inativo-nome" id="alertaInativoNome">—</div>
+      <div class="alerta-inativo-sub">Presença NÃO foi registrada</div>
+      <button class="alerta-inativo-fechar" id="btnFecharAlertaInativo">Entendi</button>
+    </div>
   </div>
 </div>
 
@@ -542,6 +578,13 @@
       <button class="kiosk-action-btn" id="btnKioskManual">👋 Chamar professor · buscar manualmente</button>
       <button class="kiosk-action-btn secondary" id="btnKioskVoz">🎤 Buscar falando o nome</button>
     </div>
+  </div>
+
+  <div class="kiosk-screen" id="kioskScreenInativo">
+    <div class="kiosk-inativo-ring"><span class="kiosk-inativo-icon">🚫</span></div>
+    <h1 class="kiosk-headline kiosk-inativo-headline">ALUNO INATIVO</h1>
+    <p class="kiosk-subline kiosk-inativo-sub" id="kioskInativoNome">—</p>
+    <p class="kiosk-subline kiosk-inativo-sub">Presença NÃO foi registrada — fale com a coordenação</p>
   </div>
 
   <div class="kiosk-screen" id="kioskScreenSuccess">
@@ -911,7 +954,7 @@ function carregarAlunos(){
     snap.forEach(doc=>{
       const d = doc.data();
       if(d.faceDescriptor && Array.isArray(d.faceDescriptor)){
-        alunosCache.push({ id: doc.id, nome: d.nome || '(sem nome)', unidade: d.unidade || '', foto: d.foto || null, faceDescriptor: d.faceDescriptor, faceDescriptors: d.faceDescriptors || null, diasTreino: d.diasTreino || [], horarioTreino: d.horarioTreino || '' });
+        alunosCache.push({ id: doc.id, nome: d.nome || '(sem nome)', unidade: d.unidade || '', foto: d.foto || null, faceDescriptor: d.faceDescriptor, faceDescriptors: d.faceDescriptors || null, diasTreino: d.diasTreino || [], horarioTreino: d.horarioTreino || '', statusGeral: d.statusGeral || 'ativo' });
       }
     });
     document.getElementById('countBadge').textContent = alunosCache.length;
@@ -1530,6 +1573,11 @@ async function processarReconhecimento(aluno, distance){
 
   try{
     const resultado = await marcarPresenca(aluno, distance);
+    if(resultado.bloqueado){
+      document.getElementById('recognitionCard').classList.remove('show');
+      mostrarAlertaInativo(aluno);
+      return;
+    }
     mostrarCardReconhecimento(aluno, resultado.mensagem, resultado.docId, resultado.duvidoso);
     if(resultado.tocarBip) bip();
   }catch(err){
@@ -1539,6 +1587,38 @@ async function processarReconhecimento(aluno, distance){
     ultimoReconhecidoId = null; // libera pra tentar de novo na hora, sem esperar os 4s
   }
 }
+
+function somAlertaInativo(){
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    [440,330,440,330].forEach((freq,i)=>{
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.type = 'square';
+      osc.frequency.value = freq;
+      const start = audioCtx.currentTime + i*0.22;
+      gain.gain.setValueAtTime(0.18, start);
+      osc.start(start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.2);
+      osc.stop(start + 0.22);
+    });
+  }catch(e){}
+}
+function mostrarAlertaInativo(aluno){
+  document.getElementById('alertaInativoNome').textContent = aluno.nome;
+  document.getElementById('alertaInativoOverlay').classList.add('show');
+  somAlertaInativo();
+  if(navigator.vibrate) navigator.vibrate([120,80,120,80,120]);
+  clearTimeout(window._alertaInativoTimer);
+  window._alertaInativoTimer = setTimeout(()=> document.getElementById('alertaInativoOverlay').classList.remove('show'), 6000);
+}
+document.getElementById('btnFecharAlertaInativo').addEventListener('click', (ev)=>{
+  ev.stopPropagation();
+  clearTimeout(window._alertaInativoTimer);
+  document.getElementById('alertaInativoOverlay').classList.remove('show');
+});
 
 function mostrarCardReconhecimento(aluno, statusTexto, docId, duvidoso){
   // Mostra a confirmação visual primeiro (garantida), preenche detalhes depois com segurança
@@ -1613,6 +1693,11 @@ async function buscarReposicaoAgendadaHoje(aluno){
 
 async function marcarPresenca(aluno, distance, origem){
   origem = origem || 'facial';
+  // Aluno inativo: NUNCA registra presença, nenhum caminho (facial, manual ou quiosque) passa
+  // daqui — quem chamou é responsável por mostrar o aviso grande e vermelho pro professor.
+  if(aluno.statusGeral === 'inativo'){
+    return { bloqueado: true, mensagem: '🚫 ALUNO INATIVO — presença NÃO registrada', tocarBip: false };
+  }
   const dataISO = dataHojeISO();
   const docId = aluno.id + '_' + dataISO;
   const ref = db.collection('presencas').doc(docId);
@@ -1828,6 +1913,7 @@ async function confirmarKioskPorFoto(alunoId){
   if(!aluno) return;
   try{
     const resultado = await marcarPresenca(aluno, null, 'manual');
+    if(resultado.bloqueado){ mostrarKioskInativo(aluno); return; }
     mostrarKioskSucesso(aluno, resultado);
   }catch(err){
     toast('⚠️ Erro ao registrar: ' + err.message);
@@ -1984,12 +2070,19 @@ async function loopKiosk(){
   }
 }
 
+let kioskUltimoBloqueado = false;
 async function kioskRegistrarSucesso(aluno, distance){
   const agora = Date.now();
   if(aluno.id === kioskUltimoId && (agora - kioskUltimoTs) < KIOSK_COOLDOWN_MS){
-    // já foi cumprimentado há pouco — não bate no banco de novo, mas reforça a tela em vez de ficar mudo
     kioskAttemptStartTs = null;
-    mostrarKioskSucesso(aluno, { mensagem: 'presença já registrada hoje', tocarBip: false });
+    if(kioskUltimoBloqueado){
+      // aluno inativo continua na frente da câmera dentro do cooldown — repete o aviso vermelho,
+      // NUNCA a tela de sucesso (nada foi registrado da primeira vez)
+      mostrarKioskInativo(aluno);
+    } else {
+      // já foi cumprimentado há pouco — não bate no banco de novo, mas reforça a tela em vez de ficar mudo
+      mostrarKioskSucesso(aluno, { mensagem: 'presença já registrada hoje', tocarBip: false });
+    }
     return;
   }
   kioskUltimoId = aluno.id;
@@ -1997,12 +2090,37 @@ async function kioskRegistrarSucesso(aluno, distance){
   kioskAttemptStartTs = null;
   try{
     const resultado = await marcarPresenca(aluno, distance, 'facial');
+    kioskUltimoBloqueado = !!resultado.bloqueado;
+    if(resultado.bloqueado){
+      mostrarKioskInativo(aluno);
+      return;
+    }
     mostrarKioskSucesso(aluno, resultado);
   }catch(err){
     console.error('Erro ao marcar presença (quiosque):', err);
     toast('⚠️ Falha ao salvar a presença de ' + aluno.nome + ': ' + err.message);
     kioskUltimoId = null; // não bloqueia mais esse aluno no cooldown — deixa tentar de novo
   }
+}
+
+function mostrarKioskInativo(aluno){
+  setKioskState('inativo');
+  somFalhaKiosk();
+  if(navigator.vibrate) navigator.vibrate([120,80,120,80,120]);
+  try{
+    document.getElementById('kioskInativoNome').textContent = aluno.nome;
+  }catch(err){
+    console.error('Erro ao preencher nome na tela de aluno inativo (mas o alerta já foi mostrado):', err);
+  }
+  clearTimeout(window._kioskInativoTimer);
+  window._kioskInativoTimer = setTimeout(()=>{
+    if(kioskAtivo){
+      kioskAttemptStartTs = null;
+      kioskState = 'standby-force';
+      setKioskState('standby');
+      document.getElementById('kioskStandbyHeadline').textContent = 'Aproxime seu rosto';
+    }
+  }, 6000);
 }
 
 function mostrarKioskSucesso(aluno, resultado){
