@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Minhas Tarefas">
+<title>Minhas Tarefas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F6F8F4; --surface:#FFFFFF; --pitch:#0F5C3D; --pitch-dark:#0B4530; --pitch-soft:#E4EFE8;
+    --gold:#FFC800; --gold-soft:#FFF3CC; --coral:#FF5A36; --coral-soft:#FFE4DC;
+    --azul:#1B4F9C; --azul-soft:#DCE7F8;
+    --ink:#142B20; --ink-soft:#5C7268; --line:#DCE5DD; --radius:18px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; -webkit-user-select:none; user-select:none;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif; height:100%; overscroll-behavior:none;}
+  body{padding-bottom:calc(90px + env(safe-area-inset-bottom)); padding-top:env(safe-area-inset-top);}
+  h1,h2,h3{font-family:'Space Grotesk',sans-serif; margin:0;}
+  header.top{
+    position:sticky; top:0; z-index:20; background:var(--pitch); color:#fff;
+    padding:16px 18px 14px; border-radius:0 0 22px 22px; box-shadow:0 6px 18px rgba(15,92,61,0.18);
+  }
+  header.top .row{display:flex; align-items:center; gap:10px; justify-content:space-between;}
+  header.top .left{display:flex; align-items:center; gap:10px;}
+  header.top a.back{color:#fff; text-decoration:none; font-size:22px; padding:4px;}
+  header.top h1{font-size:19px; font-weight:700;}
+  header.top .sub{font-size:12px; opacity:0.85; margin-top:1px;}
+  .pend-badge{background:var(--coral); color:#fff; font-family:'Space Grotesk'; font-weight:700; font-size:13px; border-radius:20px; padding:5px 11px;}
+
+  main{padding:16px 14px 10px;}
+  .screen{display:none;}
+  .screen.active{display:block;}
+
+  /* ---- Captura ---- */
+  .capture-wrap{display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:65vh; text-align:center;}
+  .mic-circle{
+    width:150px; height:150px; border-radius:50%; background:var(--pitch); display:flex; align-items:center; justify-content:center;
+    font-size:56px; box-shadow:0 8px 30px rgba(15,92,61,0.35); transition:transform .15s;
+  }
+  .mic-circle.listening{animation:pulse 1.4s infinite;}
+  .mic-circle.off{background:var(--ink-soft);}
+  @keyframes pulse{0%{transform:scale(1);} 50%{transform:scale(1.08);} 100%{transform:scale(1);}}
+  .capture-status{font-family:'Space Grotesk'; font-weight:700; font-size:17px; margin-top:20px;}
+  .capture-hint{font-size:13px; color:var(--ink-soft); margin-top:6px; max-width:280px;}
+  .live-transcript{
+    margin-top:22px; min-height:50px; max-width:320px; font-size:15px; color:var(--ink-soft); font-style:italic;
+  }
+  .saved-toast{
+    margin-top:18px; background:var(--pitch-soft); color:var(--pitch-dark); font-family:'Space Grotesk'; font-weight:700;
+    padding:10px 18px; border-radius:14px; opacity:0; transition:opacity .2s;
+  }
+  .saved-toast.show{opacity:1;}
+  .exit-hint{position:fixed; bottom:calc(16px + env(safe-area-inset-bottom)); left:0; right:0; text-align:center; font-size:12px; color:var(--ink-soft);}
+  .lista-quick-btn{
+    position:fixed; top:calc(14px + env(safe-area-inset-top)); right:14px; z-index:40;
+    background:rgba(15,92,61,0.9); color:#fff; border:none; border-radius:20px; padding:9px 14px;
+    font-family:'Space Grotesk'; font-weight:700; font-size:12.5px; box-shadow:0 4px 14px rgba(0,0,0,0.2);
+  }
+
+  /* ---- Lista ---- */
+  .tabs{display:flex; gap:6px; margin-bottom:14px; overflow-x:auto;}
+  .tabs button{flex:0 0 auto; border:none; background:var(--pitch-soft); color:var(--pitch-dark); font-family:'Space Grotesk'; font-weight:600; font-size:12.5px; padding:9px 14px; border-radius:20px;}
+  .tabs button.active{background:var(--pitch); color:#fff;}
+
+  .task-card{background:var(--surface); border-radius:16px; padding:14px; margin-bottom:10px; border:1px solid var(--line); box-shadow:0 2px 8px rgba(20,43,32,0.05); display:flex; gap:12px; align-items:flex-start;}
+  .task-card.p1{border-left:5px solid var(--coral);}
+  .task-card.p2{border-left:5px solid var(--gold);}
+  .task-card.p3{border-left:5px solid var(--ink-soft);}
+  .task-check{width:26px; height:26px; border-radius:50%; border:2px solid var(--line); flex:0 0 auto; margin-top:2px; display:flex; align-items:center; justify-content:center; font-size:14px; color:#fff;}
+  .task-check.done{background:var(--pitch); border-color:var(--pitch);}
+  .task-body{flex:1; min-width:0;}
+  .task-txt{font-size:15px; font-weight:600; line-height:1.35;}
+  .task-txt.done{text-decoration:line-through; color:var(--ink-soft);}
+  .task-meta{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;}
+  .pill{font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:10px; font-family:'Space Grotesk';}
+  .pill-p1{background:var(--coral-soft); color:var(--coral);}
+  .pill-p2{background:var(--gold-soft); color:#8A6D00;}
+  .pill-p3{background:var(--pitch-soft); color:var(--ink-soft);}
+  .pill-quem{background:var(--azul-soft); color:var(--azul);}
+  .pill-unidade{background:var(--pitch-soft); color:var(--pitch-dark);}
+  .pill-alerta{background:var(--coral-soft); color:var(--coral);}
+  .task-sub{font-size:11px; color:var(--ink-soft); margin-top:5px;}
+  .empty{text-align:center; color:var(--ink-soft); font-size:14px; padding:40px 20px;}
+
+  .fab{
+    position:fixed; right:18px; bottom:calc(90px + env(safe-area-inset-bottom)); width:60px; height:60px; border-radius:50%;
+    background:var(--pitch); color:#fff; font-size:26px; border:none; box-shadow:0 8px 22px rgba(15,92,61,0.35); z-index:25;
+  }
+
+  .bottom-nav{
+    position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--line);
+    display:flex; padding:8px 6px calc(8px + env(safe-area-inset-bottom)); z-index:30;
+  }
+  .bottom-nav button{flex:1; border:none; background:none; display:flex; flex-direction:column; align-items:center; gap:2px; font-size:10.5px; color:var(--ink-soft); font-family:'Space Grotesk'; font-weight:600; padding:6px 0;}
+  .bottom-nav button .ic{font-size:20px;}
+  .bottom-nav button.active{color:var(--pitch);}
+
+  .modal-bg{position:fixed; inset:0; background:rgba(10,20,15,0.5); z-index:60; display:none; align-items:flex-end; justify-content:center;}
+  .modal-bg.active{display:flex;}
+  .modal{background:#fff; width:100%; max-width:480px; border-radius:22px 22px 0 0; padding:20px 18px calc(20px + env(safe-area-inset-bottom)); max-height:80vh; overflow-y:auto;}
+  .modal h2{font-size:17px; margin-bottom:14px;}
+  label{display:block; font-size:12.5px; font-weight:600; color:var(--ink-soft); margin:12px 0 5px;}
+  input[type=text]{width:100%; padding:12px; border-radius:12px; border:1.5px solid var(--line); font-size:15px; font-family:'Inter'; background:#fff; color:var(--ink);}
+  .chip-row{display:flex; gap:8px; flex-wrap:wrap; margin-top:2px;}
+  .chip{border:1.5px solid var(--line); border-radius:20px; padding:8px 14px; font-size:13px; font-weight:600; background:#fff; color:var(--ink-soft); cursor:pointer;}
+  .chip.sel{background:var(--pitch); border-color:var(--pitch); color:#fff;}
+  .chip.sel.p1{background:var(--coral); border-color:var(--coral);}
+  .chip.sel.p2{background:var(--gold); border-color:var(--gold); color:#5C4400;}
+  .btn{border:none; border-radius:14px; padding:15px; font-family:'Space Grotesk'; font-weight:700; font-size:15.5px; cursor:pointer; text-align:center; width:100%; margin-top:16px;}
+  .btn-primary{background:var(--pitch); color:#fff;}
+  .btn-outline{background:transparent; border:1.5px solid var(--line); color:var(--ink-soft); margin-top:8px;}
+  .btn-whats{background:#25D366; color:#fff;}
+
+  .quem-overlay{position:fixed; inset:0; background:var(--bg); z-index:80; display:none; flex-direction:column; align-items:center; justify-content:center; padding:30px; text-align:center;}
+  .quem-overlay.active{display:flex;}
+  .quem-overlay h2{font-size:20px; margin-bottom:20px;}
+  .quem-overlay button{width:100%; max-width:280px; margin-bottom:12px;}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="row">
+    <div class="left">
+      <div>
+        <h1>Minhas Tarefas</h1>
+        <div class="sub">Lista pessoal</div>
+      </div>
+    </div>
+    <div class="pend-badge" id="pendBadge">0</div>
+    <div id="btnNotif" onclick="ativarNotificacoes()" style="font-size:20px;padding:4px 8px;cursor:pointer;" title="Ativar notificações">🔕</div>
+  </div>
+</header>
+
+<main>
+
+  <!-- TELA CAPTURA -->
+  <section class="screen" id="screen-captura">
+    <button class="lista-quick-btn" onclick="irPara('lista')">📋 Lista</button>
+    <div class="capture-wrap">
+      <div class="mic-circle off" id="micCircle">🎤</div>
+      <div class="capture-status" id="captureStatus">Toque no microfone pra começar</div>
+      <div class="capture-hint">Diga a tarefa. Pode falar "prioridade um/dois/três" em qualquer parte da frase. Pra parar: fale "encerrar", toque no microfone, ou fique 8s em silêncio.</div>
+      <div class="live-transcript" id="liveTranscript"></div>
+      <div class="saved-toast" id="savedToast">✅ Tarefa salva</div>
+    </div>
+    <div class="exit-hint" id="exitHint" style="display:none;">Toque 2x em qualquer lugar pra sair</div>
+  </section>
+
+  <!-- TELA LISTA -->
+  <section class="screen active" id="screen-lista">
+    <div class="tabs">
+      <button class="active" data-tab="pendentes" onclick="setTab('pendentes')">Pendentes</button>
+      <button data-tab="concluidas" onclick="setTab('concluidas')">Concluídas</button>
+    </div>
+    <div id="listaTarefas"></div>
+  </section>
+
+  <button class="fab" id="btnWhats" onclick="exportarWhats()">💬</button>
+
+</main>
+
+<div class="bottom-nav">
+  <button id="navLista" class="active" onclick="irPara('lista')"><span class="ic">📋</span>Lista</button>
+  <button id="navCaptura" onclick="irPara('captura')"><span class="ic">🎤</span>Anotar</button>
+</div>
+
+<!-- Modal editar tarefa -->
+<div class="modal-bg" id="modalEditar" onclick="if(event.target===this) fecharModal()">
+  <div class="modal">
+    <h2>Editar tarefa</h2>
+    <label>Texto</label>
+    <input type="text" id="editTexto">
+    <label>Prioridade</label>
+    <div class="chip-row" id="editPrioridade">
+      <div class="chip p1" data-v="1" onclick="selChip(this,'prioridade')">🔴 Urgente</div>
+      <div class="chip p2" data-v="2" onclick="selChip(this,'prioridade')">🟡 Média</div>
+      <div class="chip" data-v="3" onclick="selChip(this,'prioridade')">⚪ Baixa</div>
+      <div class="chip" data-v="" onclick="selChip(this,'prioridade')">Sem prioridade</div>
+    </div>
+      <div class="chip" data-v="Iasmin" onclick="selChip(this,'responsavel')">Iasmin</div>
+      <div class="chip" data-v="" onclick="selChip(this,'responsavel')">Qualquer um</div>
+    </div>
+      <div class="chip" data-v="Estoril" onclick="selChip(this,'unidade')">Estoril</div>
+      <div class="chip" data-v="" onclick="selChip(this,'unidade')">Nenhuma</div>
+    </div>
+    <button class="btn btn-primary" onclick="salvarEdicao()">Salvar</button>
+    <button class="btn btn-outline" onclick="excluirTarefa()">Excluir tarefa</button>
+    <button class="btn btn-outline" onclick="fecharModal()">Fechar</button>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
+<script>
+/* ============ CONFIG ============ */
+const firebaseConfig = {
+  apiKey: "AIzaSyDmM2m_QnEeRflAKCyb11TzOrZM7iVgLCA",
+  authDomain: "bsa-app-493c3.firebaseapp.com",
+  projectId: "bsa-app-493c3",
+  storageBucket: "bsa-app-493c3.firebasestorage.app",
+  messagingSenderId: "455452879388",
+  appId: "1:455452879388:web:7135d93c116b2fe7cfcdd9"
+};
+
+let db;
+let tarefasCache = [];
+let tabAtual = 'pendentes';
+let editandoId = null;
+let editSel = {prioridade:''};
+const usuarioAtual = 'Ronaldo';
+
+/* ============ INIT FIREBASE (com persistência offline) ============ */
+firebase.initializeApp(firebaseConfig);
+db = firebase.firestore();
+db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+firebase.auth().signInAnonymously().catch(err=>{
+  document.getElementById('headerSub').textContent = 'Erro de conexão';
+});
+
+db.collection('tarefasPessoaisRonaldo').orderBy('criadoEm','desc').limit(300).onSnapshot(snap=>{
+  tarefasCache = [];
+  snap.forEach(doc=> tarefasCache.push(Object.assign({_id:doc.id}, doc.data())));
+  renderLista();
+}, err=>{ /* offline: mantém cache local, Firestore sincroniza sozinho quando voltar sinal */ });
+
+
+/* ============ NOTIFICAÇÕES (FCM) ============ */
+const VAPID_KEY = 'BPdbdb5gn9IK9VTI1IfuvzM0x7RLOKWxl9c-XuHQg3OP3njHNnrZmwEg1nHDLj3dB9rZjZ_O2BNaB5TXuIzmCyg';
+function atualizarBotaoNotif(){
+  const btn = document.getElementById('btnNotif');
+  if(!btn) return;
+  const ativo = localStorage.getItem('bsaNotifAtivo') === '1';
+  btn.textContent = ativo ? '🔔' : '🔕';
+}
+atualizarBotaoNotif();
+
+async function ativarNotificacoes(){
+  try{
+    if(!('Notification' in window) || !('serviceWorker' in navigator)){
+      alert('Esse navegador não suporta notificações. No iPhone, adicione o BSA à Tela de Início e abra por lá (Safari sozinho não recebe notificação em segundo plano).');
+      return;
+    }
+    if(!usuarioAtual){ alert('Escolha quem você é primeiro.'); return; }
+    const perm = await Notification.requestPermission();
+    if(perm !== 'granted'){ alert('Notificação não autorizada. Pra ativar depois, vai em Ajustes do iPhone > Notificações > BSA.'); return; }
+    const reg = await navigator.serviceWorker.register('sw.js');
+    await navigator.serviceWorker.ready;
+    const messaging = firebase.messaging();
+    const token = await messaging.getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
+    if(token){
+      await db.collection('notificacaoTokens').doc(token).set({
+        token: token,
+        pessoa: usuarioAtual,
+        atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      localStorage.setItem('bsaNotifAtivo','1');
+      atualizarBotaoNotif();
+      if(navigator.vibrate) navigator.vibrate(120);
+    }
+  }catch(e){
+    console.error(e);
+    alert('Não deu pra ativar as notificações agora. Confirma que o BSA foi adicionado à Tela de Início.');
+  }
+}
+
+/* ============ NAVEGAÇÃO ============ */
+function irPara(tela){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('navLista').classList.remove('active');
+  document.getElementById('navCaptura').classList.remove('active');
+  document.getElementById('btnWhats').style.display = tela==='lista' ? 'block' : 'none';
+  if(tela==='lista'){
+    document.getElementById('screen-lista').classList.add('active');
+    document.getElementById('navLista').classList.add('active');
+    pararEscuta();
+  } else {
+    document.getElementById('screen-captura').classList.add('active');
+    document.getElementById('navCaptura').classList.add('active');
+  }
+}
+// abre direto na captura se vier com ?modo=captura (usado pelo atalho de tela inicial)
+if(new URLSearchParams(location.search).get('modo')==='captura'){
+  irPara('captura');
+  setTimeout(iniciarEscuta, 300);
+}
+
+/* ============ RECONHECIMENTO DE VOZ ============ */
+let recognition = null;
+let escutando = false;
+let saindoTaps = 0, saindoTimer = null;
+let silenceTimer = null;
+const SILENCE_MS = 8000; // para sozinho após 8s sem fala nova
+const COMANDOS_PARAR = /^(encerrar|pronto|terminar|para|parar|pausa|pausar)[\.\!]?$/i;
+
+function getRecognition(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR) return null;
+  const r = new SR();
+  r.lang = 'pt-BR';
+  r.continuous = true;
+  r.interimResults = true;
+  return r;
+}
+
+function iniciarEscuta(){
+  if(escutando) return;
+  recognition = getRecognition();
+  if(!recognition){
+    document.getElementById('captureStatus').textContent = 'Reconhecimento de voz não disponível neste navegador';
+    return;
+  }
+  escutando = true;
+  document.getElementById('micCircle').classList.remove('off');
+  document.getElementById('micCircle').classList.add('listening');
+  document.getElementById('captureStatus').textContent = 'Ouvindo... pode falar';
+  document.getElementById('exitHint').style.display = 'block';
+
+  recognition.onresult = (event)=>{
+    let interim = '';
+    for(let i=event.resultIndex; i<event.results.length; i++){
+      const res = event.results[i];
+      if(res.isFinal){
+        const falaLimpa = res[0].transcript.trim();
+        if(COMANDOS_PARAR.test(falaLimpa)){
+          pararEscutaManual();
+          return;
+        }
+        processarFala(res[0].transcript);
+        resetSilenceTimer();
+      } else {
+        interim += res[0].transcript;
+        resetSilenceTimer();
+      }
+    }
+    document.getElementById('liveTranscript').textContent = interim;
+  };
+  recognition.onerror = (e)=>{
+    if(e.error==='no-speech' || e.error==='aborted') return;
+  };
+  recognition.onend = ()=>{
+    if(escutando){ try{ recognition.start(); }catch(e){} } // reinicia sozinho (iOS corta após pausas)
+  };
+  try{ recognition.start(); }catch(e){}
+  resetSilenceTimer();
+}
+
+function resetSilenceTimer(){
+  clearTimeout(silenceTimer);
+  silenceTimer = setTimeout(()=>{
+    if(escutando) pararEscutaAuto();
+  }, SILENCE_MS);
+}
+
+function pararEscuta(){
+  escutando = false;
+  clearTimeout(silenceTimer);
+  if(recognition){ try{ recognition.stop(); }catch(e){} }
+  document.getElementById('micCircle').classList.remove('listening');
+  document.getElementById('micCircle').classList.add('off');
+  document.getElementById('captureStatus').textContent = 'Toque no microfone pra começar';
+  document.getElementById('exitHint').style.display = 'none';
+  document.getElementById('liveTranscript').textContent = '';
+}
+
+// para sozinho depois de alguns segundos sem fala (silêncio) — mic não fica ligado à toa
+function pararEscutaAuto(){
+  pararEscuta();
+  document.getElementById('captureStatus').textContent = 'Parou de ouvir (sem fala) — toque pra continuar';
+  if(navigator.vibrate) navigator.vibrate(50);
+}
+
+// para por comando de voz ("encerrar"/"pronto"/"parar") ou toque no microfone
+function pararEscutaManual(){
+  pararEscuta();
+  document.getElementById('captureStatus').textContent = 'Escuta encerrada — toque pra continuar';
+  if(navigator.vibrate) navigator.vibrate([50,40,50]);
+}
+
+document.getElementById('micCircle').addEventListener('click', ()=>{
+  if(escutando){ pararEscutaManual(); }
+  else{ iniciarEscuta(); }
+});
+
+// 2 toques em qualquer lugar da tela de captura pra sair (padrão dos apps de treino)
+document.getElementById('screen-captura').addEventListener('click', (e)=>{
+  if(e.target.id === 'micCircle') return;
+  saindoTaps++;
+  if(saindoTaps===1){
+    saindoTimer = setTimeout(()=>{ saindoTaps=0; }, 600);
+  } else if(saindoTaps>=2){
+    clearTimeout(saindoTimer); saindoTaps=0;
+    if(navigator.vibrate) navigator.vibrate([40,60,40]);
+    irPara('lista');
+  }
+});
+
+/* ============ PARSING DA FALA ============ */
+const DIAS_SEMANA_NOMES = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
+function extrairDataHora(lower){
+  // horário: "21h", "21h30", "21 horas", "9 da manhã/tarde/noite"
+  const mHora = lower.match(/\b(\d{1,2})\s*(?:h|horas?)\s*(\d{2})?\b/);
+  if(!mHora) return null;
+  let hora = parseInt(mHora[1], 10);
+  let min = mHora[2] ? parseInt(mHora[2], 10) : 0;
+  if(hora > 23 || min > 59) return null;
+
+  const agora = new Date();
+  let alvo = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), hora, min, 0, 0);
+
+  if(/\bamanh[ãa]\b/.test(lower)){
+    alvo.setDate(alvo.getDate() + 1);
+  } else {
+    let diaAlvo = -1;
+    DIAS_SEMANA_NOMES.forEach((nome, idx)=>{
+      if(new RegExp('\\b' + nome + '(-feira)?\\b').test(lower)) diaAlvo = idx;
+    });
+    if(diaAlvo >= 0){
+      let dif = (diaAlvo - agora.getDay() + 7) % 7;
+      if(dif === 0) dif = 7; // já passou hoje, pula pra próxima semana
+      alvo.setDate(alvo.getDate() + dif);
+    } else if(/\bhoje\b/.test(lower)){
+      if(alvo <= agora) return null; // "hoje às 9h" falado às 15h não faz sentido, ignora
+    } else {
+      return null; // não achou referência de dia — não é um lembrete agendado
+    }
+  }
+  return { data: alvo, trecho: mHora[0] };
+}
+
+function processarFala(textoOriginal){
+  const original = textoOriginal.trim();
+  if(!original) return;
+  let lower = original.toLowerCase();
+  let prioridade = null;
+
+  if(/\bprioridade\s*(um|1)\b/.test(lower)) prioridade = 1;
+  else if(/\bprioridade\s*(dois|doze|2)\b/.test(lower)) prioridade = 2;
+  else if(/\bprioridade\s*(tr[eê]s|3)\b/.test(lower)) prioridade = 3;
+
+
+  const dataHora = extrairDataHora(lower);
+
+  // limpa o texto removendo os comandos falados
+  let limpo = original
+    .replace(/prioridade\s*(um|1|dois|doze|2|tr[eê]s|3)/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  limpo = limpo.charAt(0).toUpperCase() + limpo.slice(1);
+  if(!limpo) limpo = original;
+
+  const baixaConfianca = limpo.split(' ').filter(w=>w.length>1).length < 2;
+
+  salvarTarefa({
+    texto: limpo,
+    textoOriginal: original,
+    prioridade: prioridade,
+    baixaConfianca: baixaConfianca,
+    criadoPor: usuarioAtual || 'Desconhecido',
+    criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+    concluido: false,
+    concluidoPor: null,
+    concluidoEm: null
+  });
+
+  if(dataHora){
+    db.collection('lembretesAgendados').add({
+      texto: limpo,
+      responsavel: 'Ronaldo',
+      dataHora: firebase.firestore.Timestamp.fromDate(dataHora.data),
+      enviado: false,
+      criadoPor: usuarioAtual || 'Desconhecido',
+      criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(()=>{});
+    const toast = document.getElementById('savedToast');
+    const textoOriginalToast = toast.textContent;
+    toast.textContent = '🔔 Lembrete agendado pra ' + dataHora.data.toLocaleString('pt-BR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
+    setTimeout(()=>{ toast.textContent = textoOriginalToast; }, 1600);
+  }
+}
+
+function salvarTarefa(dados){
+  db.collection('tarefasPessoaisRonaldo').add(dados).catch(()=>{ /* offline: fica na fila local do Firestore */ });
+  if(navigator.vibrate) navigator.vibrate(120);
+  tocarBip();
+  const toast = document.getElementById('savedToast');
+  toast.classList.add('show');
+  setTimeout(()=> toast.classList.remove('show'), 1400);
+}
+
+function tocarBip(){
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const o = ctx.createOscillator(); const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.frequency.value = 880; g.gain.value = 0.15;
+    o.start(); o.stop(ctx.currentTime + 0.14);
+  }catch(e){}
+}
+
+/* ============ LISTA ============ */
+function setTab(tab){
+  tabAtual = tab;
+  document.querySelectorAll('.tabs button').forEach(b=> b.classList.toggle('active', b.dataset.tab===tab));
+  renderLista();
+}
+
+function renderLista(){
+  const pendentes = tarefasCache.filter(t=>!t.concluido);
+  document.getElementById('pendBadge').textContent = pendentes.length;
+
+  const lista = tabAtual==='pendentes' ? pendentes : tarefasCache.filter(t=>t.concluido);
+  lista.sort((a,b)=>{
+    const pa = a.prioridade || 9, pb = b.prioridade || 9;
+    return pa - pb;
+  });
+
+  const el = document.getElementById('listaTarefas');
+  if(lista.length===0){
+    el.innerHTML = '<div class="empty">' + (tabAtual==='pendentes' ? 'Nenhuma tarefa pendente 🎉' : 'Nenhuma tarefa concluída ainda') + '</div>';
+    return;
+  }
+  el.innerHTML = lista.map(t=>{
+    const pClass = t.prioridade ? 'p'+t.prioridade : '';
+    let pills = '';
+    if(t.prioridade===1) pills += '<span class="pill pill-p1">🔴 Urgente</span>';
+    else if(t.prioridade===2) pills += '<span class="pill pill-p2">🟡 Média</span>';
+    else if(t.prioridade===3) pills += '<span class="pill pill-p3">⚪ Baixa</span>';
+    if(t.baixaConfianca) pills += '<span class="pill pill-alerta">⚠️ revisar</span>';
+    const sub = t.concluido
+      ? 'Concluído por ' + (t.concluidoPor||'?')
+      : 'Criado por ' + (t.criadoPor||'?');
+    return '<div class="task-card ' + pClass + '" onclick="abrirEdicao(\'' + t._id + '\')">' +
+      '<div class="task-check ' + (t.concluido?'done':'') + '" onclick="event.stopPropagation(); toggleConcluido(\'' + t._id + '\')">' + (t.concluido?'✓':'') + '</div>' +
+      '<div class="task-body">' +
+        '<div class="task-txt ' + (t.concluido?'done':'') + '">' + escapeHtml(t.texto) + '</div>' +
+        '<div class="task-meta">' + pills + '</div>' +
+        '<div class="task-sub">' + sub + '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function escapeHtml(s){
+  return (s||'').replace(/[&<>"']/g, c=> ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function toggleConcluido(id){
+  const t = tarefasCache.find(x=>x._id===id);
+  if(!t) return;
+  if(navigator.vibrate) navigator.vibrate(60);
+  db.collection('tarefasPessoaisRonaldo').doc(id).update(
+    t.concluido
+      ? {concluido:false, concluidoPor:null, concluidoEm:null}
+      : {concluido:true, concluidoPor:usuarioAtual, concluidoEm:firebase.firestore.FieldValue.serverTimestamp()}
+  );
+}
+
+/* ============ EDITAR ============ */
+function abrirEdicao(id){
+  const t = tarefasCache.find(x=>x._id===id);
+  if(!t) return;
+  editandoId = id;
+  document.getElementById('editTexto').value = t.texto;
+  editSel = {prioridade: t.prioridade||''};
+  ['prioridade'].forEach(campo=>{
+    document.querySelectorAll('#edit'+cap(campo)+' .chip').forEach(c=>{
+      c.classList.toggle('sel', String(c.dataset.v)===String(editSel[campo]||''));
+    });
+  });
+  document.getElementById('modalEditar').classList.add('active');
+}
+function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+function selChip(el, campo){
+  document.querySelectorAll('#edit'+cap(campo)+' .chip').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+  editSel[campo] = el.dataset.v;
+}
+function fecharModal(){
+  document.getElementById('modalEditar').classList.remove('active');
+  editandoId = null;
+}
+function salvarEdicao(){
+  if(!editandoId) return;
+  db.collection('tarefasPessoaisRonaldo').doc(editandoId).update({
+    texto: document.getElementById('editTexto').value.trim(),
+    prioridade: editSel.prioridade ? Number(editSel.prioridade) : null,
+    baixaConfianca: false
+  });
+  fecharModal();
+}
+function excluirTarefa(){
+  if(!editandoId) return;
+  if(confirm('Excluir esta tarefa?')){
+    db.collection('tarefasPessoaisRonaldo').doc(editandoId).delete();
+    fecharModal();
+  }
+}
+
+/* ============ WHATSAPP ============ */
+function exportarWhats(){
+  const pendentes = tarefasCache.filter(t=>!t.concluido).sort((a,b)=>(a.prioridade||9)-(b.prioridade||9));
+  if(pendentes.length===0){ alert('Nenhuma tarefa pendente pra exportar.'); return; }
+  let msg = '*Tarefas pendentes de Ronaldo:*\n\n';
+  pendentes.forEach(t=>{
+    const emoji = t.prioridade===1?'🔴':t.prioridade===2?'🟡':t.prioridade===3?'⚪':'▪️';
+    msg += emoji + ' ' + t.texto;
+    msg += '\n';
+  });
+  window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+}
+</script>
+</body>
+</html>
