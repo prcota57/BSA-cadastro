@@ -31,6 +31,14 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
       - name: Deploy das Cloud Functions
-        run: firebase deploy --only functions --project bsa-app-493c3 --non-interactive
+        run: |
+          set +e
+          firebase deploy --only functions --project bsa-app-493c3 --non-interactive --debug > /tmp/deploy.log 2>&1
+          STATUS=$?
+          echo "## Resultado do deploy (status $STATUS)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -c 5000 /tmp/deploy.log >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          exit $STATUS
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/bsa-service-account.json
