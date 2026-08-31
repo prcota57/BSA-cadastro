@@ -9,6 +9,9 @@ on:
       - '.firebaserc'
   workflow_dispatch: {}
 
+permissions:
+  contents: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -31,14 +34,25 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
       - name: Deploy das Cloud Functions
+        id: deploy
         run: |
           set +e
           firebase deploy --only functions --project bsa-app-493c3 --non-interactive --debug > /tmp/deploy.log 2>&1
-          STATUS=$?
-          echo "## Resultado do deploy (status $STATUS)" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          tail -c 5000 /tmp/deploy.log >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          exit $STATUS
+          echo "STATUS=$?" >> $GITHUB_ENV
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/bsa-service-account.json
+
+      - name: Salvar log de diagnóstico no repositório
+        if: always()
+        run: |
+          mkdir -p debug
+          cp /tmp/deploy.log debug/last-deploy-log.txt
+          git config user.name "bsa-bot"
+          git config user.email "bsa-bot@users.noreply.github.com"
+          git add debug/last-deploy-log.txt
+          git commit -m "Log de diagnostico do deploy (auto)" || echo "nada pra commitar"
+          git push
+
+      - name: Falhar o job se o deploy falhou
+        if: always()
+        run: exit ${STATUS:-1}
