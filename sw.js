@@ -49,6 +49,10 @@ self.addEventListener('activate', function(event) {
 
 self.addEventListener('fetch', function(event) {
   if (event.request.method !== 'GET') return;
+  var path = new URL(event.request.url).pathname.split('/').pop();
+  // só usa cache para os arquivos do Hub listados em FILES;
+  // qualquer outra página (como os apps pessoais de tarefas) sempre busca da rede.
+  if (FILES.indexOf(path) === -1) return;
   event.respondWith(
     caches.match(event.request).then(function(cached) {
       if (cached) return cached;
