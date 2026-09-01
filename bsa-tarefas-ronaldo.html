@@ -371,8 +371,10 @@ function iniciarEscuta(){
           pararEscutaManual();
           return;
         }
-        if(modoCaptura==='compra'){ processarCompra(res[0].transcript); }
-        else{ processarFala(res[0].transcript); }
+        const falaFinal = res[0].transcript;
+        if(modoCaptura==='compra'){ processarCompra(falaFinal); }
+        else if(/^\s*comprar\b/i.test(falaFinal)){ processarCompra(falaFinal.replace(/^\s*comprar\b\s*/i, '')); }
+        else{ processarFala(falaFinal); }
         resetSilenceTimer();
       } else {
         interim += res[0].transcript;
