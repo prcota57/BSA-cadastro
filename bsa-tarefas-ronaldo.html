@@ -123,6 +123,15 @@
   .quem-overlay.active{display:flex;}
   .quem-overlay h2{font-size:20px; margin-bottom:20px;}
   .quem-overlay button{width:100%; max-width:280px; margin-bottom:12px;}
+
+  .compras-topo{display:flex; gap:8px; padding:14px 16px 8px;}
+  .btn-compras-voz{flex:1;}
+  .btn-compras-limpar{flex:0 0 auto; font-size:12px; padding:0 14px;}
+  .compra-card{display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px; margin:8px 16px;}
+  .compra-check{width:26px; height:26px; border-radius:50%; border:2px solid var(--pitch); flex:0 0 auto; display:flex; align-items:center; justify-content:center; font-size:15px; color:#fff;}
+  .compra-check.done{background:var(--pitch);}
+  .compra-txt{font-size:15px; font-weight:600; color:var(--ink);}
+  .compra-txt.done{color:var(--ink-soft); text-decoration:line-through;}
 </style>
 </head>
 <body>
@@ -144,11 +153,11 @@
 
   <!-- TELA CAPTURA -->
   <section class="screen" id="screen-captura">
-    <button class="lista-quick-btn" onclick="irPara('lista')">📋 Lista</button>
+    <button class="lista-quick-btn" onclick="irPara(modoCaptura==='compra'?'compras':'lista')">📋 Voltar</button>
     <div class="capture-wrap">
       <div class="mic-circle off" id="micCircle">🎤</div>
       <div class="capture-status" id="captureStatus">Toque no microfone pra começar</div>
-      <div class="capture-hint">Diga a tarefa. Pode falar "prioridade um/dois/três" em qualquer parte da frase. Pra parar: fale "encerrar", toque no microfone, ou fique 8s em silêncio.</div>
+      <div class="capture-hint" id="capHint">Diga a tarefa. Pode falar "prioridade um/dois/três" em qualquer parte da frase. Pra parar: fale "encerrar", toque no microfone, ou fique 8s em silêncio.</div>
       <div class="live-transcript" id="liveTranscript"></div>
       <div class="saved-toast" id="savedToast">✅ Tarefa salva</div>
     </div>
@@ -164,13 +173,23 @@
     <div id="listaTarefas"></div>
   </section>
 
+  <!-- TELA COMPRAS -->
+  <section class="screen" id="screen-compras">
+    <div class="compras-topo">
+      <button class="btn btn-primary btn-compras-voz" onclick="abrirCapturaCompra()">🎤 Adicionar por voz</button>
+      <button class="btn btn-outline btn-compras-limpar" onclick="limparComprados()">Limpar marcados</button>
+    </div>
+    <div id="listaCompras"></div>
+  </section>
+
   <button class="fab" id="btnWhats" onclick="exportarWhats()">💬</button>
 
 </main>
 
 <div class="bottom-nav">
   <button id="navLista" class="active" onclick="irPara('lista')"><span class="ic">📋</span>Lista</button>
-  <button id="navCaptura" onclick="irPara('captura')"><span class="ic">🎤</span>Anotar</button>
+  <button id="navCompras" onclick="irPara('compras')"><span class="ic">🛒</span>Compras</button>
+  <button id="navCaptura" onclick="modoCaptura='tarefa'; irPara('captura')"><span class="ic">🎤</span>Anotar</button>
 </div>
 
 <!-- Modal editar tarefa -->
@@ -185,12 +204,6 @@
       <div class="chip p2" data-v="2" onclick="selChip(this,'prioridade')">🟡 Média</div>
       <div class="chip" data-v="3" onclick="selChip(this,'prioridade')">⚪ Baixa</div>
       <div class="chip" data-v="" onclick="selChip(this,'prioridade')">Sem prioridade</div>
-    </div>
-      <div class="chip" data-v="Iasmin" onclick="selChip(this,'responsavel')">Iasmin</div>
-      <div class="chip" data-v="" onclick="selChip(this,'responsavel')">Qualquer um</div>
-    </div>
-      <div class="chip" data-v="Estoril" onclick="selChip(this,'unidade')">Estoril</div>
-      <div class="chip" data-v="" onclick="selChip(this,'unidade')">Nenhuma</div>
     </div>
     <button class="btn btn-primary" onclick="salvarEdicao()">Salvar</button>
     <button class="btn btn-outline" onclick="excluirTarefa()">Excluir tarefa</button>
@@ -218,6 +231,8 @@ let tarefasCache = [];
 let tabAtual = 'pendentes';
 let editandoId = null;
 let editSel = {prioridade:''};
+let modoCaptura = 'tarefa'; // 'tarefa' ou 'compra'
+let comprasCache = [];
 const usuarioAtual = 'Ronaldo';
 
 /* ============ INIT FIREBASE (com persistência offline) ============ */
@@ -233,6 +248,12 @@ db.collection('tarefasPessoaisRonaldo').orderBy('criadoEm','desc').limit(300).on
   snap.forEach(doc=> tarefasCache.push(Object.assign({_id:doc.id}, doc.data())));
   renderLista();
 }, err=>{ /* offline: mantém cache local, Firestore sincroniza sozinho quando voltar sinal */ });
+
+db.collection('listaComprasRonaldo').orderBy('criadoEm','desc').limit(300).onSnapshot(snap=>{
+  comprasCache = [];
+  snap.forEach(doc=> comprasCache.push(Object.assign({_id:doc.id}, doc.data())));
+  renderCompras();
+}, err=>{ /* offline: mantém cache local */ });
 
 
 /* ============ NOTIFICAÇÕES (FCM) ============ */
@@ -278,16 +299,30 @@ async function ativarNotificacoes(){
 function irPara(tela){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById('navLista').classList.remove('active');
+  document.getElementById('navCompras').classList.remove('active');
   document.getElementById('navCaptura').classList.remove('active');
   document.getElementById('btnWhats').style.display = tela==='lista' ? 'block' : 'none';
   if(tela==='lista'){
     document.getElementById('screen-lista').classList.add('active');
     document.getElementById('navLista').classList.add('active');
     pararEscuta();
+  } else if(tela==='compras'){
+    document.getElementById('screen-compras').classList.add('active');
+    document.getElementById('navCompras').classList.add('active');
+    pararEscuta();
   } else {
     document.getElementById('screen-captura').classList.add('active');
     document.getElementById('navCaptura').classList.add('active');
+    document.getElementById('captureStatus').textContent = modoCaptura==='compra' ? 'Toque no microfone pra começar' : 'Toque no microfone pra começar';
+    document.getElementById('capHint').textContent = modoCaptura==='compra'
+      ? 'Diga os itens da compra (pode falar vários separados por \"e\"). Pra parar: fale \"encerrar\", toque no microfone, ou fique 8s em silêncio.'
+      : 'Diga a tarefa. Pode falar \"prioridade um/dois/três\" em qualquer parte da frase. Pra parar: fale \"encerrar\", toque no microfone, ou fique 8s em silêncio.';
   }
+}
+function abrirCapturaCompra(){
+  modoCaptura = 'compra';
+  irPara('captura');
+  setTimeout(iniciarEscuta, 200);
 }
 // abre direto na captura se vier com ?modo=captura (usado pelo atalho de tela inicial)
 if(new URLSearchParams(location.search).get('modo')==='captura'){
@@ -336,7 +371,8 @@ function iniciarEscuta(){
           pararEscutaManual();
           return;
         }
-        processarFala(res[0].transcript);
+        if(modoCaptura==='compra'){ processarCompra(res[0].transcript); }
+        else{ processarFala(res[0].transcript); }
         resetSilenceTimer();
       } else {
         interim += res[0].transcript;
@@ -401,7 +437,7 @@ document.getElementById('screen-captura').addEventListener('click', (e)=>{
   } else if(saindoTaps>=2){
     clearTimeout(saindoTimer); saindoTaps=0;
     if(navigator.vibrate) navigator.vibrate([40,60,40]);
-    irPara('lista');
+    irPara(modoCaptura==='compra' ? 'compras' : 'lista');
   }
 });
 
@@ -506,6 +542,64 @@ function tocarBip(){
     o.frequency.value = 880; g.gain.value = 0.15;
     o.start(); o.stop(ctx.currentTime + 0.14);
   }catch(e){}
+}
+
+/* ============ LISTA DE COMPRAS ============ */
+function processarCompra(textoOriginal){
+  const original = textoOriginal.trim();
+  if(!original) return;
+  // permite falar varios itens numa frase só, separados por "e" ou vírgula
+  const itens = original.split(/\s*,\s*|\s+\be\b\s+/i).map(i=>i.trim()).filter(i=>i.length>0);
+  itens.forEach(item=>{
+    const limpo = item.charAt(0).toUpperCase() + item.slice(1);
+    db.collection('listaComprasRonaldo').add({
+      item: limpo,
+      comprado: false,
+      criadoPor: usuarioAtual,
+      criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+      compradoEm: null
+    }).catch(()=>{});
+  });
+  if(navigator.vibrate) navigator.vibrate(120);
+  tocarBip();
+  const toast = document.getElementById('savedToast');
+  toast.textContent = itens.length>1 ? '✅ ' + itens.length + ' itens adicionados' : '✅ Item adicionado';
+  toast.classList.add('show');
+  setTimeout(()=>{ toast.classList.remove('show'); toast.textContent = '✅ Tarefa salva'; }, 1400);
+}
+
+function renderCompras(){
+  const pendentes = comprasCache.filter(c=>!c.comprado);
+  const comprados = comprasCache.filter(c=>c.comprado);
+  const ordenada = pendentes.concat(comprados);
+  const el = document.getElementById('listaCompras');
+  if(ordenada.length===0){
+    el.innerHTML = '<div class="empty">Lista de compras vazia</div>';
+    return;
+  }
+  el.innerHTML = ordenada.map(c=>{
+    return '<div class="compra-card" onclick="toggleComprado(\''+c._id+'\')">' +
+      '<div class="compra-check ' + (c.comprado?'done':'') + '">' + (c.comprado?'✓':'') + '</div>' +
+      '<div class="compra-txt ' + (c.comprado?'done':'') + '">' + escapeHtml(c.item) + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function toggleComprado(id){
+  const c = comprasCache.find(x=>x._id===id);
+  if(!c) return;
+  db.collection('listaComprasRonaldo').doc(id).update({
+    comprado: !c.comprado,
+    compradoEm: !c.comprado ? firebase.firestore.FieldValue.serverTimestamp() : null
+  });
+  if(navigator.vibrate) navigator.vibrate(60);
+}
+
+function limparComprados(){
+  const comprados = comprasCache.filter(c=>c.comprado);
+  if(comprados.length===0) return;
+  if(!confirm('Remover ' + comprados.length + ' item(ns) já comprado(s) da lista?')) return;
+  comprados.forEach(c=> db.collection('listaComprasRonaldo').doc(c._id).delete());
 }
 
 /* ============ LISTA ============ */
