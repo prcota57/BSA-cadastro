@@ -124,14 +124,13 @@
   .quem-overlay h2{font-size:20px; margin-bottom:20px;}
   .quem-overlay button{width:100%; max-width:280px; margin-bottom:12px;}
 
-  .compras-topo{display:flex; gap:8px; padding:14px 16px 8px;}
-  .btn-compras-voz{flex:1;}
-  .btn-compras-limpar{flex:0 0 auto; font-size:12px; padding:0 14px;}
-  .compra-card{display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px; margin:8px 16px;}
-  .compra-check{width:26px; height:26px; border-radius:50%; border:2px solid var(--pitch); flex:0 0 auto; display:flex; align-items:center; justify-content:center; font-size:15px; color:#fff;}
-  .compra-check.done{background:var(--pitch);}
-  .compra-txt{font-size:15px; font-weight:600; color:var(--ink);}
+  .compra-card{background:var(--surface); border-radius:16px; padding:14px; margin-bottom:10px; border:1px solid var(--line); box-shadow:0 2px 8px rgba(20,43,32,0.05); display:flex; gap:12px; align-items:center;}
+  .compra-check{width:26px; height:26px; border-radius:50%; border:2px solid var(--line); flex:0 0 auto; display:flex; align-items:center; justify-content:center; font-size:14px; color:#fff;}
+  .compra-check.done{background:var(--pitch); border-color:var(--pitch);}
+  .compra-txt{flex:1; font-size:15px; font-weight:600; color:var(--ink);}
   .compra-txt.done{color:var(--ink-soft); text-decoration:line-through;}
+  .compra-reativar{font-size:11.5px; font-weight:700; color:var(--pitch); font-family:'Space Grotesk';}
+  .limpar-historico{display:block; text-align:center; font-size:12.5px; color:var(--ink-soft); font-family:'Space Grotesk'; font-weight:600; margin:14px auto 4px; background:none; border:none; text-decoration:underline;}
 </style>
 </head>
 <body>
@@ -175,9 +174,10 @@
 
   <!-- TELA COMPRAS -->
   <section class="screen" id="screen-compras">
-    <div class="compras-topo">
-      <button class="btn btn-primary btn-compras-voz" onclick="abrirCapturaCompra()">🎤 Adicionar por voz</button>
-      <button class="btn btn-outline btn-compras-limpar" onclick="limparComprados()">Limpar marcados</button>
+    <button class="btn btn-primary" onclick="abrirCapturaCompra()" style="margin-bottom:14px;">🎤 Adicionar por voz</button>
+    <div class="tabs" id="tabsCompras">
+      <button class="active" data-ctab="pendentes" onclick="setTabCompras('pendentes')">Pendentes</button>
+      <button data-ctab="comprados" onclick="setTabCompras('comprados')">Comprados</button>
     </div>
     <div id="listaCompras"></div>
   </section>
@@ -233,6 +233,7 @@ let editandoId = null;
 let editSel = {prioridade:''};
 let modoCaptura = 'tarefa'; // 'tarefa' ou 'compra'
 let comprasCache = [];
+let tabCompras = 'pendentes';
 const usuarioAtual = 'Iasmin';
 
 /* ============ INIT FIREBASE (com persistência offline) ============ */
@@ -573,18 +574,23 @@ function processarCompra(textoOriginal){
 function renderCompras(){
   const pendentes = comprasCache.filter(c=>!c.comprado);
   const comprados = comprasCache.filter(c=>c.comprado);
-  const ordenada = pendentes.concat(comprados);
+  document.getElementById('pendBadgeCompras') && (document.getElementById('pendBadgeCompras').textContent = pendentes.length);
+  const lista = tabCompras==='pendentes' ? pendentes : comprados;
   const el = document.getElementById('listaCompras');
-  if(ordenada.length===0){
-    el.innerHTML = '<div class="empty">Lista de compras vazia</div>';
+  if(lista.length===0){
+    el.innerHTML = '<div class="empty">' + (tabCompras==='pendentes' ? 'Nada pendente por aqui' : 'Nenhum item comprado ainda') + '</div>';
     return;
   }
-  el.innerHTML = ordenada.map(c=>{
+  el.innerHTML = lista.map(c=>{
     return '<div class="compra-card" onclick="toggleComprado(\''+c._id+'\')">' +
       '<div class="compra-check ' + (c.comprado?'done':'') + '">' + (c.comprado?'✓':'') + '</div>' +
       '<div class="compra-txt ' + (c.comprado?'done':'') + '">' + escapeHtml(c.item) + '</div>' +
+      (c.comprado ? '<span class="compra-reativar">Comprar de novo</span>' : '') +
     '</div>';
   }).join('');
+  if(tabCompras==='comprados' && comprados.length>0){
+    el.innerHTML += '<button class="limpar-historico" onclick="limparComprados()">Apagar histórico de comprados</button>';
+  }
 }
 
 function toggleComprado(id){
@@ -607,8 +613,14 @@ function limparComprados(){
 /* ============ LISTA ============ */
 function setTab(tab){
   tabAtual = tab;
-  document.querySelectorAll('.tabs button').forEach(b=> b.classList.toggle('active', b.dataset.tab===tab));
+  document.querySelectorAll('#screen-lista .tabs button').forEach(b=> b.classList.toggle('active', b.dataset.tab===tab));
   renderLista();
+}
+
+function setTabCompras(tab){
+  tabCompras = tab;
+  document.querySelectorAll('#tabsCompras button').forEach(b=> b.classList.toggle('active', b.dataset.ctab===tab));
+  renderCompras();
 }
 
 function renderLista(){
