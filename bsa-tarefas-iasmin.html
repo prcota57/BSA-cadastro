@@ -59,6 +59,7 @@
     padding:10px 18px; border-radius:14px; opacity:0; transition:opacity .2s;
   }
   .saved-toast.show{opacity:1;}
+  .saved-toast.error{background:var(--coral-soft); color:var(--coral);}
   .exit-hint{position:fixed; bottom:calc(16px + env(safe-area-inset-bottom)); left:0; right:0; text-align:center; font-size:12px; color:var(--ink-soft);}
   .lista-quick-btn{
     position:fixed; top:calc(14px + env(safe-area-inset-top)); right:14px; z-index:40;
@@ -131,6 +132,7 @@
   .compra-txt{flex:1; font-size:15px; font-weight:600; color:var(--ink);}
   .compra-txt.done{color:var(--ink-soft); text-decoration:line-through;}
   .compra-reativar{font-size:11.5px; font-weight:700; color:var(--pitch); font-family:'Space Grotesk';}
+  .compra-excluir{font-size:19px; flex:0 0 auto; padding:4px 6px; background:none; border:none; color:var(--ink-soft);}
   .limpar-historico{display:block; text-align:center; font-size:12.5px; color:var(--ink-soft); font-family:'Space Grotesk'; font-weight:600; margin:14px auto 4px; background:none; border:none; text-decoration:underline;}
 </style>
 </head>
@@ -548,14 +550,34 @@ function tocarBip(){
   }catch(e){}
 }
 
+function tocarBipErro(){
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    [420, 320].forEach((freq, i)=>{
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = freq; g.gain.value = 0.16;
+      const t0 = ctx.currentTime + i*0.16;
+      o.start(t0); o.stop(t0 + 0.14);
+    });
+  }catch(e){}
+}
+
 /* ============ LISTA DE COMPRAS ============ */
 function processarCompra(textoOriginal){
   const original = textoOriginal.trim();
   if(!original) return;
   // permite falar varios itens numa frase só, separados por "e" ou vírgula
   const itens = original.split(/\s*,\s*|\s+\be\b\s+|\bcomprar\b\s*/i).map(i=>i.trim()).filter(i=>i.length>0);
+  const adicionados = [];
+  const duplicados = [];
   itens.forEach(item=>{
     const limpo = item.charAt(0).toUpperCase() + item.slice(1);
+    const jaTem = comprasCache.some(c=> !c.comprado && c.item.trim().toLowerCase()===limpo.trim().toLowerCase());
+    if(jaTem){
+      duplicados.push(limpo);
+      return;
+    }
     db.collection('listaComprasIasmin').add({
       item: limpo,
       comprado: false,
@@ -563,13 +585,26 @@ function processarCompra(textoOriginal){
       criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
       compradoEm: null
     }).catch(()=>{});
+    adicionados.push(limpo);
+    comprasCache.push({_id:'temp'+Date.now()+Math.random(), item:limpo, comprado:false}); // evita duplicar dentro da mesma frase
   });
-  if(navigator.vibrate) navigator.vibrate(120);
-  tocarBip();
+
   const toast = document.getElementById('savedToast');
-  toast.textContent = itens.length>1 ? '✅ ' + itens.length + ' itens adicionados' : '✅ Item adicionado';
+  if(duplicados.length>0){
+    if(navigator.vibrate) navigator.vibrate([90,60,90,60,90]);
+    tocarBipErro();
+    toast.classList.add('error');
+    toast.textContent = adicionados.length>0
+      ? '✅ ' + adicionados.length + ' adicionado(s) • ⚠️ já tinha: ' + duplicados.join(', ')
+      : '⚠️ Já está na lista: ' + duplicados.join(', ');
+  } else {
+    if(navigator.vibrate) navigator.vibrate(120);
+    tocarBip();
+    toast.classList.remove('error');
+    toast.textContent = adicionados.length>1 ? '✅ ' + adicionados.length + ' itens adicionados' : '✅ Item adicionado';
+  }
   toast.classList.add('show');
-  setTimeout(()=>{ toast.classList.remove('show'); toast.textContent = '✅ Tarefa salva'; }, 1400);
+  setTimeout(()=>{ toast.classList.remove('show'); toast.classList.remove('error'); toast.textContent = '✅ Tarefa salva'; }, 2200);
 }
 
 function renderCompras(){
@@ -587,7 +622,7 @@ function renderCompras(){
     return '<div class="compra-card" onclick="toggleComprado(\''+c._id+'\')">' +
       '<div class="compra-check ' + (c.comprado?'done':'') + '">' + (c.comprado?'✓':'') + '</div>' +
       '<div class="compra-txt ' + (c.comprado?'done':'') + '">' + escapeHtml(c.item) + '</div>' +
-      (c.comprado ? '<span class="compra-reativar">Comprar de novo</span>' : '') +
+      (c.comprado ? '<span class="compra-reativar">Comprar de novo</span>' : '<button class="compra-excluir" onclick="event.stopPropagation(); excluirItemCompra(\''+c._id+'\')">🗑</button>') +
     '</div>';
   }).join('');
   if(tabCompras==='comprados' && comprados.length>0){
@@ -603,6 +638,11 @@ function toggleComprado(id){
     compradoEm: !c.comprado ? firebase.firestore.FieldValue.serverTimestamp() : null
   });
   if(navigator.vibrate) navigator.vibrate(60);
+}
+
+function excluirItemCompra(id){
+  db.collection('listaComprasIasmin').doc(id).delete();
+  if(navigator.vibrate) navigator.vibrate(40);
 }
 
 function limparComprados(){
