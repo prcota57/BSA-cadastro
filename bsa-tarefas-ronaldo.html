@@ -21,7 +21,8 @@
     --ink:#142B20; --ink-soft:#5C7268; --line:#DCE5DD; --radius:18px;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; -webkit-user-select:none; user-select:none;}
-  html,body{margin:0; padding:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif; height:100%; overscroll-behavior:none;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif; min-height:100%;}
+  body{overscroll-behavior-y:contain;}
   body{padding-bottom:calc(90px + env(safe-area-inset-bottom)); padding-top:env(safe-area-inset-top);}
   h1,h2,h3{font-family:'Space Grotesk',sans-serif; margin:0;}
   header.top{
@@ -176,8 +177,8 @@
   <section class="screen" id="screen-compras">
     <button class="btn btn-primary" onclick="abrirCapturaCompra()" style="margin-bottom:14px;">🎤 Adicionar por voz</button>
     <div class="tabs" id="tabsCompras">
-      <button class="active" data-ctab="pendentes" onclick="setTabCompras('pendentes')">Pendentes</button>
-      <button data-ctab="comprados" onclick="setTabCompras('comprados')">Comprados</button>
+      <button class="active" data-ctab="pendentes" onclick="setTabCompras('pendentes')">Pendentes (<span id="contPendentes">0</span>)</button>
+      <button data-ctab="comprados" onclick="setTabCompras('comprados')">Comprados (<span id="contComprados">0</span>)</button>
     </div>
     <div id="listaCompras"></div>
   </section>
@@ -574,7 +575,8 @@ function processarCompra(textoOriginal){
 function renderCompras(){
   const pendentes = comprasCache.filter(c=>!c.comprado);
   const comprados = comprasCache.filter(c=>c.comprado);
-  document.getElementById('pendBadgeCompras') && (document.getElementById('pendBadgeCompras').textContent = pendentes.length);
+  document.getElementById('contPendentes').textContent = pendentes.length;
+  document.getElementById('contComprados').textContent = comprados.length;
   const lista = tabCompras==='pendentes' ? pendentes : comprados;
   const el = document.getElementById('listaCompras');
   if(lista.length===0){
