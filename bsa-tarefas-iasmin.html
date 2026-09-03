@@ -551,7 +551,7 @@ function processarCompra(textoOriginal){
   const original = textoOriginal.trim();
   if(!original) return;
   // permite falar varios itens numa frase só, separados por "e" ou vírgula
-  const itens = original.split(/\s*,\s*|\s+\be\b\s+/i).map(i=>i.trim()).filter(i=>i.length>0);
+  const itens = original.split(/\s*,\s*|\s+\be\b\s+|\bcomprar\b\s*/i).map(i=>i.trim()).filter(i=>i.length>0);
   itens.forEach(item=>{
     const limpo = item.charAt(0).toUpperCase() + item.slice(1);
     db.collection('listaComprasIasmin').add({
