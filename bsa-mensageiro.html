@@ -259,6 +259,7 @@
           <div class="chip" data-tipo="todos">Todos</div>
           <div class="chip" data-tipo="unidade" data-label="Carlos Prates">Carlos Prates</div>
           <div class="chip" data-tipo="unidade" data-label="Estoril">Estoril</div>
+          <div class="chip" data-tipo="dia">📅 Por dia de treino</div>
           <div class="chip" data-tipo="selecionados">Selecionados</div>
         </div>
         <div class="publico-summary" id="publicoSummary">Nenhum público escolhido ainda.</div>
@@ -304,6 +305,18 @@
     <div class="modal-footer">
       <button class="btn btn-primary btn-block" id="btnConfirmarSelecionados" onclick="confirmarSelecionados()">Confirmar seleção (0)</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL DIA DE TREINO -->
+<div class="modal-overlay" id="modalDia">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-close-row">
+      <h3>Qual dia de treino?</h3>
+      <button class="modal-close-btn" onclick="fecharModalDia()">✕</button>
+    </div>
+    <div class="modal-body" id="listaDias" style="padding-bottom:16px;"></div>
   </div>
 </div>
 
@@ -413,7 +426,9 @@ function carregarAlunos(){
         unidade: a.unidade || '',
         statusGeral: a.statusGeral || 'ativo',
         responsavelNome: a.responsavelNome || '',
-        responsavelWhatsapp: cleanPhone(a.responsavelWhatsapp)
+        responsavelWhatsapp: cleanPhone(a.responsavelWhatsapp),
+        diasTreino: a.diasTreino || [],
+        horarioTreino: a.horarioTreino || ''
       });
     });
     document.getElementById('countBadge').textContent = alunosCache.filter(a=>a.statusGeral !== 'inativo').length;
@@ -483,6 +498,10 @@ document.querySelectorAll('#publicoChips .chip').forEach(chip=>{
       abrirModalSelecionados();
       return;
     }
+    if(tipo === 'dia'){
+      abrirModalDia();
+      return;
+    }
     document.querySelectorAll('#publicoChips .chip').forEach(c=>c.classList.remove('active'));
     chip.classList.add('active');
     state.publicoTipo = tipo;
@@ -496,6 +515,7 @@ function contatosDoPublicoAtual(){
   let base = [];
   if(state.publicoTipo === 'todos') base = ativos;
   else if(state.publicoTipo === 'unidade') base = ativos.filter(a=>a.unidade === state.publicoLabel);
+  else if(state.publicoTipo === 'dia') base = ativos.filter(a=>(a.diasTreino||[]).includes(state.publicoDia));
   else if(state.publicoTipo === 'selecionados') base = alunosCache.filter(a=>state.selecionadosIds.has(a.id));
   return base;
 }
@@ -606,6 +626,39 @@ function confirmarSelecionados(){
   atualizarPublicoSummary();
   atualizarPreview();
   fecharModalSelecionados();
+}
+
+/* ============ DIA DE TREINO MODAL ============ */
+const NOMES_DIAS = {dom:'Domingo', seg:'Segunda', ter:'Terça', qua:'Quarta', qui:'Quinta', sex:'Sexta', sab:'Sábado'};
+const ORDEM_DIAS_MODAL = ['seg','ter','qua','qui','sex','sab','dom'];
+const MSG_PADRAO_TREINO = 'Oi, tudo bem? Passando pra lembrar que amanhã tem treino, contamos com a presença dele. Um abraço!';
+
+function abrirModalDia(){
+  const cont = document.getElementById('listaDias');
+  cont.innerHTML = ORDEM_DIAS_MODAL.map(d=>{
+    const qtd = alunosAtivos().filter(a=>(a.diasTreino||[]).includes(d)).length;
+    return '<div class="aluno-row" style="cursor:pointer;" onclick="selecionarDia(\'' + d + '\')">' +
+      '<div class="info"><div class="name">' + NOMES_DIAS[d] + '</div><div class="sub">' + qtd + ' aluno(s) treinam nesse dia</div></div>' +
+      '<div class="chk">›</div>' +
+    '</div>';
+  }).join('');
+  document.getElementById('modalDia').classList.add('active');
+}
+function fecharModalDia(){
+  document.getElementById('modalDia').classList.remove('active');
+}
+function selecionarDia(dia){
+  document.querySelectorAll('#publicoChips .chip').forEach(c=>c.classList.remove('active'));
+  document.querySelector('#publicoChips .chip[data-tipo="dia"]').classList.add('active');
+  state.publicoTipo = 'dia';
+  state.publicoDia = dia;
+  state.publicoLabel = 'Treino de ' + NOMES_DIAS[dia];
+  if(!document.getElementById('txtMensagem').value.trim()){
+    document.getElementById('txtMensagem').value = MSG_PADRAO_TREINO;
+  }
+  atualizarPublicoSummary();
+  atualizarPreview();
+  fecharModalDia();
 }
 
 /* ============ TEMPLATES MODAL ============ */
