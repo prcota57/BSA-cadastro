@@ -1,6 +1,6 @@
 // Service Worker do BSA APP (Hub) — guarda todas as telas em cache para funcionar sem internet.
 // Só busca conteúdo novo quando o usuário toca em "Atualizar" no cabeçalho.
-var CACHE_NAME = 'bsa-hub-cache-v2';
+var CACHE_NAME = 'bsa-hub-cache-v3';
 var PREFIX = 'bsa-hub-cache-';
 var FILES = ['index.html', 'bsa-avaliacao.html', 'bsa-backup.html', 'bsa-cadastro.html', 'bsa-captacao.html', 'bsa-descritores.html', 'bsa-diretora.html', 'bsa-estoque.html', 'bsa-financas.html', 'bsa-mensageiro.html', 'bsa-presenca.html', 'bsa-relatorios.html', 'bsa-tarefas.html', 'bsa-treino-index.html'];
 
@@ -47,12 +47,25 @@ self.addEventListener('activate', function(event) {
   );
 });
 
+// Verifica se a requisição é de algo que o Presença precisa ter salvo pra funcionar
+// de verdade offline: os modelos e a biblioteca de reconhecimento facial (jsdelivr),
+// as bibliotecas do Firebase (gstatic) e os sons (arquivo .wav do próprio site).
+function ehArquivoEssencialExterno(url) {
+  if (url.hostname === 'cdn.jsdelivr.net' && (url.pathname.indexOf('face-api.js') !== -1 || url.pathname.indexOf('/weights/') !== -1)) return true;
+  if (url.hostname === 'www.gstatic.com' && url.pathname.indexOf('/firebasejs/') !== -1) return true;
+  if (url.pathname.indexOf('.wav') !== -1) return true;
+  return false;
+}
+
 self.addEventListener('fetch', function(event) {
   if (event.request.method !== 'GET') return;
-  var path = new URL(event.request.url).pathname.split('/').pop();
-  // só usa cache para os arquivos do Hub listados em FILES;
-  // qualquer outra página (como os apps pessoais de tarefas) sempre busca da rede.
-  if (FILES.indexOf(path) === -1) return;
+  var url = new URL(event.request.url);
+  var path = url.pathname.split('/').pop();
+  var ehArquivoDoHub = FILES.indexOf(path) !== -1;
+  var ehEssencialExterno = ehArquivoEssencialExterno(url);
+  // só usa cache para os arquivos do Hub, os modelos/lib/sons/firebase essenciais;
+  // qualquer outra requisição (dados do Firestore, apps pessoais de tarefas, etc.) sempre busca da rede.
+  if (!ehArquivoDoHub && !ehEssencialExterno) return;
   event.respondWith(
     caches.match(event.request).then(function(cached) {
       if (cached) return cached;
