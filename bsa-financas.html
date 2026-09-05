@@ -310,6 +310,8 @@ function setHeader(title, sub, showBack){
   document.getElementById('headerTitle').textContent = title;
   document.getElementById('statusLine').textContent = sub;
   document.getElementById('backWrap').innerHTML = showBack ? '<button class="back-btn" data-action="voltar">&#8592; Voltar</button>' : '';
+  var btnHub = document.querySelector('.btn-hub-fixed');
+  if(btnHub) btnHub.style.display = showBack ? 'none' : 'flex';
 }
 
 /* ---------- extrato bancário: normalização e parsing ---------- */
