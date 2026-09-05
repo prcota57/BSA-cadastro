@@ -516,6 +516,10 @@
   <div class="modal-sheet">
     <div class="modal-close-row"><button class="modal-close-btn" id="btnFecharManualModal">✕</button></div>
     <h2>Reconhecimento manual</h2>
+    <div class="field" id="manualDataField">
+      <label>Data da presença</label>
+      <input type="date" id="manualData">
+    </div>
     <div class="field">
       <label>Buscar aluno da unidade <span id="manualUnidadeLabel"></span></label>
       <input type="text" id="manualBusca" placeholder="Digite o nome do aluno...">
@@ -1374,9 +1378,16 @@ const DIAS_SEMANA_ARR = ['dom','seg','ter','qua','qui','sex','sab'];
 function diaSemanaHoje(){
   return DIAS_SEMANA_ARR[new Date().getDay()];
 }
-function estaForaDoHorario(aluno){
+// Dia da semana de uma data ISO qualquer (usado pra checar presença retroativa contra o dia
+// da semana real daquela data, não o de hoje) — evita bug de comparar dia errado.
+function diaSemanaDeISO(dataISO){
+  const [y,m,d] = dataISO.split('-').map(Number);
+  return DIAS_SEMANA_ARR[new Date(y, m-1, d).getDay()];
+}
+function estaForaDoHorario(aluno, dataISO){
   if(!aluno.diasTreino || aluno.diasTreino.length === 0) return false; // sem horário cadastrado, não alertamos
-  return !aluno.diasTreino.includes(diaSemanaHoje());
+  const dia = dataISO ? diaSemanaDeISO(dataISO) : diaSemanaHoje();
+  return !aluno.diasTreino.includes(dia);
 }
 
 /* ---------- Controle de limite semanal (aluno vindo mais vezes que o combinado) ---------- */
@@ -1883,42 +1894,56 @@ async function buscarReposicaoAgendadaHoje(aluno){
   return encontrada || null;
 }
 
-async function marcarPresenca(aluno, distance, origem){
+async function marcarPresenca(aluno, distance, origem, dataOverride){
   origem = origem || 'facial';
   // Aluno inativo: NUNCA registra presença, nenhum caminho (facial, manual ou quiosque) passa
   // daqui — quem chamou é responsável por mostrar o aviso grande e vermelho pro professor.
   if(aluno.statusGeral === 'inativo'){
     return { bloqueado: true, mensagem: '🚫 ALUNO INATIVO — presença NÃO registrada', tocarBip: false };
   }
-  const dataISO = dataHojeISO();
+  const hojeISO = dataHojeISO();
+  const dataISO = dataOverride || hojeISO;
+  const retroativo = dataISO !== hojeISO;
   const docId = aluno.id + '_' + dataISO;
   const ref = db.collection('presencas').doc(docId);
-  // Antes isso fazia uma leitura avulsa ao Firestore (ref.get, com ou sem "source: cache") na
-  // hora do reconhecimento pra checar duplicidade. 100% offline (modo avião), essa leitura
-  // podia nunca resolver nem dar erro — travando a confirmação pra sempre (nem sucesso nem
-  // "erro ao registrar"). Agora usa "presencasHojeMap", que já fica sincronizado em memória em
-  // tempo real (onSnapshot, desde a abertura do app) — leitura local, síncrona, sem risco de travar.
-  const dadosExistente = presencasHojeMap.get(aluno.id);
+  // Pra hoje: usa "presencasHojeMap" (memória, sincronizado por onSnapshot em tempo real) —
+  // leitura local, síncrona, sem risco de travar offline. Pra uma data retroativa (ação manual,
+  // esporádica, feita raramente), não temos esse mapa em memória — faz uma consulta pontual ao
+  // Firestore com timeout; se não resolver (sem internet), segue sem bloquear e o próprio
+  // set() abaixo usa o mesmo docId, então não gera duplicidade mesmo que já exista.
+  let dadosExistente = null;
+  if(!retroativo){
+    dadosExistente = presencasHojeMap.get(aluno.id);
+  } else {
+    try{
+      const snap = await comTimeout(ref.get(), 4000);
+      if(snap.exists) dadosExistente = snap.data();
+    }catch(err){ /* sem internet/tempo esgotado — segue, o set() não duplica */ }
+  }
   if(dadosExistente){
-    return { mensagem: dadosExistente.tipoRegistro === 'reposicao' ? 'reposição já registrada hoje' : 'presença já registrada hoje', tocarBip: false };
+    const dataFmt = dataISO.split('-').reverse().join('/');
+    return { mensagem: dadosExistente.tipoRegistro === 'reposicao' ? ('reposição já registrada em ' + dataFmt) : ('presença já registrada em ' + dataFmt), tocarBip: false };
   }
 
   const agora = new Date();
   const hora = String(agora.getHours()).padStart(2,'0') + ':' + String(agora.getMinutes()).padStart(2,'0');
 
-  const reposicao = await buscarReposicaoAgendadaHoje(aluno);
-  const foraDoHorario = !reposicao && estaForaDoHorario(aluno);
+  // Reposição agendada e limite semanal só fazem sentido em tempo real (data de hoje) — pra
+  // uma presença retroativa não tentamos adivinhar/cruzar isso, só registra a presença mesmo.
+  const reposicao = retroativo ? null : await buscarReposicaoAgendadaHoje(aluno);
+  const foraDoHorario = !reposicao && estaForaDoHorario(aluno, dataISO);
   const unidadeDivergente = aluno.unidade !== unidadeAtual;
 
   // Aluno veio mais vezes essa semana do que os dias fixos cadastrados pra ele, e não é
   // uma reposição (que já é uma visita extra autorizada). Não bloqueia — só avisa, pra
   // você lembrar de esclarecer com o responsável se foi combinado ou não.
   const diasFixos = (aluno.diasTreino || []).length;
-  const jaVeioSemana = presencasSemanaMap.get(aluno.id) || 0;
-  const excedeuSemana = !reposicao && diasFixos > 0 && (jaVeioSemana + 1) > diasFixos;
+  const jaVeioSemana = retroativo ? 0 : (presencasSemanaMap.get(aluno.id) || 0);
+  const excedeuSemana = !retroativo && !reposicao && diasFixos > 0 && (jaVeioSemana + 1) > diasFixos;
   const avisoSemana = excedeuSemana
     ? (' · ⚠️ ' + (jaVeioSemana + 1) + 'x essa semana (combinado: ' + diasFixos + 'x) — avisar responsável')
     : '';
+  const avisoRetro = retroativo ? (' · presença de ' + dataISO.split('-').reverse().join('/')) : '';
 
   const duvidoso = (origem === 'facial') && (distance !== null && distance !== undefined) && (distance >= DISTANCIA_DUVIDOSA);
 
@@ -1945,7 +1970,8 @@ async function marcarPresenca(aluno, distance, origem){
     reposicaoId: reposicao ? reposicao._docId : null,
     excedeuSemana: excedeuSemana,
     diasTreino: aluno.diasTreino || [],
-    horarioTreino: aluno.horarioTreino || ''
+    horarioTreino: aluno.horarioTreino || '',
+    retroativo: retroativo
   }).catch(err=>{
     console.error('Presença ficou na fila local pra sincronizar depois (sem internet agora):', err);
   });
@@ -1960,15 +1986,15 @@ async function marcarPresenca(aluno, distance, origem){
     }).catch(err=>{
       console.error('Baixa da reposição ficou na fila local pra sincronizar depois:', err);
     });
-    return { mensagem: 'reposição registrada ✓ (direito utilizado)' + avisoUnidade + avisoSemana, tocarBip: true, docId, duvidoso };
+    return { mensagem: 'reposição registrada ✓ (direito utilizado)' + avisoUnidade + avisoSemana + avisoRetro, tocarBip: true, docId, duvidoso };
   }
   if(foraDoHorario){
-    return { mensagem: '⚠️ presença registrada — fora do horário fixo dele' + avisoUnidade + avisoSemana, tocarBip: true, docId, duvidoso };
+    return { mensagem: '⚠️ presença registrada — fora do horário fixo dele' + avisoUnidade + avisoSemana + avisoRetro, tocarBip: true, docId, duvidoso };
   }
   if(unidadeDivergente){
-    return { mensagem: '📍 presença registrada — aluno da unidade ' + aluno.unidade + avisoSemana, tocarBip: true, docId, duvidoso };
+    return { mensagem: '📍 presença registrada — aluno da unidade ' + aluno.unidade + avisoSemana + avisoRetro, tocarBip: true, docId, duvidoso };
   }
-  return { mensagem: 'presença registrada ✓' + avisoSemana, tocarBip: true, docId, duvidoso };
+  return { mensagem: 'presença registrada ✓' + avisoSemana + avisoRetro, tocarBip: true, docId, duvidoso };
 }
 
 /* ---------- Reconhecimento manual ---------- */
@@ -1976,6 +2002,14 @@ function abrirManualModal(){
   if(!unidadeAtual){ toast('Selecione a unidade primeiro'); return; }
   document.getElementById('manualUnidadeLabel').textContent = unidadeAtual;
   document.getElementById('manualBusca').value = '';
+  // Campo de data: começa em hoje, mas dá pra escolher uma data passada (ex: lançar a
+  // presença de ontem que ficou sem registrar). "max" trava em hoje — não deixa marcar
+  // presença no futuro.
+  const campoData = document.getElementById('manualData');
+  const hojeISO = dataHojeISO();
+  campoData.value = hojeISO;
+  campoData.max = hojeISO;
+  document.getElementById('manualDataField').style.display = '';
   renderManualLista('');
   document.getElementById('manualModal').classList.add('active');
   setTimeout(()=> document.getElementById('manualBusca').focus(), 200);
@@ -2024,9 +2058,13 @@ async function confirmarManual(alunoId){
       return;
     }
     pendenciaReconhecimentoAberta = null; // resolveu escolhendo alguém — não precisa mais da pendência
+    const campoData = document.getElementById('manualData');
+    const hojeISO = dataHojeISO();
+    const dataSelecionada = (campoData && campoData.value) ? campoData.value : hojeISO;
+    const ehRetroativo = dataSelecionada !== hojeISO;
     fecharManualModal();
-    toast('Registrando presença de ' + aluno.nome + '...');
-    const resultado = await marcarPresenca(aluno, null, 'manual');
+    toast('Registrando presença de ' + aluno.nome + (ehRetroativo ? (' em ' + dataSelecionada.split('-').reverse().join('/')) : '') + '...');
+    const resultado = await marcarPresenca(aluno, null, 'manual', dataSelecionada);
     toast(resultado.mensagem + ' (manual) — toque pra abrir o cadastro', 'bsa-cadastro.html?abrirAluno=' + aluno.id);
     if(resultado.tocarBip) bip();
   }catch(err){
@@ -2372,6 +2410,9 @@ document.getElementById('btnKioskManual').addEventListener('click', ()=>{
   unidadeAtual = kioskUnidade;
   document.getElementById('manualUnidadeLabel').textContent = kioskUnidade;
   document.getElementById('manualBusca').value = '';
+  // No quiosque é sempre presença de agora — esconde o seletor de data e garante hoje.
+  document.getElementById('manualData').value = dataHojeISO();
+  document.getElementById('manualDataField').style.display = 'none';
   renderManualLista('');
   document.getElementById('manualModal').classList.add('active');
   setTimeout(()=> document.getElementById('manualBusca').focus(), 200);
@@ -2402,6 +2443,8 @@ document.getElementById('btnKioskVoz').addEventListener('click', async ()=>{
       unidadeAtual = kioskUnidade;
       document.getElementById('manualUnidadeLabel').textContent = kioskUnidade;
       document.getElementById('manualBusca').value = texto;
+      document.getElementById('manualData').value = dataHojeISO();
+      document.getElementById('manualDataField').style.display = 'none';
       renderManualLista(texto);
       document.getElementById('manualModal').classList.add('active');
     };
