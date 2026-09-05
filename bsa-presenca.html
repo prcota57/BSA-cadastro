@@ -867,6 +867,7 @@ function initFirebase(){
       retomarUltimaUnidade();
       aquecerCacheDasDuasUnidades();
       listenPresencasHojeGlobal();
+      listenPresencasSemanaGlobal();
       carregarModelosEAlunos();
       carregarTodosAlunos();
       listenReposicoes();
@@ -1378,6 +1379,42 @@ function estaForaDoHorario(aluno){
   return !aluno.diasTreino.includes(diaSemanaHoje());
 }
 
+/* ---------- Controle de limite semanal (aluno vindo mais vezes que o combinado) ---------- */
+function isoDeData(d){
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function inicioFimSemanaISO(){
+  // Semana de segunda a domingo — assim um aluno de sábado que também vem no domingo
+  // seguinte cai na mesma semana (e não em duas semanas diferentes).
+  const hoje = new Date();
+  const diaSemana = hoje.getDay(); // 0=domingo ... 6=sábado
+  const deslocamentoSegunda = diaSemana === 0 ? 6 : diaSemana - 1;
+  const segunda = new Date(hoje);
+  segunda.setDate(hoje.getDate() - deslocamentoSegunda);
+  const domingo = new Date(segunda);
+  domingo.setDate(segunda.getDate() + 6);
+  return { inicio: isoDeData(segunda), fim: isoDeData(domingo) };
+}
+let presencasSemanaMap = new Map(); // alunoId -> quantidade de presenças normais (não-reposição) já feitas essa semana
+let unsubPresencasSemanaGlobal = null;
+function listenPresencasSemanaGlobal(){
+  if(unsubPresencasSemanaGlobal) unsubPresencasSemanaGlobal();
+  const { inicio, fim } = inicioFimSemanaISO();
+  unsubPresencasSemanaGlobal = db.collection('presencas')
+    .where('data', '>=', inicio)
+    .where('data', '<=', fim)
+    .onSnapshot(snap=>{
+      const mapa = new Map();
+      snap.forEach(doc=>{
+        const p = doc.data();
+        // reposição não conta pro limite — já é uma visita extra autorizada
+        if(p.tipoRegistro === 'reposicao') return;
+        mapa.set(p.alunoId, (mapa.get(p.alunoId) || 0) + 1);
+      });
+      presencasSemanaMap = mapa;
+    }, err=>{ console.error(err); });
+}
+
 /* Dias em que cada unidade de fato tem aula. Usado pra bloquear a seleção da unidade
    (e portanto qualquer registro de presença nela) em dias que ela não funciona de jeito
    nenhum — evita marcar presença de todo mundo na unidade errada por engano. */
@@ -1554,7 +1591,8 @@ function renderHistorico(itens){
     const seloDuvidoso = p.duvidoso ? ' <span class="badge-alerta" style="background:rgba(255,200,51,.16); color:#8a6d1f;" title="Reconhecimento no limite — vale conferir">🔎 conferir</span>' : '';
     const seloUnidade = p.unidadeDivergente ? ` <span class="badge-repo" style="background:rgba(212,175,55,.18); color:#8a6d1f;">📍 aluno do ${p.unidade}</span>` : '';
     const seloInadimplente = alunoEstaInadimplente(p.alunoId) ? ' <span class="badge-alerta" style="background:rgba(217,85,62,.15); color:#c94b34;">💸 atrasado</span>' : '';
-    return `<div class="presenca-item" style="cursor:pointer;" onclick="abrirEmNovaAba('bsa-cadastro.html?abrirAluno=${p.alunoId}')">${foto}<div class="info"><div class="name">${p.nome}${selo}${seloManual}${seloDuvidoso}${seloUnidade}${seloInadimplente}</div><div class="time">${p.hora}</div></div><button class="btn-excluir" data-docid="${p._docId}" data-nome="${(p.nome||'').replace(/"/g,'&quot;')}" title="Remover presença" onclick="event.stopPropagation()">🗑️</button></div>`;
+    const seloExcedeu = p.excedeuSemana ? ' <span class="badge-alerta" style="background:rgba(255,90,54,.18); color:#B23A20;" title="Veio mais vezes essa semana do que o combinado — avisar responsável">⚠️ excedeu semana</span>' : '';
+    return `<div class="presenca-item" style="cursor:pointer;" onclick="abrirEmNovaAba('bsa-cadastro.html?abrirAluno=${p.alunoId}')">${foto}<div class="info"><div class="name">${p.nome}${selo}${seloManual}${seloDuvidoso}${seloUnidade}${seloInadimplente}${seloExcedeu}</div><div class="time">${p.hora}</div></div><button class="btn-excluir" data-docid="${p._docId}" data-nome="${(p.nome||'').replace(/"/g,'&quot;')}" title="Remover presença" onclick="event.stopPropagation()">🗑️</button></div>`;
   }).join('');
   cont.querySelectorAll('.btn-excluir').forEach(btn=>{
     btn.addEventListener('click', ()=> excluirPresenca(btn.dataset.docid, btn.dataset.nome));
@@ -1868,6 +1906,16 @@ async function marcarPresenca(aluno, distance, origem){
   const foraDoHorario = !reposicao && estaForaDoHorario(aluno);
   const unidadeDivergente = aluno.unidade !== unidadeAtual;
 
+  // Aluno veio mais vezes essa semana do que os dias fixos cadastrados pra ele, e não é
+  // uma reposição (que já é uma visita extra autorizada). Não bloqueia — só avisa, pra
+  // você lembrar de esclarecer com o responsável se foi combinado ou não.
+  const diasFixos = (aluno.diasTreino || []).length;
+  const jaVeioSemana = presencasSemanaMap.get(aluno.id) || 0;
+  const excedeuSemana = !reposicao && diasFixos > 0 && (jaVeioSemana + 1) > diasFixos;
+  const avisoSemana = excedeuSemana
+    ? (' · ⚠️ ' + (jaVeioSemana + 1) + 'x essa semana (combinado: ' + diasFixos + 'x) — avisar responsável')
+    : '';
+
   const duvidoso = (origem === 'facial') && (distance !== null && distance !== undefined) && (distance >= DISTANCIA_DUVIDOSA);
 
   // IMPORTANTE: não usa "await" aqui. O Firestore só resolve a promise de .set() quando o
@@ -1891,6 +1939,7 @@ async function marcarPresenca(aluno, distance, origem){
     origemRegistro: origem,
     tipoRegistro: reposicao ? 'reposicao' : (foraDoHorario ? 'fora_horario' : 'normal'),
     reposicaoId: reposicao ? reposicao._docId : null,
+    excedeuSemana: excedeuSemana,
     diasTreino: aluno.diasTreino || [],
     horarioTreino: aluno.horarioTreino || ''
   }).catch(err=>{
@@ -1907,15 +1956,15 @@ async function marcarPresenca(aluno, distance, origem){
     }).catch(err=>{
       console.error('Baixa da reposição ficou na fila local pra sincronizar depois:', err);
     });
-    return { mensagem: 'reposição registrada ✓ (direito utilizado)' + avisoUnidade, tocarBip: true, docId, duvidoso };
+    return { mensagem: 'reposição registrada ✓ (direito utilizado)' + avisoUnidade + avisoSemana, tocarBip: true, docId, duvidoso };
   }
   if(foraDoHorario){
-    return { mensagem: '⚠️ presença registrada — fora do horário fixo dele' + avisoUnidade, tocarBip: true, docId, duvidoso };
+    return { mensagem: '⚠️ presença registrada — fora do horário fixo dele' + avisoUnidade + avisoSemana, tocarBip: true, docId, duvidoso };
   }
   if(unidadeDivergente){
-    return { mensagem: '📍 presença registrada — aluno da unidade ' + aluno.unidade, tocarBip: true, docId, duvidoso };
+    return { mensagem: '📍 presença registrada — aluno da unidade ' + aluno.unidade + avisoSemana, tocarBip: true, docId, duvidoso };
   }
-  return { mensagem: 'presença registrada ✓', tocarBip: true, docId, duvidoso };
+  return { mensagem: 'presença registrada ✓' + avisoSemana, tocarBip: true, docId, duvidoso };
 }
 
 /* ---------- Reconhecimento manual ---------- */
