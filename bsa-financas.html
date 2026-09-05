@@ -861,10 +861,15 @@ function renderAlunoDetail(app){
       } else {
         html += '<a class="btn btn-outline" style="text-decoration:none;flex:1;text-align:center;" target="_blank" href="'+waLink(a.responsavelWhatsapp, msgLembrete(a))+'">Lembrete</a>';
       }
-      html += '<button class="btn btn-blue" data-action="marcarPago" data-id="'+m.id+'">Marcar pago</button>';
       html += '</div>';
+      html += '<div class="field" style="margin-top:10px;"><label>Banco do pagamento</label><select id="fBancoPagamento">'
+        + '<option value="">Selecione</option>'
+        + '<option value="C6">C6 Bank</option>'
+        + '<option value="Nubank">Nubank</option>'
+        + '</select></div>';
+      html += '<button class="btn btn-blue" style="width:100%;margin-top:6px;" data-action="marcarPago" data-id="'+m.id+'">Marcar pago</button>';
     } else {
-      html += '<div class="meta" style="font-size:12px;color:var(--ink-soft);">Pago em '+fmtDataBR(m.dataPagamento)+'</div>';
+      html += '<div class="meta" style="font-size:12px;color:var(--ink-soft);">Pago em '+fmtDataBR(m.dataPagamento)+(m.bancoPagamento?' · '+m.bancoPagamento:'')+'</div>';
     }
     html += '</div>';
   } else {
@@ -1022,10 +1027,16 @@ var Actions = {
   voltar:function(){ state.screen='alunos'; render(); },
   marcarPago:async function(el){
     var id = el.dataset.id;
+    var dados = { statusPagamento:'pago', dataPagamento: hojeStr() };
+    var selBanco = document.getElementById('fBancoPagamento');
+    if(selBanco){
+      if(!selBanco.value){ showToast('Selecione o banco do pagamento.'); return; }
+      dados.bancoPagamento = selBanco.value;
+    }
     try{
-      await db.collection('mensalidades').doc(id).update({ statusPagamento:'pago', dataPagamento: hojeStr() });
+      await db.collection('mensalidades').doc(id).update(dados);
       var m = state.mensalidades.find(function(x){return x.id===id;});
-      if(m){ m.statusPagamento='pago'; m.dataPagamento=hojeStr(); }
+      if(m){ m.statusPagamento='pago'; m.dataPagamento=dados.dataPagamento; if(dados.bancoPagamento) m.bancoPagamento=dados.bancoPagamento; }
       showToast('Marcado como pago!');
       render();
     }catch(e){ showToast('Não foi possível salvar: '+e.message); }
