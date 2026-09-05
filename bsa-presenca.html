@@ -443,7 +443,10 @@
 
   <div class="panel" id="repoPanel">
     <h2>Reposições agendadas</h2>
-    <button class="btn btn-primary" id="btnNovaRepo" type="button" style="margin-bottom:14px;">+ Nova reposição</button>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;">
+      <button class="btn btn-primary" id="btnNovaRepo" type="button">+ Nova reposição</button>
+      <button class="btn btn-outline-pitch" id="btnRelatorioRepo" type="button">📄 Relatório PDF</button>
+    </div>
     <div id="repoList"></div>
     <div class="empty" id="repoEmpty">Nenhuma reposição pendente.</div>
   </div>
@@ -493,6 +496,19 @@
     </div>
     <button class="btn btn-primary" id="btnSalvarRepo" type="button">Agendar reposição</button>
     <button class="btn" id="btnExcluirRepo" type="button" style="margin-top:8px; display:none; background:var(--coral-soft); color:#B23A20;">Excluir reposição</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="relatorioModal">
+  <div class="modal-sheet">
+    <div class="modal-close-row"><button class="modal-close-btn" id="btnFecharRelatorioModal">✕</button></div>
+    <h2>Relatório de reposições</h2>
+    <div class="field">
+      <label>Aluno</label>
+      <input type="text" id="relBuscaAluno" placeholder="Digite o nome do aluno...">
+      <div id="relAlunoLista" style="margin-top:6px; max-height:280px; overflow-y:auto;"></div>
+    </div>
+    <div class="empty" id="relSemResultado" style="display:none;">Nenhum aluno encontrado.</div>
   </div>
 </div>
 
@@ -612,6 +628,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
 const MODEL_URL = "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js/weights/";
@@ -1138,6 +1155,123 @@ document.getElementById('btnExcluirRepo').addEventListener('click', async ()=>{
     toast('Erro ao excluir: ' + err.message);
   }
 });
+
+/* ---------- Relatório PDF de reposições (por aluno) ---------- */
+function abrirRelatorioModal(){
+  document.getElementById('relBuscaAluno').value = '';
+  document.getElementById('relAlunoLista').innerHTML = '';
+  document.getElementById('relSemResultado').style.display = 'none';
+  document.getElementById('relatorioModal').classList.add('active');
+  setTimeout(()=> document.getElementById('relBuscaAluno').focus(), 200);
+}
+function fecharRelatorioModal(){
+  document.getElementById('relatorioModal').classList.remove('active');
+}
+document.getElementById('btnRelatorioRepo').addEventListener('click', abrirRelatorioModal);
+document.getElementById('btnFecharRelatorioModal').addEventListener('click', fecharRelatorioModal);
+document.getElementById('relatorioModal').addEventListener('click', e=>{
+  if(e.target.id === 'relatorioModal') fecharRelatorioModal();
+});
+
+document.getElementById('relBuscaAluno').addEventListener('input', e=>{
+  const termo = e.target.value.trim().toLowerCase();
+  const lista = document.getElementById('relAlunoLista');
+  const semResultado = document.getElementById('relSemResultado');
+  if(termo.length < 2){ lista.innerHTML = ''; semResultado.style.display = 'none'; return; }
+  const encontrados = todosAlunosCache.filter(a=> a.nome.toLowerCase().includes(termo)).slice(0,20);
+  semResultado.style.display = encontrados.length === 0 ? 'block' : 'none';
+  lista.innerHTML = encontrados.map(a=>
+    `<div class="presenca-item" style="cursor:pointer; padding:9px 10px;" data-id="${a.id}">
+      <div class="info"><div class="name">${a.nome}</div><div class="time">${a.unidade}</div></div>
+    </div>`
+  ).join('');
+  lista.querySelectorAll('.presenca-item').forEach(item=>{
+    item.addEventListener('click', ()=>{
+      const aluno = todosAlunosCache.find(a=>a.id === item.dataset.id);
+      if(aluno) gerarRelatorioReposicoesPDF(aluno);
+    });
+  });
+});
+
+function relFormatarDataBR(iso){
+  return iso ? iso.split('-').reverse().join('/') : '-';
+}
+
+async function gerarRelatorioReposicoesPDF(aluno){
+  fecharRelatorioModal();
+  toast('Gerando PDF de ' + aluno.nome + '...');
+  try{
+    const snap = await db.collection('reposicoes').where('alunoId','==',aluno.id).get();
+    if(snap.empty){
+      toast('Nenhuma reposição encontrada para ' + aluno.nome);
+      return;
+    }
+    const registros = snap.docs.map(d=>d.data());
+    registros.sort((a,b)=> (a.dataFalta||'').localeCompare(b.dataFalta||''));
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:'mm', format:'a4' });
+    const verde = [15,92,61];
+    const verdeSuave = [228,239,232];
+    const tinta = [20,43,32];
+    const tintaSuave = [92,114,104];
+
+    doc.setFillColor(...verde);
+    doc.rect(0,0,210,28,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(16);
+    doc.text('Brazilian Skills Academy', 14, 13);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(11);
+    doc.text('Relatório de Reposições', 14, 21);
+
+    doc.setTextColor(...tinta);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(13);
+    doc.text('Aluno: ' + aluno.nome, 14, 40);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(10);
+    doc.setTextColor(...tintaSuave);
+    const hoje = new Date();
+    const hojeFmt = String(hoje.getDate()).padStart(2,'0') + '/' + String(hoje.getMonth()+1).padStart(2,'0') + '/' + hoje.getFullYear();
+    doc.text('Unidade: ' + (aluno.unidade || '-') + '   ·   Emitido em ' + hojeFmt, 14, 46);
+
+    let y = 60;
+    doc.setFillColor(...verdeSuave);
+    doc.rect(14, y-6, 182, 9, 'F');
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(10);
+    doc.setTextColor(...verde);
+    doc.text('Data da falta', 18, y);
+    doc.text('Data da reposição', 90, y);
+    doc.text('Situação', 160, y);
+    y += 11;
+
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(10);
+    registros.forEach(r=>{
+      if(y > 275){
+        doc.addPage();
+        y = 20;
+      }
+      doc.setTextColor(...tinta);
+      doc.text(relFormatarDataBR(r.dataFalta), 18, y);
+      doc.text(relFormatarDataBR(r.dataReposicao), 90, y);
+      doc.setTextColor(r.status === 'usada' ? verde[0] : 184, r.status === 'usada' ? verde[1] : 90, r.status === 'usada' ? verde[2] : 43);
+      doc.text(r.status === 'usada' ? 'Realizada' : 'Agendada', 160, y);
+      doc.setDrawColor(...verdeSuave);
+      doc.line(14, y+4, 196, y+4);
+      y += 11;
+    });
+
+    const nomeArquivo = 'Reposicoes-' + aluno.nome.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9]+/g,'-') + '.pdf';
+    doc.save(nomeArquivo);
+    toast('PDF gerado ✓');
+  }catch(err){
+    toast('Erro ao gerar PDF: ' + err.message);
+  }
+}
 
 function listenReposicoes(){
   db.collection('reposicoes').where('status', '==', 'agendada').onSnapshot(snap=>{
