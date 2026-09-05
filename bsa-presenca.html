@@ -1704,7 +1704,7 @@ async function loopReconhecimento(){
   const ctx = canvas.getContext('2d');
   const procCanvas = document.getElementById('procCanvas');
   const pctx = procCanvas.getContext('2d');
-  const opcoes = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
+  const opcoes = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
 
   while(loopAtivo){
     try{
@@ -1741,12 +1741,16 @@ async function loopReconhecimento(){
         if(reconhecido){
           const aluno = alunosCache.find(a=>a.id === match.label);
           if(aluno) processarReconhecimento(aluno, match.distance);
+        } else {
+          // rosto detectado mas ainda não bateu com ninguém do cadastro — avisa em vez de ficar em silêncio
+          document.getElementById('scanHint').style.display = 'block';
+          document.getElementById('scanHint').textContent = '🔎 rosto não reconhecido...';
         }
       }
     }catch(err){
       console.error(err);
     }
-    await new Promise(r=>setTimeout(r, 550));
+    await new Promise(r=>setTimeout(r, 300));
   }
 }
 
@@ -2048,7 +2052,7 @@ document.getElementById('manualBusca').addEventListener('input', e=> renderManua
 
 /* =================== MODO QUIOSQUE =================== */
 const KIOSK_MIN_FACE_RATIO = 0.20;   // rosto precisa ocupar pelo menos ~20% da largura do quadro
-const KIOSK_FAIL_MS = 9000;          // depois de ~9s tentando sem sucesso (~16 tentativas), mostra "não identificado"
+const KIOSK_FAIL_MS = 6000;          // depois de ~6s tentando sem sucesso, mostra "não identificado"
 const KIOSK_NO_FACE_RESET_MS = 14000; // só desiste de vez da tentativa se ficar bem mais tempo sem detectar nada (tolera rosto sumir da câmera por instantes)
 const KIOSK_COOLDOWN_MS = 45000;     // depois de identificar, ignora o mesmo aluno por 45s
 
@@ -2213,7 +2217,7 @@ async function loopKiosk(){
   const video = document.getElementById('kioskVideo');
   const procCanvas = document.getElementById('kioskProcCanvas');
   const pctx = procCanvas.getContext('2d');
-  const opcoes = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
+  const opcoes = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
 
   while(kioskLoopAtivo){
     try{
@@ -2254,6 +2258,9 @@ async function loopKiosk(){
             if(match.label !== 'unknown'){
               const aluno = alunosCache.find(a=>a.id === match.label);
               if(aluno) await kioskRegistrarSucesso(aluno, match.distance);
+            } else {
+              // rosto detectado mas ainda não bateu com ninguém — avisa em vez de deixar "Identificando..." parado
+              document.getElementById('kioskStandbyHeadline').textContent = '🔎 rosto não reconhecido...';
             }
           }
         }
@@ -2265,7 +2272,7 @@ async function loopKiosk(){
     }catch(err){
       console.error(err);
     }
-    await new Promise(r=>setTimeout(r, 550));
+    await new Promise(r=>setTimeout(r, 300));
   }
 }
 
