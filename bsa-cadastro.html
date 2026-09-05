@@ -484,14 +484,6 @@
 
     <div class="field-row">
       <div class="field">
-        <label>Banco de pagamento</label>
-        <select id="fBanco">
-          <option value="">Selecione</option>
-          <option value="C6">C6 Bank</option>
-          <option value="Nubank">Nubank</option>
-        </select>
-      </div>
-      <div class="field">
         <label>Status do aluno</label>
         <select id="fStatusGeral">
           <option value="ativo">Ativo</option>
@@ -1419,7 +1411,6 @@ function resetForm(){
   document.getElementById('fRespWhats').value = '';
   document.getElementById('fStatusMens').value = 'ativo';
   document.getElementById('fMatricula').value = new Date().toISOString().slice(0,10);
-  document.getElementById('fBanco').value = '';
   document.getElementById('fStatusGeral').value = 'ativo';
   document.getElementById('fObs').value = '';
   document.getElementById('photoPreview').innerHTML = '📷';
@@ -1457,7 +1448,6 @@ document.getElementById('btnSalvar').addEventListener('click', async ()=>{
     responsavelWhatsapp: document.getElementById('fRespWhats').value.trim(),
     statusMensalidade: document.getElementById('fStatusMens').value,
     dataMatricula: document.getElementById('fMatricula').value,
-    bancoPagamento: document.getElementById('fBanco').value || '',
     observacoes: document.getElementById('fObs').value.trim(),
     statusGeral: document.getElementById('fStatusGeral').value || 'ativo',
     atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
@@ -1691,10 +1681,6 @@ function abrirDetalhe(docId){
       <div class="hint" style="margin-top:6px;">WhatsApp</div>
       <b>${a.responsavelWhatsapp || '—'}</b>
     </div>
-    <div class="card" style="display:block; margin-bottom:16px;">
-      <div class="hint">Banco de pagamento</div>
-      <b>${a.bancoPagamento || '—'}</b>
-    </div>
     ${a.observacoes ? `<div class="card" style="display:block; margin-bottom:16px;"><div class="hint">Observações</div>${a.observacoes}</div>` : ''}
     <div class="card" style="display:block; margin-bottom:16px;">
       <div class="hint">Fotos para reconhecimento facial</div>
@@ -1737,7 +1723,6 @@ function editarAluno(docId){
   document.getElementById('fRespWhats').value = a.responsavelWhatsapp || '';
   document.getElementById('fStatusMens').value = a.statusMensalidade;
   document.getElementById('fMatricula').value = a.dataMatricula || '';
-  document.getElementById('fBanco').value = a.bancoPagamento || '';
   document.getElementById('fStatusGeral').value = a.statusGeral === 'inativo' ? 'inativo' : 'ativo';
   document.getElementById('fObs').value = a.observacoes || '';
   document.getElementById('photoPreview').innerHTML = a.foto ? `<img src="${a.foto}">` : '📷';
