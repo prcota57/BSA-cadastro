@@ -568,7 +568,8 @@ function renderLeadDetail(app){
       + '<button class="btn btn-secondary" style="margin-bottom:10px;" data-action="markDropped" data-id="'+l.id+'">Marcar não convertido</button>';
   } else if(l.status==='realizada'){
     html += '<button class="btn btn-primary" style="margin-bottom:10px;" data-action="markEnrolled" data-id="'+l.id+'">Matricular</button>'
-      + '<button class="btn btn-secondary" style="margin-bottom:10px;" data-action="markDropped" data-id="'+l.id+'">Marcar não convertido</button>';
+      + '<button class="btn btn-secondary" style="margin-bottom:10px;" data-action="markDropped" data-id="'+l.id+'">Marcar não convertido</button>'
+      + '<button class="btn btn-secondary" style="margin-bottom:10px;" data-action="backToScheduled" data-id="'+l.id+'">Voltar para Agendado</button>';
   } else if(l.status==='aguardando'){
     html += '<button class="btn btn-primary" style="margin-bottom:10px;" data-action="reschedule" data-id="'+l.id+'">Reagendar aula experimental</button>'
       + '<button class="btn btn-secondary" style="margin-bottom:10px;" data-action="markDropped" data-id="'+l.id+'">Marcar não convertido</button>';
@@ -810,6 +811,7 @@ var Actions = {
     });
   },
   markDropped:function(el){ var l=getLead(el.dataset.id); l.status='desistencia'; l.outcomeDate=new Date().toISOString(); saveLeads(); render(); showToast('Marcado como não convertido.'); },
+  backToScheduled:function(el){ var l=getLead(el.dataset.id); l.status='agendado'; l.attendedAt=null; saveLeads(); render(); showToast('Voltou para Agendado.'); },
   reopenLead:function(el){ var l=getLead(el.dataset.id); l.status='realizada'; saveLeads(); render(); showToast('Reaberto para nova decisão.'); },
   openMarkWaiting:function(el){
     var l = getLead(el.dataset.id);
