@@ -1886,12 +1886,22 @@ async function buscarReposicaoAgendadaHoje(aluno){
   // Agora usa só o array "reposicoesAgendadas", que já fica sincronizado em memória em tempo
   // real (onSnapshot, desde a abertura do app) — leitura local, síncrona, sem risco de travar.
   const dataISO = dataHojeISO();
-  const encontrada = reposicoesAgendadas.find(r=>
+  // Não exige mais que a data agendada bata exatamente com hoje — o aluno pode ter vindo
+  // num dia diferente do que foi programado. Entre todas as reposições pendentes desse aluno
+  // (na unidade do check-in), dá baixa na de data agendada mais próxima da data de hoje,
+  // seja ela passada ou futura, deixando as demais intactas pra uso posterior.
+  const candidatas = reposicoesAgendadas.filter(r=>
     r.alunoId === aluno.id &&
-    r.unidadeReposicao === unidadeAtual &&
-    r.dataReposicao === dataISO
+    r.unidadeReposicao === unidadeAtual
   );
-  return encontrada || null;
+  if(candidatas.length === 0) return null;
+  let melhor = candidatas[0];
+  let menorDif = Math.abs(new Date(candidatas[0].dataReposicao) - new Date(dataISO));
+  for(let i = 1; i < candidatas.length; i++){
+    const dif = Math.abs(new Date(candidatas[i].dataReposicao) - new Date(dataISO));
+    if(dif < menorDif){ menorDif = dif; melhor = candidatas[i]; }
+  }
+  return melhor;
 }
 
 async function marcarPresenca(aluno, distance, origem, dataOverride){
