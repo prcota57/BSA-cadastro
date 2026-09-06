@@ -218,8 +218,15 @@
     <div class="panel">
       <h2>Uniformes BSA</h2>
       <div class="tabs" id="tabsUniformeUnidade"></div>
-      <div id="listaUniformes"><div class="empty">Carregando...</div></div>
-      <button class="btn btn-outline" onclick="gerarGradeUniformes()">🧩 Gerar grade completa de tamanhos</button>
+      <div class="tabs" id="tabsUniformeTipo"></div>
+      <div id="secaoKits">
+        <div id="listaUniformes"><div class="empty">Carregando...</div></div>
+        <button class="btn btn-outline" onclick="gerarGradeUniformes()">🧩 Gerar grade completa de tamanhos</button>
+      </div>
+      <div id="secaoAvulsos" style="display:none;">
+        <div id="listaAvulsos"><div class="empty">Carregando...</div></div>
+        <button class="btn btn-primary" onclick="abrirNovoAvulso()">+ Novo item avulso</button>
+      </div>
     </div>
   </div>
 
@@ -293,6 +300,31 @@
     <input type="number" id="uniEditMin" value="2" min="0">
     <button class="btn btn-primary" onclick="salvarEdicaoUniforme()">Salvar</button>
     <button class="btn btn-outline" onclick="fecharModal('modalEditarUniforme')">Cancelar</button>
+  </div>
+</div>
+
+<!-- ===== MODAL: ITEM AVULSO DE UNIFORME ===== -->
+<div class="modal-bg" id="modalAvulso">
+  <div class="modal">
+    <h3 id="modalAvulsoTitulo">Novo item avulso</h3>
+    <label>Peça</label>
+    <select id="avulsoTipo" onchange="alternarAvulsoOutro()">
+      <option value="Meião">Meião</option>
+      <option value="Calção">Calção</option>
+      <option value="Camisa">Camisa</option>
+      <option value="Outro">Outro</option>
+    </select>
+    <input type="text" id="avulsoTipoOutro" placeholder="Nome da peça" style="display:none;">
+    <label>Tamanho</label>
+    <input type="text" id="avulsoTamanho" placeholder="Ex: 2, 4, P, M, G">
+    <label>Quantidade</label>
+    <input type="number" id="avulsoQtd" value="1" min="0">
+    <label>Estoque mínimo (alerta)</label>
+    <input type="number" id="avulsoMin" value="2" min="0">
+    <label>Unidade</label>
+    <select id="avulsoUnidade"></select>
+    <button class="btn btn-primary" onclick="salvarAvulso()">Salvar</button>
+    <button class="btn btn-outline" onclick="fecharModal('modalAvulso')">Cancelar</button>
   </div>
 </div>
 
@@ -425,11 +457,12 @@ const TIPOS_UNIFORME = [{id:'aluno', nome:'Aluno'}, {id:'comissao', nome:'Comiss
 const MOTIVOS_DANO = ['Bola furada', 'Colete rasgado', 'Cone quebrado', 'Barreira danificada', 'Outro'];
 
 let db;
-let uniformesCache = [], equipamentosCache = [], movimentacoesCache = [], interessesCache = [];
+let uniformesCache = [], equipamentosCache = [], movimentacoesCache = [], interessesCache = [], avulsosCache = [];
 let unidadeAtual = localStorage.getItem('bsaEstoqueUnidade') || 'Carlos Prates';
 let professorNome = localStorage.getItem('bsaEstoqueProfessor') || '';
 let modoAtual = 'professor';
 let telaAdminAtiva = 'screen-dashboard';
+let subTelaUniformes = 'kits';
 let filtroUnidadeUniformes = unidadeAtual;
 let filtroUnidadeEquip = unidadeAtual;
 let filtroHistorico = 'todos';
@@ -445,6 +478,12 @@ db.collection('estoqueUniformes').onSnapshot(snap=>{
   snap.forEach(doc=> uniformesCache.push(Object.assign({_docId: doc.id}, doc.data())));
   renderUniformes(); renderDashboard(); renderMovimentoOptionsIfOpen();
 }, err=> showToast('Erro ao carregar uniformes: ' + err.message, true));
+
+db.collection('estoqueUniformesAvulsos').onSnapshot(snap=>{
+  avulsosCache = [];
+  snap.forEach(doc=> avulsosCache.push(Object.assign({_docId: doc.id}, doc.data())));
+  renderAvulsos();
+}, err=> showToast('Erro ao carregar itens avulsos: ' + err.message, true));
 
 db.collection('estoqueEquipamentos').onSnapshot(snap=>{
   equipamentosCache = [];
@@ -637,8 +676,23 @@ function renderTabsUnidade(containerId, filtroAtualGetter, onSelect, listaUnidad
   });
 }
 
+function renderTabsTipoUniforme(){
+  const el = document.getElementById('tabsUniformeTipo');
+  el.innerHTML = '';
+  [['kits','Kits'], ['avulsos','Avulsos']].forEach(([id, lbl])=>{
+    const b = document.createElement('button');
+    b.textContent = lbl;
+    if(subTelaUniformes === id) b.classList.add('active');
+    b.addEventListener('click', ()=>{ subTelaUniformes = id; renderTabsTipoUniforme(); });
+    el.appendChild(b);
+  });
+  document.getElementById('secaoKits').style.display = subTelaUniformes === 'kits' ? '' : 'none';
+  document.getElementById('secaoAvulsos').style.display = subTelaUniformes === 'avulsos' ? '' : 'none';
+}
+
 function renderUniformes(){
-  renderTabsUnidade('tabsUniformeUnidade', ()=>filtroUnidadeUniformes, (u)=>{ filtroUnidadeUniformes = u; renderUniformes(); });
+  renderTabsTipoUniforme();
+  renderTabsUnidade('tabsUniformeUnidade', ()=>filtroUnidadeUniformes, (u)=>{ filtroUnidadeUniformes = u; renderUniformes(); renderAvulsos(); });
   const lista = document.getElementById('listaUniformes');
   const filtrados = uniformesCache.filter(u=> u.unidade === filtroUnidadeUniformes)
     .sort((a,b)=> (a.cor+a.tipo+a.tamanho).localeCompare(b.cor+b.tipo+b.tamanho));
@@ -720,6 +774,104 @@ function gerarGradeUniformes(){
   });
   if(criados === 0){ showToast('Grade já está completa nessa unidade'); return; }
   lote.commit().then(()=> showToast(criados + ' kits criados na grade')).catch(err=> showToast('Erro: '+err.message, true));
+}
+
+function renderAvulsos(){
+  const lista = document.getElementById('listaAvulsos');
+  if(!lista) return;
+  const filtrados = avulsosCache.filter(a=> a.unidade === filtroUnidadeUniformes)
+    .sort((a,b)=> (a.tipo+a.tamanho).localeCompare(b.tipo+b.tamanho));
+  if(filtrados.length === 0){
+    lista.innerHTML = '<div class="empty">Nenhum item avulso cadastrado nessa unidade ainda.<br>Toque em "+ Novo item avulso" abaixo.</div>';
+    return;
+  }
+  lista.innerHTML = filtrados.map(a=>{
+    const baixo = (Number(a.quantidade)||0) <= (Number(a.estoqueMinimo)||0);
+    return `<div class="item-row">
+      <div class="info"><b>${a.tipo} — Tam. ${a.tamanho}</b></div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button class="chip" onclick="abrirEditarAvulso('${a._docId}')">✏️</button>
+        <button class="chip" onclick="ajustarQtdAvulso('${a._docId}', -1)">−</button>
+        <div class="qty-badge ${baixo?'low':''}">${a.quantidade}</div>
+        <button class="chip" onclick="ajustarQtdAvulso('${a._docId}', 1)">+</button>
+        <button class="chip" onclick="excluirAvulso('${a._docId}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function ajustarQtdAvulso(id, delta){
+  const a = avulsosCache.find(x=>x._docId===id);
+  if(!a) return;
+  const nova = Math.max(0, (Number(a.quantidade)||0) + delta);
+  db.collection('estoqueUniformesAvulsos').doc(id).update({quantidade: nova}).catch(err=> showToast('Erro: '+err.message, true));
+}
+function alternarAvulsoOutro(){
+  const outro = document.getElementById('avulsoTipo').value === 'Outro';
+  document.getElementById('avulsoTipoOutro').style.display = outro ? '' : 'none';
+}
+let avulsoEditId = null;
+function abrirNovoAvulso(){
+  avulsoEditId = null;
+  document.getElementById('modalAvulsoTitulo').textContent = 'Novo item avulso';
+  document.getElementById('avulsoTipo').value = 'Meião';
+  document.getElementById('avulsoTipoOutro').value = '';
+  document.getElementById('avulsoTipoOutro').style.display = 'none';
+  document.getElementById('avulsoTamanho').value = '';
+  document.getElementById('avulsoQtd').value = 1;
+  document.getElementById('avulsoMin').value = 2;
+  document.getElementById('avulsoUnidade').innerHTML = UNIDADES.map(u=> `<option value="${u}" ${u===filtroUnidadeUniformes?'selected':''}>${u}</option>`).join('');
+  abrirModal('modalAvulso');
+}
+function abrirEditarAvulso(id){
+  const a = avulsosCache.find(x=>x._docId===id);
+  if(!a) return;
+  avulsoEditId = id;
+  document.getElementById('modalAvulsoTitulo').textContent = 'Editar item avulso';
+  const tiposFixos = ['Meião','Calção','Camisa'];
+  if(tiposFixos.includes(a.tipo)){
+    document.getElementById('avulsoTipo').value = a.tipo;
+    document.getElementById('avulsoTipoOutro').style.display = 'none';
+    document.getElementById('avulsoTipoOutro').value = '';
+  } else {
+    document.getElementById('avulsoTipo').value = 'Outro';
+    document.getElementById('avulsoTipoOutro').style.display = '';
+    document.getElementById('avulsoTipoOutro').value = a.tipo;
+  }
+  document.getElementById('avulsoTamanho').value = a.tamanho || '';
+  document.getElementById('avulsoQtd').value = a.quantidade || 0;
+  document.getElementById('avulsoMin').value = a.estoqueMinimo || 0;
+  document.getElementById('avulsoUnidade').innerHTML = UNIDADES.map(u=> `<option value="${u}" ${u===a.unidade?'selected':''}>${u}</option>`).join('');
+  abrirModal('modalAvulso');
+}
+function salvarAvulso(){
+  const tipoSel = document.getElementById('avulsoTipo').value;
+  const tipo = tipoSel === 'Outro' ? document.getElementById('avulsoTipoOutro').value.trim() : tipoSel;
+  const tamanho = document.getElementById('avulsoTamanho').value.trim();
+  if(!tipo){ showToast('Digite o nome da peça', true); return; }
+  if(!tamanho){ showToast('Digite o tamanho', true); return; }
+  const dados = {
+    tipo,
+    tamanho,
+    quantidade: Number(document.getElementById('avulsoQtd').value) || 0,
+    estoqueMinimo: Number(document.getElementById('avulsoMin').value) || 0,
+    unidade: document.getElementById('avulsoUnidade').value
+  };
+  if(avulsoEditId){
+    db.collection('estoqueUniformesAvulsos').doc(avulsoEditId).update(dados)
+      .then(()=>{ showToast('Item atualizado'); fecharModal('modalAvulso'); })
+      .catch(err=> showToast('Erro: '+err.message, true));
+    return;
+  }
+  dados.criadoEm = new Date().toISOString();
+  db.collection('estoqueUniformesAvulsos').add(dados)
+    .then(()=>{ showToast('Item adicionado'); fecharModal('modalAvulso'); })
+    .catch(err=> showToast('Erro: '+err.message, true));
+}
+function excluirAvulso(id){
+  if(!confirm('Excluir esse item avulso?')) return;
+  db.collection('estoqueUniformesAvulsos').doc(id).delete()
+    .then(()=> showToast('Item excluído'))
+    .catch(err=> showToast('Erro: '+err.message, true));
 }
 
 /* ============ EQUIPAMENTOS (ADMIN) ============ */
