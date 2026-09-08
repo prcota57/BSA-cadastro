@@ -373,6 +373,7 @@ let avaliacoesCache = [];
 let cadastrosPendentesCache = [];
 let pendReconhecimentoCache = [];
 let remarketingCache = [];
+let remarketingFullCache = [];
 let unidadeFiltro = 'todas';
 let itensAtuais = [];
 let itensResolvidosNestaSessao = new Set();
@@ -425,8 +426,10 @@ async function carregarTudo(){
   pendReconhecimentoSnap.forEach(doc=> pendReconhecimentoCache.push({ id: doc.id, ...doc.data() }));
 
   remarketingCache = [];
+  remarketingFullCache = [];
   if(remarketingDoc.exists && Array.isArray(remarketingDoc.data().items)){
-    remarketingCache = remarketingDoc.data().items.filter(r=> r.prioridade === 'ALTA' && !r.remarketingFeito);
+    remarketingFullCache = remarketingDoc.data().items;
+    remarketingCache = remarketingFullCache.filter(r=> r.prioridade === 'ALTA' && !r.remarketingFeito);
   }
 
   cadastrosPendentesCache = [];
@@ -1422,6 +1425,18 @@ function computarSugestoes(){
   const saudeGeral = somaPesos > 0 ? Math.round(partesValidas.reduce((a,b)=>a+b,0) / somaPesos) : null;
   if(saudeGeral !== null && saudeGeral < 60){
     sugestoes.push({ ico:'🩺', titulo:'Saúde geral da BSA abaixo do ideal', texto:`O indicador (por enquanto baseado em inadimplência e índice operacional — tarefas, estoque, cadastros e chamada do dia — com presença e risco temporariamente fora do cálculo) está em ${saudeGeral}%. Vale olhar a aba Visão Geral pra entender qual frente está puxando o número pra baixo.` });
+  }
+
+  // 9. Leads frios acumulando na fila de remarketing
+  var leadsFrios = remarketingFullCache.filter(function(r){ return r.subcategoria==='LEAD_FRIO' && !r.remarketingFeito; }).length;
+  if(leadsFrios >= 10){
+    sugestoes.push({ ico:'🥶', titulo:leadsFrios+' leads esfriaram na fila de remarketing', texto:'São leads sem resposta há mais de uma semana. Uma mensagem nova ou vídeo diferente pode reativar parte deles antes de considerá-los perdidos de vez.' });
+  }
+
+  // 10. Sugestões de IA (alunos existentes) esperando confirmação
+  var sugestoesPendentes = tarefasCache.filter(function(t){ return t.origemLeadIA && !t.concluido; }).length;
+  if(sugestoesPendentes >= 5){
+    sugestoes.push({ ico:'🔍', titulo:sugestoesPendentes+' sugestões da IA aguardando confirmação', texto:'São conversas de alunos já matriculados que a leitura automática do WhatsApp sinalizou como possível pendência (suporte, pagamento ou oportunidade). Aparecem como tarefa — vale dar uma olhada pra confirmar ou descartar.' });
   }
 
   renderSugestoes(sugestoes);
