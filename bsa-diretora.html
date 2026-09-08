@@ -372,6 +372,7 @@ let tarefasCache = [];
 let avaliacoesCache = [];
 let cadastrosPendentesCache = [];
 let pendReconhecimentoCache = [];
+let remarketingCache = [];
 let unidadeFiltro = 'todas';
 let itensAtuais = [];
 let itensResolvidosNestaSessao = new Set();
@@ -408,7 +409,7 @@ async function init(){
 
 async function carregarTudo(){
   document.getElementById('subStatus').textContent = 'atualizando…';
-  const [alunosSnap, presencasSnap, mensalidadesSnap, danosSnap, tarefasSnap, avaliacoesSnap, cadastrosPendentesSnap, pendReconhecimentoSnap] = await Promise.all([
+  const [alunosSnap, presencasSnap, mensalidadesSnap, danosSnap, tarefasSnap, avaliacoesSnap, cadastrosPendentesSnap, pendReconhecimentoSnap, remarketingDoc] = await Promise.all([
     db.collection('alunos').get(),
     db.collection('presencas').where('data','>=', dataISOOffset(40)).get(),
     db.collection('mensalidades').get(),
@@ -416,11 +417,17 @@ async function carregarTudo(){
     db.collection('tarefas').where('concluido','==', false).get(),
     db.collection('avaliacoesFisicas').get(),
     db.collection('cadastrosPendentes').where('status','==','pendente').get(),
-    db.collection('pendenciasReconhecimento').where('resolvido','==', false).get()
+    db.collection('pendenciasReconhecimento').where('resolvido','==', false).get(),
+    db.collection('appdata').doc('captacao_remarketing').get()
   ]);
 
   pendReconhecimentoCache = [];
   pendReconhecimentoSnap.forEach(doc=> pendReconhecimentoCache.push({ id: doc.id, ...doc.data() }));
+
+  remarketingCache = [];
+  if(remarketingDoc.exists && Array.isArray(remarketingDoc.data().items)){
+    remarketingCache = remarketingDoc.data().items.filter(r=> r.prioridade === 'ALTA' && !r.remarketingFeito);
+  }
 
   cadastrosPendentesCache = [];
   cadastrosPendentesSnap.forEach(doc=> cadastrosPendentesCache.push({ id: doc.id, ...doc.data() }));
@@ -693,6 +700,25 @@ function computarPendenciasReconhecimento(){
   return itens;
 }
 
+function computarLeadsRemarketing(){
+  const itens = [];
+  remarketingCache.forEach(r=>{
+    const dias = r.diasDesdeUltima || 0;
+    const score = 88 + clamp(dias, 0, 8); // fica junto do vermelho, cresce um pouco com o tempo parado
+    const acoes = [];
+    if(r.telefone) acoes.push({ tipo:'wpp', label:'WhatsApp', url: gerarLinkWhatsApp(r.telefone, r.acaoNecessaria || 'Oi! Tudo bem?') });
+    acoes.push({ tipo:'remktFeito', label:'Marcar feito', remktId: r.id, primaria:true });
+    itens.push({
+      id: 'remkt_' + r.id, tipo:'lead', unidade: 'todas', score,
+      ico: '⚽',
+      titulo: 'Lead prioridade alta — ' + (r.nome || r.telefone),
+      detalhe: (r.resumoStatus || '') + (r.acaoNecessaria ? ' · ' + r.acaoNecessaria : ''),
+      acoes
+    });
+  });
+  return itens;
+}
+
 function computarERenderizar(){
   let todos = [
     ...computarCadastrosPendentes(),
@@ -701,7 +727,8 @@ function computarERenderizar(){
     ...computarDanos(),
     ...computarTarefas(),
     ...computarAniversarios(),
-    ...computarPendenciasReconhecimento()
+    ...computarPendenciasReconhecimento(),
+    ...computarLeadsRemarketing()
   ];
 
   if(unidadeFiltro !== 'todas'){
@@ -797,6 +824,30 @@ function renderLista(itens){
   cont.querySelectorAll('button[data-reco]').forEach(btn=>{
     btn.addEventListener('click', (ev)=>{ ev.stopPropagation(); resolverPendenciaReconhecimento(btn.dataset.reco); });
   });
+  cont.querySelectorAll('button[data-remkt]').forEach(btn=>{
+    btn.addEventListener('click', (ev)=>{ ev.stopPropagation(); marcarRemktFeito(btn.dataset.remkt); });
+  });
+}
+
+async function marcarRemktFeito(id){
+  try{
+    const ref = db.collection('appdata').doc('captacao_remarketing');
+    const doc = await ref.get();
+    const items = (doc.exists && Array.isArray(doc.data().items)) ? doc.data().items : [];
+    const item = items.find(r=> r.id === id);
+    if(item){
+      item.remarketingFeito = true;
+      item.remarketingFeitoEm = new Date().toISOString();
+      await ref.set({ items, atualizadoEm: firebase.firestore.FieldValue.serverTimestamp() });
+    }
+    remarketingCache = remarketingCache.filter(r=> r.id !== id);
+    itensResolvidosNestaSessao.add('remkt_' + id);
+    if(navigator.vibrate) navigator.vibrate(80);
+    toast('Remarketing marcado como feito ✓');
+    computarERenderizar();
+  }catch(err){
+    toast('Erro ao marcar. Tente de novo.');
+  }
 }
 
 async function resolverPendenciaReconhecimento(id){
@@ -914,6 +965,24 @@ async function aprovarCadastro(p){
     await db.collection('cadastrosPendentes').doc(p.id).delete();
     cadastrosPendentesCache = cadastrosPendentesCache.filter(x=> x.id !== p.id);
     itensResolvidosNestaSessao.add('pend_' + p.id);
+
+    // se esse telefone estava na fila de remarketing, fecha o ciclo automaticamente
+    if(novoAluno.responsavelWhatsapp){
+      try{
+        const digitsNovo = novoAluno.responsavelWhatsapp.replace(/\D/g,'');
+        const refRemkt = db.collection('appdata').doc('captacao_remarketing');
+        const docRemkt = await refRemkt.get();
+        const items = (docRemkt.exists && Array.isArray(docRemkt.data().items)) ? docRemkt.data().items : [];
+        const match = items.find(r=> !r.remarketingFeito && (r.telefone||'').replace(/\D/g,'') === digitsNovo);
+        if(match){
+          match.remarketingFeito = true;
+          match.remarketingFeitoEm = new Date().toISOString();
+          match.convertidoAluno = true;
+          await refRemkt.set({ items, atualizadoEm: firebase.firestore.FieldValue.serverTimestamp() });
+        }
+      }catch(e){ /* não bloqueia a aprovação se isso falhar */ }
+    }
+
     fecharModalRevisao();
     toast('Aluno aprovado e cadastrado ✓');
     if(navigator.vibrate) navigator.vibrate(80);
@@ -932,6 +1001,7 @@ function cardHtml(item){
     if(a.tipo === 'concluir') return `<button class="primaria" data-tarefa="${a.tarefaId}">${a.label}</button>`;
     if(a.tipo === 'revisar') return `<button class="primaria" data-revisar="${a.pendenteId}">${a.label}</button>`;
     if(a.tipo === 'resolverReco') return `<button class="primaria" data-reco="${a.pendReconId}">${a.label}</button>`;
+    if(a.tipo === 'remktFeito') return `<button class="primaria" data-remkt="${a.remktId}">${a.label}</button>`;
     return '';
   }).join('');
   return `<div class="card nivel-${nivel}" data-id="${item.id}">
