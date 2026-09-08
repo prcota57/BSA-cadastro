@@ -998,7 +998,7 @@ var Actions = {
     r.remarketingFeito = false; r.remarketingFeitoEm = null;
     saveRemarketing(); render(); showToast('Reaberto na fila.');
   },
-  doImportCsv:function(){
+  doImportCsv:async function(){
     if(!state.importCsvText){ showToast('Escolha um arquivo primeiro.'); return; }
     var rows = csvParse(state.importCsvText);
     if(rows.length<2){ showToast('Arquivo vazio ou inválido.'); return; }
@@ -1008,43 +1008,105 @@ var Actions = {
     var missing = required.filter(function(r){ return idx[r]===undefined; });
     if(missing.length){ showToast('Faltam colunas no arquivo: '+missing.join(', ')); return; }
 
-    var novos=0, atualizados=0;
+    // busca tarefas de sugestão de IA já criadas antes, pra não duplicar a cada reimportação
+    var telefonesComTarefa = {};
+    try{
+      if(db){
+        var tarefasSnap = await db.collection('tarefas').where('origemLeadIA','==',true).where('concluido','==',false).get();
+        tarefasSnap.forEach(function(doc){ var d=doc.data(); if(d.leadTelefone) telefonesComTarefa[onlyDigits(d.leadTelefone)]=true; });
+      }
+    }catch(e){ /* segue sem dedupe se a query falhar */ }
+
+    var novos=0, atualizados=0, tarefasCriadas=0, lembretesCriados=0;
     for(var i=1;i<rows.length;i++){
       var row = rows[i];
       if(!row || row.length<2) continue;
       var destino = (row[idx['destino']]||'').trim();
-      if(destino !== 'captacao') continue;
       var telefone = (row[idx['telefone']]||'').trim();
       var digits = onlyDigits(telefone);
       if(!digits) continue;
+      var nomeSessao = (idx['nome_sessao']!==undefined ? row[idx['nome_sessao']] : '') || telefone;
+      var subcategoria = idx['subcategoria']!==undefined ? row[idx['subcategoria']] : '';
+      var resumoStatus = idx['resumo_status']!==undefined ? row[idx['resumo_status']] : '';
+      var acaoNecessaria = idx['acao_necessaria']!==undefined ? row[idx['acao_necessaria']] : '';
+      var prioridade = (row[idx['prioridade']]||'BAIXA').trim();
+
+      if(destino === 'revisao_diretora'){
+        // aluno existente com sinal na conversa: nunca vira pendência oficial sozinho,
+        // sempre passa por uma tarefa de confirmação primeiro
+        if(telefonesComTarefa[digits]) continue;
+        if(!db) continue;
+        try{
+          await db.collection('tarefas').add({
+            texto: '🔍 Confirmar: '+nomeSessao+' — '+(acaoNecessaria||resumoStatus||'verificar conversa'),
+            textoOriginal: resumoStatus||'',
+            prioridade: prioridade==='ALTA'?1:(prioridade==='MEDIA'?2:3),
+            responsavel: null,
+            unidade: 'todas',
+            baixaConfianca: true,
+            origemLeadIA: true,
+            leadTelefone: telefone,
+            criadoPor: 'IA (classificação WhatsApp)',
+            criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+            concluido: false, concluidoPor: null, concluidoEm: null
+          });
+          telefonesComTarefa[digits] = true;
+          tarefasCriadas++;
+        }catch(e){ /* ignora essa linha e segue */ }
+        continue;
+      }
+
+      if(destino !== 'captacao') continue;
       var existing = state.remarketing.find(function(r){ return onlyDigits(r.telefone)===digits; });
       var payload = {
         telefone: telefone,
-        nome: (idx['nome_sessao']!==undefined ? row[idx['nome_sessao']] : '') || telefone,
-        prioridade: (row[idx['prioridade']]||'BAIXA').trim(),
-        subcategoria: idx['subcategoria']!==undefined ? row[idx['subcategoria']] : '',
-        resumoStatus: idx['resumo_status']!==undefined ? row[idx['resumo_status']] : '',
-        acaoNecessaria: idx['acao_necessaria']!==undefined ? row[idx['acao_necessaria']] : '',
+        nome: nomeSessao,
+        prioridade: prioridade,
+        subcategoria: subcategoria,
+        resumoStatus: resumoStatus,
+        acaoNecessaria: acaoNecessaria,
         tipoAcao: idx['tipo_acao']!==undefined ? row[idx['tipo_acao']] : '',
         ultimaInteracao: idx['ultima_interacao']!==undefined ? row[idx['ultima_interacao']] : '',
         diasDesdeUltima: idx['dias_desde_ultima']!==undefined ? parseInt(row[idx['dias_desde_ultima']],10)||0 : 0
       };
       if(existing){
+        var jaTinhaLembrete = !!existing.lembreteAgendaAgendado;
         Object.assign(existing, payload);
+        if(jaTinhaLembrete) existing.lembreteAgendaAgendado = true;
         atualizados++;
       } else {
         payload.id = uid();
         payload.remarketingFeito = false;
         payload.importadoEm = new Date().toISOString();
         state.remarketing.push(payload);
+        existing = payload;
         novos++;
+      }
+      // aula experimental agendada: cria lembrete automático pra confirmar presença no dia seguinte
+      if(subcategoria === 'AULA_EXPERIMENTAL_AGENDADA' && !existing.lembreteAgendaAgendado && db){
+        try{
+          var amanha = new Date(); amanha.setDate(amanha.getDate()+1); amanha.setHours(9,0,0,0);
+          await db.collection('lembretesAgendados').add({
+            texto: 'Confirmar se '+nomeSessao+' compareceu à aula experimental combinada',
+            responsavel: null,
+            dataHora: firebase.firestore.Timestamp.fromDate(amanha),
+            enviado: false,
+            criadoPor: 'IA (classificação WhatsApp)',
+            criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          existing.lembreteAgendaAgendado = true;
+          lembretesCriados++;
+        }catch(e){ /* segue sem lembrete se falhar */ }
       }
     }
     saveRemarketing();
     state.remktFilter='pendentes';
     state.screen='remarketing';
     render();
-    showToast(novos+' novo(s), '+atualizados+' atualizado(s).');
+    var msg = novos+' novo(s), '+atualizados+' atualizado(s)';
+    if(tarefasCriadas) msg += ', '+tarefasCriadas+' tarefa(s) de revisão criada(s)';
+    if(lembretesCriados) msg += ', '+lembretesCriados+' lembrete(s) agendado(s)';
+    showToast(msg+'.');
   },
   openPendentePublico:function(el){
     state.currentPendId = el.dataset.id;
