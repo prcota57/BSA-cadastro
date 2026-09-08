@@ -95,6 +95,19 @@
   .status-tab{flex-shrink:0;font-family:var(--font-mono);font-size:11.5px;padding:8px 13px;border-radius:100px;background:#fff;border:1px solid var(--line);color:#6c6c62;cursor:pointer;white-space:nowrap;}
   .status-tab.active{background:var(--pitch-800);border-color:var(--pitch-800);color:var(--lime-500);}
 
+  .prio-badge{font-family:var(--font-mono);font-size:10px;font-weight:700;padding:4px 10px;border-radius:100px;white-space:nowrap;flex-shrink:0;}
+  .prio-alta{background:#FDE3DC;color:var(--clay-700);}
+  .prio-media{background:#FFF3CC;color:#8A6D00;}
+  .prio-baixa{background:var(--chalk-200);color:#6c6c62;}
+  .remkt-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:9px;}
+  .remkt-card.done{opacity:0.55;}
+  .remkt-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .remkt-name{font-family:var(--font-display);font-weight:600;font-size:14.5px;color:var(--ink-700);margin:0;}
+  .remkt-sub{font-size:12px;color:#8a8a80;margin:3px 0 0;}
+  .remkt-action{font-size:12.5px;color:var(--ink-700);background:var(--chalk-200);border-radius:8px;padding:9px 11px;margin:10px 0;}
+  .import-box{background:#fff;border:1px dashed var(--line);border-radius:12px;padding:18px;margin-bottom:14px;text-align:center;}
+  .file-input-label{display:inline-block;font-family:var(--font-display);font-weight:600;font-size:13.5px;color:var(--pitch-800);background:var(--chalk-200);border-radius:10px;padding:12px 18px;cursor:pointer;}
+
   .lead-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:9px;cursor:pointer;}
   .lead-card .l-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
   .lead-card .l-name{font-family:var(--font-display);font-weight:600;font-size:15px;color:var(--ink-700);margin:0;}
@@ -182,7 +195,7 @@ function initFirebase(){
     var auth = firebase.auth();
     auth.signInAnonymously().catch(function(){});
     auth.onAuthStateChanged(function(user){
-      if(user){ loadLeads().then(boot).catch(boot); listenPendentesPublicos(); }
+      if(user){ Promise.all([loadLeads(), loadRemarketing()]).then(boot).catch(boot); listenPendentesPublicos(); }
     });
   }catch(e){ boot(); }
 }
@@ -242,7 +255,7 @@ function waitSubLabel(l){
 }
 var FOLLOWUP_DAYS = 2;
 
-var state = {screen:'loading', leads:[], currentId:null, form:{}, filterStatus:'todos', pendentesPublicos:[]};
+var state = {screen:'loading', leads:[], currentId:null, form:{}, filterStatus:'todos', pendentesPublicos:[], remarketing:[], remktFilter:'pendentes', importFileName:''};
 
 function uid(){ return 'l' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function todayStr(){ return new Date().toISOString().slice(0,10); }
@@ -272,6 +285,23 @@ async function saveLeads(){
     });
   }catch(e){ showToast('Não foi possível salvar agora.'); }
 }
+async function loadRemarketing(){
+  try{
+    if(!db){ state.remarketing=[]; return; }
+    var doc = await db.collection('appdata').doc('captacao_remarketing').get();
+    state.remarketing = (doc.exists && doc.data().items) ? doc.data().items : [];
+  }catch(e){ state.remarketing=[]; }
+}
+async function saveRemarketing(){
+  try{
+    if(!db){ showToast('Sem conexão — não foi possível salvar agora.'); return; }
+    await db.collection('appdata').doc('captacao_remarketing').set({
+      items: state.remarketing,
+      atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }catch(e){ showToast('Não foi possível salvar agora.'); }
+}
+function getRemktItem(id){ for(var i=0;i<state.remarketing.length;i++){ if(state.remarketing[i].id===id) return state.remarketing[i]; } return null; }
 function getLead(id){ for(var i=0;i<state.leads.length;i++){ if(state.leads[i].id===id) return state.leads[i]; } return null; }
 
 function setHeader(title,sub,showBack){
@@ -307,6 +337,8 @@ function render(){
   if(state.screen==='markWaiting') return renderMarkWaiting(app);
   if(state.screen==='pendentesPublicos') return renderPendentesPublicos(app);
   if(state.screen==='reviewPendentePublico') return renderReviewPendentePublico(app);
+  if(state.screen==='remarketing') return renderRemarketing(app);
+  if(state.screen==='importarConversas') return renderImportarConversas(app);
 }
 
 function tempoDecorridoPend(timestamp){
@@ -382,6 +414,97 @@ function renderReviewPendentePublico(app){
   app.innerHTML = html;
 }
 
+var PRIO_ORDER = {ALTA:0, MEDIA:1, BAIXA:2};
+
+function renderRemarketing(app){
+  setHeader('Remarketing WhatsApp','Fila de leads classificados por prioridade',true);
+  var filt = state.remktFilter;
+  var tabs = [['pendentes','Pendentes'],['feitos','Já feitos'],['todos','Todos']];
+  var tabHtml = tabs.map(function(t){ return '<button class="status-tab'+(filt===t[0]?' active':'')+'" data-action="setRemktFilter" data-f="'+t[0]+'">'+t[1]+'</button>'; }).join('');
+  var html = '<div class="status-tabs">'+tabHtml+'</div>';
+  html += '<button class="btn btn-secondary" style="margin-bottom:14px;" data-action="showImportarConversas">📥 Importar conversas do WhatsApp</button>';
+
+  var list = state.remarketing.filter(function(r){
+    if(filt==='pendentes') return !r.remarketingFeito;
+    if(filt==='feitos') return !!r.remarketingFeito;
+    return true;
+  }).sort(function(a,b){
+    var pa = PRIO_ORDER[a.prioridade]!==undefined?PRIO_ORDER[a.prioridade]:3;
+    var pb = PRIO_ORDER[b.prioridade]!==undefined?PRIO_ORDER[b.prioridade]:3;
+    if(pa!==pb) return pa-pb;
+    return (a.diasDesdeUltima||0)-(b.diasDesdeUltima||0);
+  });
+
+  if(list.length===0){
+    html += '<div class="empty-state">Nenhum lead nesta categoria ainda.<br>Importe uma planilha de conversas para começar.</div>';
+  } else {
+    var prioClass = {ALTA:'prio-alta', MEDIA:'prio-media', BAIXA:'prio-baixa'};
+    var prioLabel = {ALTA:'Alta', MEDIA:'Média', BAIXA:'Baixa'};
+    list.forEach(function(r){
+      html += '<div class="remkt-card'+(r.remarketingFeito?' done':'')+'">'
+        + '<div class="remkt-top"><p class="remkt-name">'+escapeHtml(r.nome||r.telefone)+'</p>'
+        + '<span class="prio-badge '+(prioClass[r.prioridade]||'prio-baixa')+'">'+(prioLabel[r.prioridade]||'—')+'</span></div>'
+        + '<p class="remkt-sub">'+escapeHtml(r.resumoStatus||'')+'</p>'
+        + (r.acaoNecessaria ? '<div class="remkt-action">'+escapeHtml(r.acaoNecessaria)+'</div>' : '')
+        + '<div class="btn-row">'
+        + '<button class="btn btn-whats" data-action="whatsRemktLead" data-id="'+r.id+'">WhatsApp</button>'
+        + (r.remarketingFeito
+            ? '<button class="btn btn-secondary" data-action="undoRemktDone" data-id="'+r.id+'">Reabrir</button>'
+            : '<button class="btn btn-secondary" data-action="markRemktDone" data-id="'+r.id+'">Feito</button>')
+        + '</div></div>';
+    });
+  }
+  html += '<div style="height:20px"></div>';
+  app.innerHTML = html;
+}
+
+function csvParse(text){
+  var rows = []; var row = []; var field = ''; var inQuotes = false;
+  for(var i=0;i<text.length;i++){
+    var c = text[i];
+    if(inQuotes){
+      if(c === '"'){
+        if(text[i+1] === '"'){ field += '"'; i++; } else { inQuotes = false; }
+      } else { field += c; }
+    } else {
+      if(c === '"'){ inQuotes = true; }
+      else if(c === ','){ row.push(field); field=''; }
+      else if(c === '\r'){ /* skip */ }
+      else if(c === '\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+      else { field += c; }
+    }
+  }
+  if(field.length || row.length){ row.push(field); rows.push(row); }
+  return rows.filter(function(r){ return r.length>1 || (r[0]||'').trim()!==''; });
+}
+
+function renderImportarConversas(app){
+  setHeader('Importar conversas','Suba a planilha já classificada por prioridade',true);
+  var html = ''
+    + '<div class="import-box">'
+    + '<p style="font-size:13px;color:#6c6c62;margin:0 0 12px;">Selecione o arquivo CSV que veio da classificação (colunas: prioridade, telefone, resumo_status, acao_necessaria...)</p>'
+    + '<label class="file-input-label">📄 Escolher arquivo<input type="file" id="importFileInput" accept=".csv" style="display:none;"></label>'
+    + (state.importFileName ? '<p style="font-size:12.5px;color:var(--pitch-800);margin-top:10px;">'+escapeHtml(state.importFileName)+'</p>' : '')
+    + '</div>'
+    + '<p class="field-hint" style="text-align:center;margin-bottom:16px;">Leads novos são adicionados à fila. Leads que já existem (mesmo telefone) são atualizados, sem duplicar.</p>'
+    + '<button class="btn btn-primary" data-action="doImportCsv">Importar para a fila</button>';
+  app.innerHTML = html;
+  var fileInput = document.getElementById('importFileInput');
+  if(fileInput){
+    fileInput.addEventListener('change', function(e){
+      var file = e.target.files[0];
+      if(!file) return;
+      state.importFileName = file.name;
+      var reader = new FileReader();
+      reader.onload = function(ev){ state.importCsvText = ev.target.result; showToast('Arquivo carregado: '+file.name); };
+      reader.readAsText(file, 'UTF-8');
+      var lbl = document.querySelector('.file-input-label');
+      if(lbl) lbl.insertAdjacentHTML('afterend', '');
+      render();
+    });
+  }
+}
+
 function renderHome(app){
   setHeader('BSA Experimental','Central de aulas experimentais',false);
   var alerts = getAlerts();
@@ -389,12 +512,14 @@ function renderHome(app){
   state.leads.forEach(function(l){ counts[l.status] = (counts[l.status]||0)+1; });
   var prontos = state.leads.filter(function(l){ return l.status==='aguardando' && isWaitReady(l); });
   var pendCount = state.pendentesPublicos.length;
+  var remktAltaCount = state.remarketing.filter(function(r){ return r.prioridade==='ALTA' && !r.remarketingFeito; }).length;
 
   var html = '<div class="shortcuts">'
     + '<div class="shortcut" data-action="showNewLead"><span class="ic">&#10133;</span><span class="lb">Nova aula<br>experimental</span></div>'
     + '<div class="shortcut" data-action="showPipeline"><span class="ic">&#128203;</span><span class="lb">Pipeline</span>'+(alerts.length?'<div class="badge">'+alerts.length+'</div>':'')+'</div>'
     + '<div class="shortcut" data-action="showReports"><span class="ic">&#128202;</span><span class="lb">Relatórios</span></div>'
     + '<div class="shortcut" data-action="showPendentesPublicos"><span class="ic">🆕</span><span class="lb">Pendentes</span>'+(pendCount?'<div class="badge">'+pendCount+'</div>':'')+'</div>'
+    + '<div class="shortcut" data-action="showRemarketing"><span class="ic">💬</span><span class="lb">Remarketing<br>WhatsApp</span>'+(remktAltaCount?'<div class="badge">'+remktAltaCount+'</div>':'')+'</div>'
     + '</div>';
 
   html += '<button class="btn btn-secondary" style="margin-bottom:16px;" data-action="copyPublicLink">🔗 Copiar link para o pai preencher</button>';
@@ -850,6 +975,77 @@ var Actions = {
     state.screen='leadDetail'; render();
   },
   showPendentesPublicos:function(){ state.screen='pendentesPublicos'; render(); },
+  showRemarketing:function(){ state.screen='remarketing'; render(); },
+  setRemktFilter:function(el){ state.remktFilter = el.dataset.f; render(); },
+  showImportarConversas:function(){ state.importFileName=''; state.importCsvText=''; state.screen='importarConversas'; render(); },
+  whatsRemktLead:function(el){
+    var r = getRemktItem(el.dataset.id);
+    if(!r) return;
+    var digits = onlyDigits(r.telefone);
+    if(digits.length<=11) digits = '55'+digits;
+    var msg = r.acaoNecessaria || 'Oi! Tudo bem?';
+    window.open('https://wa.me/'+digits+'?text='+encodeURIComponent(msg), '_blank');
+  },
+  markRemktDone:function(el){
+    var r = getRemktItem(el.dataset.id);
+    if(!r) return;
+    r.remarketingFeito = true; r.remarketingFeitoEm = new Date().toISOString();
+    saveRemarketing(); render(); showToast('Marcado como feito.');
+  },
+  undoRemktDone:function(el){
+    var r = getRemktItem(el.dataset.id);
+    if(!r) return;
+    r.remarketingFeito = false; r.remarketingFeitoEm = null;
+    saveRemarketing(); render(); showToast('Reaberto na fila.');
+  },
+  doImportCsv:function(){
+    if(!state.importCsvText){ showToast('Escolha um arquivo primeiro.'); return; }
+    var rows = csvParse(state.importCsvText);
+    if(rows.length<2){ showToast('Arquivo vazio ou inválido.'); return; }
+    var headers = rows[0].map(function(h){ return h.trim(); });
+    var idx = {}; headers.forEach(function(h,i){ idx[h]=i; });
+    var required = ['telefone','prioridade','destino'];
+    var missing = required.filter(function(r){ return idx[r]===undefined; });
+    if(missing.length){ showToast('Faltam colunas no arquivo: '+missing.join(', ')); return; }
+
+    var novos=0, atualizados=0;
+    for(var i=1;i<rows.length;i++){
+      var row = rows[i];
+      if(!row || row.length<2) continue;
+      var destino = (row[idx['destino']]||'').trim();
+      if(destino !== 'captacao') continue;
+      var telefone = (row[idx['telefone']]||'').trim();
+      var digits = onlyDigits(telefone);
+      if(!digits) continue;
+      var existing = state.remarketing.find(function(r){ return onlyDigits(r.telefone)===digits; });
+      var payload = {
+        telefone: telefone,
+        nome: (idx['nome_sessao']!==undefined ? row[idx['nome_sessao']] : '') || telefone,
+        prioridade: (row[idx['prioridade']]||'BAIXA').trim(),
+        subcategoria: idx['subcategoria']!==undefined ? row[idx['subcategoria']] : '',
+        resumoStatus: idx['resumo_status']!==undefined ? row[idx['resumo_status']] : '',
+        acaoNecessaria: idx['acao_necessaria']!==undefined ? row[idx['acao_necessaria']] : '',
+        tipoAcao: idx['tipo_acao']!==undefined ? row[idx['tipo_acao']] : '',
+        ultimaInteracao: idx['ultima_interacao']!==undefined ? row[idx['ultima_interacao']] : '',
+        diasDesdeUltima: idx['dias_desde_ultima']!==undefined ? parseInt(row[idx['dias_desde_ultima']],10)||0 : 0
+      };
+      if(existing){
+        Object.assign(existing, payload);
+        atualizados++;
+      } else {
+        payload.id = uid();
+        payload.remarketingFeito = false;
+        payload.importadoEm = new Date().toISOString();
+        state.remarketing.push(payload);
+        novos++;
+      }
+    }
+    saveRemarketing();
+    state.remktFilter='pendentes';
+    state.screen='remarketing';
+    render();
+    showToast(novos+' novo(s), '+atualizados+' atualizado(s).');
+  },
   openPendentePublico:function(el){
     state.currentPendId = el.dataset.id;
     state.form = {};
@@ -970,6 +1166,8 @@ document.getElementById('backBtn').addEventListener('click', function(){
   else if(state.screen==='leadDetail'){ state.screen='pipeline'; }
   else if(state.screen==='pendentesPublicos'){ state.screen='home'; }
   else if(state.screen==='reviewPendentePublico'){ state.screen='pendentesPublicos'; }
+  else if(state.screen==='remarketing'){ state.screen='home'; }
+  else if(state.screen==='importarConversas'){ state.screen='remarketing'; }
   render();
 });
 
