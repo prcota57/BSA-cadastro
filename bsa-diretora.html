@@ -841,6 +841,7 @@ async function marcarRemktFeito(id){
     if(item){
       item.remarketingFeito = true;
       item.remarketingFeitoEm = new Date().toISOString();
+      item.reabertoPorNovaMensagem = false;
       await ref.set({ items, atualizadoEm: firebase.firestore.FieldValue.serverTimestamp() });
     }
     remarketingCache = remarketingCache.filter(r=> r.id !== id);
