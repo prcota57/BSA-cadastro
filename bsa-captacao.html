@@ -442,7 +442,7 @@ function renderRemarketing(app){
     var prioLabel = {ALTA:'Alta', MEDIA:'Média', BAIXA:'Baixa'};
     list.forEach(function(r){
       html += '<div class="remkt-card'+(r.remarketingFeito?' done':'')+'">'
-        + '<div class="remkt-top"><p class="remkt-name">'+escapeHtml(r.nome||r.telefone)+'</p>'
+        + '<div class="remkt-top"><p class="remkt-name">'+escapeHtml(r.nome||r.telefone)+(r.reabertoPorNovaMensagem?' <span style="font-size:11px;color:var(--pitch-800);">· respondeu</span>':'')+'</p>'
         + '<span class="prio-badge '+(prioClass[r.prioridade]||'prio-baixa')+'">'+(prioLabel[r.prioridade]||'—')+'</span></div>'
         + '<p class="remkt-sub">'+escapeHtml(r.resumoStatus||'')+'</p>'
         + (r.acaoNecessaria ? '<div class="remkt-action">'+escapeHtml(r.acaoNecessaria)+'</div>' : '')
@@ -990,6 +990,7 @@ var Actions = {
     var r = getRemktItem(el.dataset.id);
     if(!r) return;
     r.remarketingFeito = true; r.remarketingFeitoEm = new Date().toISOString();
+    r.reabertoPorNovaMensagem = false;
     saveRemarketing(); render(); showToast('Marcado como feito.');
   },
   undoRemktDone:function(el){
@@ -1071,8 +1072,16 @@ var Actions = {
       };
       if(existing){
         var jaTinhaLembrete = !!existing.lembreteAgendaAgendado;
+        var interacaoAnterior = existing.ultimaInteracao || '';
+        var reabriu = false;
+        if(existing.remarketingFeito && payload.ultimaInteracao && payload.ultimaInteracao > interacaoAnterior){
+          existing.remarketingFeito = false;
+          existing.remarketingFeitoEm = null;
+          reabriu = true;
+        }
         Object.assign(existing, payload);
         if(jaTinhaLembrete) existing.lembreteAgendaAgendado = true;
+        if(reabriu) existing.reabertoPorNovaMensagem = true;
         atualizados++;
       } else {
         payload.id = uid();
