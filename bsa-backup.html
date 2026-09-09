@@ -78,7 +78,8 @@
     <p>Baixa um arquivo com todos os alunos, mensalidades, presenças, avaliações físicas, reposições e leads de captação de uma vez só.</p>
     <p>O nome do arquivo é sempre o mesmo — ao salvar no mesmo lugar de novo, o iPhone pergunta se quer <b>substituir</b> o anterior, então não fica acumulando arquivo à toa.</p>
     <p>Esse backup só tem os <b>dados</b> (alunos, financeiro, etc.) — o código/programação dos apps fica salvo separadamente no GitHub, com histórico de versões automático.</p>
-    <button class="btn btn-primary" id="btnBackup">📥 Fazer backup agora</button>
+    <button class="btn btn-primary" id="btnBackup">🔧 Preparar backup</button>
+    <button class="btn btn-primary" id="btnSalvar" style="display:none;">📤 Salvar backup</button>
     <div class="status" id="status"></div>
     <div class="stat-row" id="statRow" style="display:none;"></div>
     <div class="last-backup" id="lastBackup"></div>
@@ -164,11 +165,16 @@ function limparTimestamps(obj){
   }));
 }
 
+let backupFile = null;
+let backupUrl = null;
+
 document.getElementById('btnBackup').addEventListener('click', async ()=>{
   const btn = document.getElementById('btnBackup');
+  const btnSalvar = document.getElementById('btnSalvar');
   const status = document.getElementById('status');
   const statRow = document.getElementById('statRow');
   btn.disabled = true;
+  btnSalvar.style.display = 'none';
   statRow.style.display = 'none';
   statRow.innerHTML = '';
 
@@ -190,14 +196,36 @@ document.getElementById('btnBackup').addEventListener('click', async ()=>{
     status.textContent = 'Montando arquivo...';
     const jsonLimpo = limparTimestamps(backup);
     const blob = new Blob([JSON.stringify(jsonLimpo, null, 2)], {type: 'application/json'});
-    const url = URL.createObjectURL(blob);
+    if(backupUrl) URL.revokeObjectURL(backupUrl);
+    backupUrl = URL.createObjectURL(blob);
     const NOME_ARQUIVO = 'bsa-backup.json'; // nome fixo — ao salvar no mesmo lugar de novo, o iPhone pergunta se quer substituir
-    const file = new File([blob], NOME_ARQUIVO, {type: 'application/json'});
+    backupFile = new File([blob], NOME_ARQUIVO, {type: 'application/json'});
 
-    if(navigator.canShare && navigator.canShare({files: [file]})){
-      // abre a folha de compartilhamento do iPhone: escolha "Salvar em Arquivos" e salve no mesmo lugar de sempre
+    statRow.style.display = 'flex';
+    Object.keys(contagens).forEach(nome=>{
+      statRow.innerHTML += `<div class="stat"><div class="num">${contagens[nome]}</div><div class="lbl">${nome}</div></div>`;
+    });
+    status.textContent = 'Backup pronto — toque em "Salvar backup" ✅';
+    btn.textContent = '🔧 Preparar de novo';
+    btnSalvar.style.display = 'block';
+  }catch(err){
+    console.error(err);
+    status.textContent = 'Erro ao preparar backup: ' + err.message;
+    showToast('Erro ao preparar backup');
+  }finally{
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('btnSalvar').addEventListener('click', async ()=>{
+  const status = document.getElementById('status');
+  if(!backupFile) return;
+
+  try{
+    if(navigator.canShare && navigator.canShare({files: [backupFile]})){
+      // chamado como a primeira ação deste toque (sem esperas antes), pra não perder o gesto do usuário no iOS
       await navigator.share({
-        files: [file],
+        files: [backupFile],
         title: 'Backup BSA',
         text: 'Backup do sistema BSA — salve em Arquivos, substituindo o anterior'
       });
@@ -205,19 +233,14 @@ document.getElementById('btnBackup').addEventListener('click', async ()=>{
     } else {
       // navegadores sem suporte a compartilhar arquivo: baixa direto (nome fixo também)
       const a = document.createElement('a');
-      a.href = url;
-      a.download = NOME_ARQUIVO;
+      a.href = backupUrl;
+      a.download = backupFile.name;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       status.textContent = 'Backup baixado ✅';
     }
-    setTimeout(()=> URL.revokeObjectURL(url), 4000);
 
-    statRow.style.display = 'flex';
-    Object.keys(contagens).forEach(nome=>{
-      statRow.innerHTML += `<div class="stat"><div class="num">${contagens[nome]}</div><div class="lbl">${nome}</div></div>`;
-    });
     const agora = new Date();
     localStorage.setItem('bsaUltimoBackup', agora.toISOString());
     document.getElementById('lastBackup').textContent = 'Último backup: ' + agora.toLocaleString('pt-BR');
@@ -228,11 +251,9 @@ document.getElementById('btnBackup').addEventListener('click', async ()=>{
       status.textContent = 'Backup gerado, mas não foi salvo (cancelado)';
     } else {
       console.error(err);
-      status.textContent = 'Erro ao gerar backup: ' + err.message;
-      showToast('Erro ao gerar backup');
+      status.textContent = 'Erro ao salvar backup: ' + err.message;
+      showToast('Erro ao salvar backup');
     }
-  }finally{
-    btn.disabled = false;
   }
 });
 
