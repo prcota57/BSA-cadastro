@@ -130,7 +130,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-functions-compat.js"></script>
 <script>
 const firebaseConfig = {
   apiKey: "AIzaSyDmM2m_QnEeRflAKCyb11TzOrZM7iVgLCA",
@@ -142,7 +141,6 @@ const firebaseConfig = {
 };
 
 let db;
-let functionsRef;
 
 function showToast(msg){
   const t = document.getElementById('toast');
@@ -159,7 +157,6 @@ function initFirebase(){
   }
   firebase.initializeApp(firebaseConfig);
   db = firebase.firestore();
-  functionsRef = firebase.functions();
   firebase.auth().signInAnonymously().catch(err=>{
     showToast('Erro ao conectar: ' + err.message);
   });
@@ -394,21 +391,33 @@ document.getElementById('btnVerAutomaticos').addEventListener('click', async ()=
   document.getElementById('btnSalvarAutomatico').style.display = 'none';
 
   try{
-    const listar = functionsRef.httpsCallable('listarBackups');
-    const resultado = await listar();
-    const backups = resultado.data.backups || [];
-    if(!backups.length){
+    const resp = await fetch('https://api.github.com/repos/prcota57/BSA-cadastro/contents/backups');
+    if(resp.status === 404){
+      statusA.textContent = 'Nenhum backup automático ainda — o primeiro roda no próximo domingo de madrugada.';
+      return;
+    }
+    if(!resp.ok){
+      statusA.textContent = 'Erro ao buscar backups (código ' + resp.status + ')';
+      return;
+    }
+    const arquivos = await resp.json();
+    const jsons = arquivos
+      .filter(a => a.name.endsWith('.json'))
+      .sort((a,b) => a.name < b.name ? 1 : -1);
+
+    if(!jsons.length){
       statusA.textContent = 'Nenhum backup automático ainda — o primeiro roda no próximo domingo de madrugada.';
     } else {
-      statusA.textContent = backups.length + ' backup(s) salvos automaticamente:';
-      backups.forEach(b=>{
+      statusA.textContent = jsons.length + ' backup(s) salvos automaticamente:';
+      jsons.forEach(a=>{
         const item = document.createElement('div');
         item.className = 'backup-item';
-        const dataFormatada = new Date(b.criadoEm).toLocaleDateString('pt-BR');
-        item.innerHTML = `<span>${dataFormatada} — ${b.tamanhoKB} KB</span>`;
+        const tamanhoKB = (a.size / 1024).toFixed(1);
+        const dataLegivel = a.name.replace('bsa-backup-','').replace('.json','');
+        item.innerHTML = `<span>${dataLegivel} — ${tamanhoKB} KB</span>`;
         const botao = document.createElement('button');
         botao.textContent = 'Preparar';
-        botao.addEventListener('click', ()=> prepararBackupAutomatico(b.nome, botao));
+        botao.addEventListener('click', ()=> prepararBackupAutomatico(a.name, a.download_url, botao));
         item.appendChild(botao);
         lista.appendChild(item);
       });
@@ -421,14 +430,14 @@ document.getElementById('btnVerAutomaticos').addEventListener('click', async ()=
   }
 });
 
-async function prepararBackupAutomatico(nome, botao){
+async function prepararBackupAutomatico(nome, url, botao){
   const statusA = document.getElementById('statusAutomaticos');
   botao.disabled = true;
   botao.textContent = 'Preparando...';
   try{
-    const baixar = functionsRef.httpsCallable('baixarBackup');
-    const resultado = await baixar({ nome });
-    const blob = new Blob([resultado.data.conteudo], {type: 'application/json'});
+    const resp = await fetch(url);
+    const texto = await resp.text();
+    const blob = new Blob([texto], {type: 'application/json'});
     if(backupAutoUrl) URL.revokeObjectURL(backupAutoUrl);
     backupAutoUrl = URL.createObjectURL(blob);
     backupAutoFile = new File([blob], nome, {type: 'application/json'});
