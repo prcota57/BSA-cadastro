@@ -86,6 +86,19 @@
   </div>
 
   <div class="panel">
+    <h2>Restaurar backup (emergência)</h2>
+    <p>Só use isso se os dados tiverem sido perdidos de verdade (apagados, conta comprometida, etc.). Ele <b>substitui</b> os dados atuais pelos do arquivo escolhido — não é pra uso do dia a dia.</p>
+    <p>Datas/horários salvos voltam como texto simples nesse processo (não como o formato interno do banco) — funciona normal pra ver e recuperar as informações, mas algum relatório que ordena por data pode precisar de um ajuste depois. Normal em restaurações de emergência.</p>
+    <input type="file" id="fileRestaurar" accept=".json" style="display:none;">
+    <button class="btn btn-outline" id="btnEscolherArquivo">📂 Escolher arquivo de backup</button>
+    <div class="status" id="statusRestaurar"></div>
+    <div id="previewRestaurar" style="display:none;">
+      <div class="stat-row" id="statRowRestaurar"></div>
+      <button class="btn btn-primary" id="btnConfirmarRestaurar" style="background:var(--coral);">⚠️ Restaurar tudo agora</button>
+    </div>
+  </div>
+
+  <div class="panel">
     <h2>Código dos apps</h2>
     <p>Isso aqui é diferente do backup acima: é a <b>programação</b> dos apps (as telas, os módulos), não os dados dos alunos.</p>
     <p>O GitHub já guarda tudo com histórico automático, mas se quiser uma cópia extra guardada no seu Drive/iCloud, é só tocar e baixar:</p>
@@ -202,10 +215,12 @@ document.getElementById('btnBackup').addEventListener('click', async ()=>{
     backupFile = new File([blob], NOME_ARQUIVO, {type: 'application/json'});
 
     statRow.style.display = 'flex';
+    const tamanhoKB = (blob.size / 1024).toFixed(1);
+    statRow.innerHTML += `<div class="stat"><div class="num">${tamanhoKB}</div><div class="lbl">KB</div></div>`;
     Object.keys(contagens).forEach(nome=>{
       statRow.innerHTML += `<div class="stat"><div class="num">${contagens[nome]}</div><div class="lbl">${nome}</div></div>`;
     });
-    status.textContent = 'Backup pronto — toque em "Salvar backup" ✅';
+    status.textContent = 'Backup pronto (' + tamanhoKB + ' KB) — toque em "Salvar backup" ✅';
     btn.textContent = '🔧 Preparar de novo';
     btnSalvar.style.display = 'block';
   }catch(err){
@@ -261,6 +276,94 @@ const ultimo = localStorage.getItem('bsaUltimoBackup');
 if(ultimo){
   document.getElementById('lastBackup').textContent = 'Último backup: ' + new Date(ultimo).toLocaleString('pt-BR');
 }
+
+/* ---------- Restaurar backup (emergência) ---------- */
+let dadosRestaurar = null;
+
+document.getElementById('btnEscolherArquivo').addEventListener('click', ()=>{
+  document.getElementById('fileRestaurar').click();
+});
+
+document.getElementById('fileRestaurar').addEventListener('change', (e)=>{
+  const arquivo = e.target.files[0];
+  if(!arquivo) return;
+  const statusR = document.getElementById('statusRestaurar');
+  const previewR = document.getElementById('previewRestaurar');
+  statusR.textContent = 'Lendo arquivo...';
+  previewR.style.display = 'none';
+  dadosRestaurar = null;
+
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    try{
+      const json = JSON.parse(ev.target.result);
+      dadosRestaurar = json;
+      const statRowR = document.getElementById('statRowRestaurar');
+      statRowR.innerHTML = '';
+      let total = 0;
+      COLECOES.forEach(nome=>{
+        if(Array.isArray(json[nome]) && json[nome].length){
+          total += json[nome].length;
+          statRowR.innerHTML += `<div class="stat"><div class="num">${json[nome].length}</div><div class="lbl">${nome}</div></div>`;
+        }
+      });
+      const dataBackup = json.geradoEm ? new Date(json.geradoEm).toLocaleString('pt-BR') : 'data desconhecida';
+      statusR.textContent = 'Backup de ' + dataBackup + ' — ' + total + ' registros ao todo';
+      previewR.style.display = 'block';
+    }catch(err){
+      statusR.textContent = 'Arquivo inválido: ' + err.message;
+      dadosRestaurar = null;
+    }
+  };
+  reader.readAsText(arquivo);
+});
+
+document.getElementById('btnConfirmarRestaurar').addEventListener('click', async ()=>{
+  if(!dadosRestaurar) return;
+  const confirmacao = prompt('Isso vai SOBRESCREVER os dados atuais pelos do arquivo escolhido. Digite RESTAURAR para confirmar:');
+  if(confirmacao !== 'RESTAURAR'){
+    showToast('Restauração cancelada');
+    return;
+  }
+
+  const btn = document.getElementById('btnConfirmarRestaurar');
+  const statusR = document.getElementById('statusRestaurar');
+  btn.disabled = true;
+
+  try{
+    for(const nome of COLECOES){
+      const registros = dadosRestaurar[nome];
+      if(!Array.isArray(registros) || !registros.length) continue;
+      statusR.textContent = 'Restaurando ' + nome + ' (' + registros.length + ')...';
+      let batch = db.batch();
+      let contador = 0;
+      for(const registro of registros){
+        const dadosLimpos = Object.assign({}, registro);
+        const id = dadosLimpos._id;
+        delete dadosLimpos._id;
+        const ref = id ? db.collection(nome).doc(id) : db.collection(nome).doc();
+        batch.set(ref, dadosLimpos);
+        contador++;
+        if(contador % 450 === 0){
+          await batch.commit();
+          batch = db.batch();
+        }
+      }
+      await batch.commit();
+    }
+    if(dadosRestaurar.captacao_leads){
+      await db.collection('appdata').doc('captacao_leads').set(dadosRestaurar.captacao_leads);
+    }
+    statusR.textContent = 'Restauração concluída ✅';
+    showToast('Dados restaurados — confira o cadastro e o financeiro');
+  }catch(err){
+    console.error(err);
+    statusR.textContent = 'Erro ao restaurar: ' + err.message;
+    showToast('Erro ao restaurar');
+  }finally{
+    btn.disabled = false;
+  }
+});
 </script>
 </body>
 </html>
