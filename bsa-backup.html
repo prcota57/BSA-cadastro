@@ -53,6 +53,9 @@
     padding:11px 20px; border-radius:12px; font-size:13.5px; opacity:0; pointer-events:none; transition:opacity 0.25s; z-index:50;
   }
   .toast.show{opacity:1;}
+  .backup-item{display:flex; justify-content:space-between; align-items:center; padding:10px 4px; border-bottom:1px solid var(--line); font-size:13.5px;}
+  .backup-item:last-child{border-bottom:none;}
+  .backup-item button{border:none; background:var(--pitch-soft); color:var(--pitch-dark); border-radius:10px; padding:7px 12px; font-size:12.5px; font-weight:600;}
 </style>
 </head>
 <body>
@@ -83,6 +86,15 @@
     <div class="status" id="status"></div>
     <div class="stat-row" id="statRow" style="display:none;"></div>
     <div class="last-backup" id="lastBackup"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Backups automáticos</h2>
+    <p>Todo domingo de madrugada, o sistema salva sozinho uma cópia completa dos dados — sem precisar tocar em nada. Ficam guardadas as últimas 8 semanas (~2 meses); as mais antigas são apagadas automaticamente.</p>
+    <button class="btn btn-outline" id="btnVerAutomaticos">🗂️ Ver backups automáticos</button>
+    <div class="status" id="statusAutomaticos"></div>
+    <div id="listaAutomaticos"></div>
+    <button class="btn btn-primary" id="btnSalvarAutomatico" style="display:none;">📤 Salvar este backup</button>
   </div>
 
   <div class="panel">
@@ -118,6 +130,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-functions-compat.js"></script>
 <script>
 const firebaseConfig = {
   apiKey: "AIzaSyDmM2m_QnEeRflAKCyb11TzOrZM7iVgLCA",
@@ -129,6 +142,7 @@ const firebaseConfig = {
 };
 
 let db;
+let functionsRef;
 
 function showToast(msg){
   const t = document.getElementById('toast');
@@ -145,6 +159,7 @@ function initFirebase(){
   }
   firebase.initializeApp(firebaseConfig);
   db = firebase.firestore();
+  functionsRef = firebase.functions();
   firebase.auth().signInAnonymously().catch(err=>{
     showToast('Erro ao conectar: ' + err.message);
   });
@@ -364,6 +379,100 @@ document.getElementById('btnConfirmarRestaurar').addEventListener('click', async
     btn.disabled = false;
   }
 });
+
+/* ---------- Backups automáticos (gerados sozinhos toda semana) ---------- */
+let backupAutoFile = null;
+let backupAutoUrl = null;
+
+document.getElementById('btnVerAutomaticos').addEventListener('click', async ()=>{
+  const statusA = document.getElementById('statusAutomaticos');
+  const lista = document.getElementById('listaAutomaticos');
+  const btn = document.getElementById('btnVerAutomaticos');
+  btn.disabled = true;
+  statusA.textContent = 'Buscando backups salvos...';
+  lista.innerHTML = '';
+  document.getElementById('btnSalvarAutomatico').style.display = 'none';
+
+  try{
+    const listar = functionsRef.httpsCallable('listarBackups');
+    const resultado = await listar();
+    const backups = resultado.data.backups || [];
+    if(!backups.length){
+      statusA.textContent = 'Nenhum backup automático ainda — o primeiro roda no próximo domingo de madrugada.';
+    } else {
+      statusA.textContent = backups.length + ' backup(s) salvos automaticamente:';
+      backups.forEach(b=>{
+        const item = document.createElement('div');
+        item.className = 'backup-item';
+        const dataFormatada = new Date(b.criadoEm).toLocaleDateString('pt-BR');
+        item.innerHTML = `<span>${dataFormatada} — ${b.tamanhoKB} KB</span>`;
+        const botao = document.createElement('button');
+        botao.textContent = 'Preparar';
+        botao.addEventListener('click', ()=> prepararBackupAutomatico(b.nome, botao));
+        item.appendChild(botao);
+        lista.appendChild(item);
+      });
+    }
+  }catch(err){
+    console.error(err);
+    statusA.textContent = 'Erro ao buscar backups: ' + err.message;
+  }finally{
+    btn.disabled = false;
+  }
+});
+
+async function prepararBackupAutomatico(nome, botao){
+  const statusA = document.getElementById('statusAutomaticos');
+  botao.disabled = true;
+  botao.textContent = 'Preparando...';
+  try{
+    const baixar = functionsRef.httpsCallable('baixarBackup');
+    const resultado = await baixar({ nome });
+    const blob = new Blob([resultado.data.conteudo], {type: 'application/json'});
+    if(backupAutoUrl) URL.revokeObjectURL(backupAutoUrl);
+    backupAutoUrl = URL.createObjectURL(blob);
+    backupAutoFile = new File([blob], nome, {type: 'application/json'});
+    statusA.textContent = 'Backup ' + nome + ' pronto — toque em "Salvar este backup" ✅';
+    document.getElementById('btnSalvarAutomatico').style.display = 'block';
+  }catch(err){
+    console.error(err);
+    statusA.textContent = 'Erro ao preparar: ' + err.message;
+  }finally{
+    botao.disabled = false;
+    botao.textContent = 'Preparar';
+  }
+}
+
+document.getElementById('btnSalvarAutomatico').addEventListener('click', async ()=>{
+  if(!backupAutoFile) return;
+  const statusA = document.getElementById('statusAutomaticos');
+  try{
+    if(navigator.canShare && navigator.canShare({files: [backupAutoFile]})){
+      await navigator.share({
+        files: [backupAutoFile],
+        title: 'Backup BSA',
+        text: 'Backup automático do sistema BSA'
+      });
+      statusA.textContent = 'Backup salvo ✅';
+    } else {
+      const a = document.createElement('a');
+      a.href = backupAutoUrl;
+      a.download = backupAutoFile.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      statusA.textContent = 'Backup baixado ✅';
+    }
+  }catch(err){
+    if(err && err.name === 'AbortError'){
+      statusA.textContent = 'Cancelado';
+    } else {
+      console.error(err);
+      statusA.textContent = 'Erro ao salvar: ' + err.message;
+    }
+  }
+});
+
 </script>
 </body>
 </html>
