@@ -1,0 +1,40 @@
+name: Backup semanal do BSA
+
+on:
+  schedule:
+    - cron: '0 6 * * 0'   # domingo 06:00 UTC = 03:00 (horário de Brasília)
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Instalar dependências
+        run: cd scripts && npm install
+
+      - name: Publicar credencial de serviço
+        run: echo "$FIREBASE_SERVICE_ACCOUNT" > /tmp/bsa-service-account.json
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Gerar backup do Firestore
+        run: node scripts/gerar-backup.js
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/bsa-service-account.json
+
+      - name: Salvar backup no repositório
+        run: |
+          git config user.name "bsa-bot"
+          git config user.email "bsa-bot@users.noreply.github.com"
+          git add backups/
+          git commit -m "Backup semanal automático" || echo "nada pra commitar"
+          git push
