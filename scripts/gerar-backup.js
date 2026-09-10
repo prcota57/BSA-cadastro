@@ -22,11 +22,18 @@ const COLECOES = [
 const APPDATA_DOCS = ['captacao_leads'];
 const MAX_BACKUPS = 8; // ~2 meses de backups semanais
 
+const LIMITE_CAMPO_GRANDE = 2000; // caracteres — acima disso, provavelmente é foto em base64
+
 function limparTimestamps(obj) {
   return JSON.parse(
     JSON.stringify(obj, (key, value) => {
       if (value instanceof admin.firestore.Timestamp) {
         return value.toDate().toISOString();
+      }
+      if (typeof value === 'string' && value.length > LIMITE_CAMPO_GRANDE) {
+        // provavelmente uma foto em base64 — não entra no backup automático pra não
+        // inchar o repositório sem parar; a foto continua salva normalmente no Firestore.
+        return `[campo grande removido do backup automático (${value.length} caracteres) — continua salvo no Firestore]`;
       }
       return value;
     })
