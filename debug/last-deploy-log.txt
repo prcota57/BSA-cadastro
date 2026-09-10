@@ -1,86 +1,83 @@
-[2026-08-31T22:16:29.613Z] ----------------------------------------------------------------------
-[2026-08-31T22:16:29.615Z] Command:       /opt/hostedtoolcache/node/20.20.2/x64/bin/node /opt/hostedtoolcache/node/20.20.2/x64/bin/firebase deploy --only functions --project bsa-app-493c3 --non-interactive --debug
-[2026-08-31T22:16:29.615Z] CLI Version:   15.28.2
-[2026-08-31T22:16:29.615Z] Platform:      linux
-[2026-08-31T22:16:29.615Z] Node Version:  v20.20.2
-[2026-08-31T22:16:29.615Z] Detected Agent: unknown
-[2026-08-31T22:16:29.616Z] Time:          Mon Aug 31 2026 22:16:29 GMT+0000 (Coordinated Universal Time)
-[2026-08-31T22:16:29.616Z] ----------------------------------------------------------------------
+[2026-09-10T00:09:44.914Z] ----------------------------------------------------------------------
+[2026-09-10T00:09:44.917Z] Command:       /opt/hostedtoolcache/node/20.20.2/x64/bin/node /opt/hostedtoolcache/node/20.20.2/x64/bin/firebase deploy --only functions --project bsa-app-493c3 --non-interactive --debug
+[2026-09-10T00:09:44.917Z] CLI Version:   15.30.0
+[2026-09-10T00:09:44.917Z] Platform:      linux
+[2026-09-10T00:09:44.917Z] Node Version:  v20.20.2
+[2026-09-10T00:09:44.918Z] Detected Agent: unknown
+[2026-09-10T00:09:44.918Z] Time:          Thu Sep 10 2026 00:09:44 GMT+0000 (Coordinated Universal Time)
+[2026-09-10T00:09:44.918Z] ----------------------------------------------------------------------
 
-[2026-08-31T22:16:30.295Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
-[2026-08-31T22:16:30.389Z] Running auto auth
-[2026-08-31T22:16:30.389Z] [iam] checking project bsa-app-493c3 for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
-[2026-08-31T22:16:30.390Z] No OAuth tokens found
-[2026-08-31T22:16:30.392Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/bsa-app-493c3:testIamPermissions [none]
-[2026-08-31T22:16:30.392Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/bsa-app-493c3:testIamPermissions  x-goog-user-project=bsa-app-493c3
-[2026-08-31T22:16:30.392Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/bsa-app-493c3:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
-[2026-08-31T22:16:30.538Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/bsa-app-493c3:testIamPermissions 200
-[2026-08-31T22:16:30.538Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/bsa-app-493c3:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
-[2026-08-31T22:16:30.539Z] No OAuth tokens found
-[2026-08-31T22:16:30.539Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/bsa-app-493c3/serviceAccounts/bsa-app-493c3@appspot.gserviceaccount.com:testIamPermissions [none]
-[2026-08-31T22:16:30.539Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/bsa-app-493c3/serviceAccounts/bsa-app-493c3@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
-[2026-08-31T22:16:30.801Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/bsa-app-493c3/serviceAccounts/bsa-app-493c3@appspot.gserviceaccount.com:testIamPermissions 404
-[2026-08-31T22:16:30.801Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/bsa-app-493c3/serviceAccounts/bsa-app-493c3@appspot.gserviceaccount.com:testIamPermissions {"error":{"code":404,"message":"Unknown service account","status":"NOT_FOUND"}}
-[2026-08-31T22:16:30.801Z] [functions] service account IAM check errored, deploy may fail: Request to https://iam.googleapis.com/v1/projects/bsa-app-493c3/serviceAccounts/bsa-app-493c3@appspot.gserviceaccount.com:testIamPermissions had HTTP Error: 404, Unknown service account {"name":"FirebaseError","children":[],"context":{"body":{"error":{"code":404,"message":"Unknown service account","status":"NOT_FOUND"}},"response":{"statusCode":404}},"exit":1,"message":"Request to https://iam.googleapis.com/v1/projects/bsa-app-493c3/serviceAccounts/bsa-app-493c3@appspot.gserviceaccount.com:testIamPermissions had HTTP Error: 404, Unknown service account","status":404}
+[2026-09-10T00:09:45.770Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[2026-09-10T00:09:45.887Z] Running auto auth
+[2026-09-10T00:09:45.887Z] [iam] checking project bsa-app-493c3 for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[2026-09-10T00:09:45.889Z] No OAuth tokens found
+[2026-09-10T00:09:45.890Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/bsa-app-493c3:testIamPermissions [none]
+[2026-09-10T00:09:45.890Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/bsa-app-493c3:testIamPermissions  x-goog-user-project=bsa-app-493c3
+[2026-09-10T00:09:45.890Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/bsa-app-493c3:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[2026-09-10T00:09:45.983Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/bsa-app-493c3:testIamPermissions 200
+[2026-09-10T00:09:45.983Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/bsa-app-493c3:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[2026-09-10T00:09:45.984Z] No OAuth tokens found
+[2026-09-10T00:09:45.984Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/bsa-app-493c3/serviceAccounts/bsa-app-493c3@appspot.gserviceaccount.com:testIamPermissions [none]
+[2026-09-10T00:09:45.984Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/bsa-app-493c3/serviceAccounts/bsa-app-493c3@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[2026-09-10T00:09:46.050Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/bsa-app-493c3/serviceAccounts/bsa-app-493c3@appspot.gserviceaccount.com:testIamPermissions 403
+[2026-09-10T00:09:46.050Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/bsa-app-493c3/serviceAccounts/bsa-app-493c3@appspot.gserviceaccount.com:testIamPermissions {"error":{"code":403,"message":"Identity and Access Management (IAM) API has not been used in project 455452879388 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/iam.googleapis.com/overview?project=455452879388 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","status":"PERMISSION_DENIED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"SERVICE_DISABLED","domain":"googleapis.com","metadata":{"serviceTitle":"Identity and Access Management (IAM) API","service":"iam.googleapis.com","consumer":"projects/455452879388","activationUrl":"https://console.developers.google.com/apis/api/iam.googleapis.com/overview?project=455452879388","containerInfo":"455452879388"}},{"@type":"type.googleapis.com/google.rpc.LocalizedMessage","locale":"en-US","message":"Identity and Access Management (IAM) API has not been used in project 455452879388 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/iam.googleapis.com/overview?project=455452879388 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."},{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Google developers console API activation","url":"https://console.developers.google.com/apis/api/iam.googleapis.com/overview?project=455452879388"}]}]}}
+[2026-09-10T00:09:46.050Z] [functions] service account IAM check errored, deploy may fail: Request to https://iam.googleapis.com/v1/projects/bsa-app-493c3/serviceAccounts/bsa-app-493c3@appspot.gserviceaccount.com:testIamPermissions had HTTP Error: 403, Identity and Access Management (IAM) API has not been used in project 455452879388 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/iam.googleapis.com/overview?project=455452879388 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry. {"name":"FirebaseError","children":[],"context":{"body":{"error":{"code":403,"message":"Identity and Access Management (IAM) API has not been used in project 455452879388 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/iam.googleapis.com/overview?project=455452879388 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","status":"PERMISSION_DENIED","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"SERVICE_DISABLED","domain":"googleapis.com","metadata":{"serviceTitle":"Identity and Access Management (IAM) API","service":"iam.googleapis.com","consumer":"projects/455452879388","activationUrl":"https://console.developers.google.com/apis/api/iam.googleapis.com/overview?project=455452879388","containerInfo":"455452879388"}},{"@type":"type.googleapis.com/google.rpc.LocalizedMessage","locale":"en-US","message":"Identity and Access Management (IAM) API has not been used in project 455452879388 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/iam.googleapis.com/overview?project=455452879388 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry."},{"@type":"type.googleapis.com/google.rpc.Help","links":[{"description":"Google developers console API activation","url":"https://console.developers.google.com/apis/api/iam.googleapis.com/overview?project=455452879388"}]}]}},"response":{"statusCode":403}},"exit":1,"message":"Request to https://iam.googleapis.com/v1/projects/bsa-app-493c3/serviceAccounts/bsa-app-493c3@appspot.gserviceaccount.com:testIamPermissions had HTTP Error: 403, Identity and Access Management (IAM) API has not been used in project 455452879388 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/iam.googleapis.com/overview?project=455452879388 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.","status":403}
 
 === Deploying to 'bsa-app-493c3'...
 
 i  deploying functions 
-[2026-08-31T22:16:30.803Z] No OAuth tokens found
-[2026-08-31T22:16:30.803Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudresourcemanager.googleapis.com [none]
-[2026-08-31T22:16:30.803Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudresourcemanager.googleapis.com  x-goog-user-project=bsa-app-493c3
-[2026-08-31T22:16:31.237Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudresourcemanager.googleapis.com 200
-[2026-08-31T22:16:31.237Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudresourcemanager.googleapis.com [omitted]
-[2026-08-31T22:16:31.240Z] No OAuth tokens found
-[2026-08-31T22:16:31.240Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/bsa-app-493c3 [none]
-[2026-08-31T22:16:31.373Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/bsa-app-493c3 200
-[2026-08-31T22:16:31.374Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/bsa-app-493c3 {"projectNumber":"455452879388","projectId":"bsa-app-493c3","lifecycleState":"ACTIVE","name":"BSA App","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2026-07-05T18:26:14.380Z"}
+[2026-09-10T00:09:46.053Z] No OAuth tokens found
+[2026-09-10T00:09:46.053Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudresourcemanager.googleapis.com [none]
+[2026-09-10T00:09:46.053Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudresourcemanager.googleapis.com  x-goog-user-project=bsa-app-493c3
+[2026-09-10T00:09:46.316Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudresourcemanager.googleapis.com 200
+[2026-09-10T00:09:46.316Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudresourcemanager.googleapis.com [omitted]
+[2026-09-10T00:09:46.329Z] No OAuth tokens found
+[2026-09-10T00:09:46.329Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/bsa-app-493c3 [none]
+[2026-09-10T00:09:46.428Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/bsa-app-493c3 200
+[2026-09-10T00:09:46.428Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/bsa-app-493c3 {"projectNumber":"455452879388","projectId":"bsa-app-493c3","lifecycleState":"ACTIVE","name":"BSA App","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2026-07-05T18:26:14.380Z"}
 i  functions: preparing codebase default for deployment 
 i  functions: ensuring required API cloudfunctions.googleapis.com is enabled... 
-[2026-08-31T22:16:31.374Z] No OAuth tokens found
-[2026-08-31T22:16:31.375Z] No OAuth tokens found
+[2026-09-10T00:09:46.429Z] No OAuth tokens found
+[2026-09-10T00:09:46.430Z] No OAuth tokens found
 i  functions: ensuring required API cloudbuild.googleapis.com is enabled... 
-[2026-08-31T22:16:31.375Z] No OAuth tokens found
+[2026-09-10T00:09:46.430Z] No OAuth tokens found
 i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled... 
-[2026-08-31T22:16:31.375Z] No OAuth tokens found
-[2026-08-31T22:16:31.375Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudfunctions.googleapis.com [none]
-[2026-08-31T22:16:31.375Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudfunctions.googleapis.com  x-goog-user-project=bsa-app-493c3
-[2026-08-31T22:16:31.376Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/runtimeconfig.googleapis.com [none]
-[2026-08-31T22:16:31.376Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/runtimeconfig.googleapis.com  x-goog-user-project=bsa-app-493c3
-[2026-08-31T22:16:31.378Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudbuild.googleapis.com [none]
-[2026-08-31T22:16:31.378Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudbuild.googleapis.com  x-goog-user-project=bsa-app-493c3
-[2026-08-31T22:16:31.379Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/artifactregistry.googleapis.com [none]
-[2026-08-31T22:16:31.380Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/artifactregistry.googleapis.com  x-goog-user-project=bsa-app-493c3
-[2026-08-31T22:16:31.767Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/artifactregistry.googleapis.com 200
-[2026-08-31T22:16:31.767Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/artifactregistry.googleapis.com [omitted]
+[2026-09-10T00:09:46.431Z] No OAuth tokens found
+[2026-09-10T00:09:46.431Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudfunctions.googleapis.com [none]
+[2026-09-10T00:09:46.431Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudfunctions.googleapis.com  x-goog-user-project=bsa-app-493c3
+[2026-09-10T00:09:46.432Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/runtimeconfig.googleapis.com [none]
+[2026-09-10T00:09:46.432Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/runtimeconfig.googleapis.com  x-goog-user-project=bsa-app-493c3
+[2026-09-10T00:09:46.434Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudbuild.googleapis.com [none]
+[2026-09-10T00:09:46.434Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudbuild.googleapis.com  x-goog-user-project=bsa-app-493c3
+[2026-09-10T00:09:46.436Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/artifactregistry.googleapis.com [none]
+[2026-09-10T00:09:46.436Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/artifactregistry.googleapis.com  x-goog-user-project=bsa-app-493c3
+[2026-09-10T00:09:46.649Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/runtimeconfig.googleapis.com 200
+[2026-09-10T00:09:46.650Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/runtimeconfig.googleapis.com [omitted]
+[2026-09-10T00:09:46.876Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/artifactregistry.googleapis.com 200
+[2026-09-10T00:09:46.876Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/artifactregistry.googleapis.com [omitted]
 ⚠  artifactregistry: missing required API artifactregistry.googleapis.com. Enabling now... 
-[2026-08-31T22:16:31.767Z] No OAuth tokens found
-[2026-08-31T22:16:31.767Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/artifactregistry.googleapis.com:enable [none]
-[2026-08-31T22:16:31.768Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/artifactregistry.googleapis.com:enable  x-goog-user-project=bsa-app-493c3
-[2026-08-31T22:16:31.772Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudfunctions.googleapis.com 200
-[2026-08-31T22:16:31.772Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudfunctions.googleapis.com [omitted]
-⚠  functions: missing required API cloudfunctions.googleapis.com. Enabling now... 
-[2026-08-31T22:16:31.772Z] No OAuth tokens found
-[2026-08-31T22:16:31.773Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudfunctions.googleapis.com:enable [none]
-[2026-08-31T22:16:31.773Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudfunctions.googleapis.com:enable  x-goog-user-project=bsa-app-493c3
-[2026-08-31T22:16:31.794Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudbuild.googleapis.com 200
-[2026-08-31T22:16:31.795Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudbuild.googleapis.com [omitted]
+[2026-09-10T00:09:46.877Z] No OAuth tokens found
+[2026-09-10T00:09:46.877Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/artifactregistry.googleapis.com:enable [none]
+[2026-09-10T00:09:46.877Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/artifactregistry.googleapis.com:enable  x-goog-user-project=bsa-app-493c3
+[2026-09-10T00:09:46.878Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudfunctions.googleapis.com 200
+[2026-09-10T00:09:46.878Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudfunctions.googleapis.com [omitted]
+✔  functions: required API cloudfunctions.googleapis.com is enabled 
+[2026-09-10T00:09:46.885Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudbuild.googleapis.com 200
+[2026-09-10T00:09:46.885Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudbuild.googleapis.com [omitted]
 ⚠  functions: missing required API cloudbuild.googleapis.com. Enabling now... 
-[2026-08-31T22:16:31.795Z] No OAuth tokens found
-[2026-08-31T22:16:31.795Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudbuild.googleapis.com:enable [none]
-[2026-08-31T22:16:31.795Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudbuild.googleapis.com:enable  x-goog-user-project=bsa-app-493c3
-[2026-08-31T22:16:31.801Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/runtimeconfig.googleapis.com 200
-[2026-08-31T22:16:31.801Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/runtimeconfig.googleapis.com [omitted]
-[2026-08-31T22:16:32.042Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudbuild.googleapis.com:enable 400
-[2026-08-31T22:16:32.042Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudbuild.googleapis.com:enable [omitted]
+[2026-09-10T00:09:46.886Z] No OAuth tokens found
+[2026-09-10T00:09:46.886Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudbuild.googleapis.com:enable [none]
+[2026-09-10T00:09:46.886Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudbuild.googleapis.com:enable  x-goog-user-project=bsa-app-493c3
+[2026-09-10T00:09:47.168Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/artifactregistry.googleapis.com:enable 400
+[2026-09-10T00:09:47.168Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/artifactregistry.googleapis.com:enable [omitted]
 
-Error: Request to https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudbuild.googleapis.com:enable had HTTP Error: 400, Billing account for project '455452879388' is not open. Billing must be enabled for activation of service(s) 'cloudbuild.googleapis.com,artifactregistry.googleapis.com,containerregistry.googleapis.com' to proceed.
-Help Token: AbluAGsGbk4UZCpYt4lUeBSExrlKm3okkyJRf5cQ1t6UVI4DxMxwQMMXqWYxGRQ2xgDjOhhKV4u1-CiCtZinRDzke3yY_4MKcLUxnciyB2u60an3
-[2026-08-31T22:16:32.042Z] Error Context: {
+Error: Request to https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/artifactregistry.googleapis.com:enable had HTTP Error: 400, Billing account for project '455452879388' is not open. Billing must be enabled for activation of service(s) 'artifactregistry.googleapis.com' to proceed.
+Help Token: AbluAGuLH4ka729m1kY_Zxg6gc6Qujctp9L_hQT2i8WtbVTBpe-a-vr2ym0dkGcCCpGe0iLh8hO4yRzPVTWGftm_mlvpYwNYYhFIgKf3UnX11rzA
+[2026-09-10T00:09:47.169Z] Error Context: {
   "body": {
     "error": {
       "code": 400,
-      "message": "Billing account for project '455452879388' is not open. Billing must be enabled for activation of service(s) 'cloudbuild.googleapis.com,artifactregistry.googleapis.com,containerregistry.googleapis.com' to proceed.\nHelp Token: AbluAGsGbk4UZCpYt4lUeBSExrlKm3okkyJRf5cQ1t6UVI4DxMxwQMMXqWYxGRQ2xgDjOhhKV4u1-CiCtZinRDzke3yY_4MKcLUxnciyB2u60an3",
+      "message": "Billing account for project '455452879388' is not open. Billing must be enabled for activation of service(s) 'artifactregistry.googleapis.com' to proceed.\nHelp Token: AbluAGuLH4ka729m1kY_Zxg6gc6Qujctp9L_hQT2i8WtbVTBpe-a-vr2ym0dkGcCCpGe0iLh8hO4yRzPVTWGftm_mlvpYwNYYhFIgKf3UnX11rzA",
       "status": "FAILED_PRECONDITION",
       "details": [
         {
@@ -88,7 +85,7 @@ Help Token: AbluAGsGbk4UZCpYt4lUeBSExrlKm3okkyJRf5cQ1t6UVI4DxMxwQMMXqWYxGRQ2xgDj
           "violations": [
             {
               "type": "googleapis.com/billing-enabled",
-              "subject": "?error_code=390002&project=455452879388&services=cloudbuild.googleapis.com&services=artifactregistry.googleapis.com&services=containerregistry.googleapis.com"
+              "subject": "?error_code=390002&project=455452879388&services=artifactregistry.googleapis.com"
             }
           ]
         },
@@ -98,7 +95,7 @@ Help Token: AbluAGsGbk4UZCpYt4lUeBSExrlKm3okkyJRf5cQ1t6UVI4DxMxwQMMXqWYxGRQ2xgDj
           "domain": "serviceusage.googleapis.com/billing-enabled",
           "metadata": {
             "project": "455452879388",
-            "services": "cloudbuild.googleapis.com,artifactregistry.googleapis.com,containerregistry.googleapis.com"
+            "services": "artifactregistry.googleapis.com"
           }
         }
       ]
@@ -108,7 +105,5 @@ Help Token: AbluAGsGbk4UZCpYt4lUeBSExrlKm3okkyJRf5cQ1t6UVI4DxMxwQMMXqWYxGRQ2xgDj
     "statusCode": 400
   }
 }
-[2026-08-31T22:16:32.162Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/artifactregistry.googleapis.com:enable 400
-[2026-08-31T22:16:32.162Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/artifactregistry.googleapis.com:enable [omitted]
-[2026-08-31T22:16:32.215Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudfunctions.googleapis.com:enable 200
-[2026-08-31T22:16:32.215Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudfunctions.googleapis.com:enable [omitted]
+[2026-09-10T00:09:47.170Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudbuild.googleapis.com:enable 400
+[2026-09-10T00:09:47.170Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1/projects/bsa-app-493c3/services/cloudbuild.googleapis.com:enable [omitted]
