@@ -1,0 +1,7 @@
+{
+  "name": "bsa-scripts",
+  "private": true,
+  "dependencies": {
+    "firebase-admin": "^12.1.0"
+  }
+}
