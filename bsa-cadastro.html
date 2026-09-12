@@ -1691,11 +1691,20 @@ function mensagemBoasVindas(nome){
   const primeiroNome = (nome||'').trim().split(' ')[0];
   return `👋 Olá! Aqui é da equipe BSA (Brazilian Skills Academy). Sejam bem-vindos, ${primeiroNome}! Ficamos muito felizes com a matrícula e já estamos contando com a presença de vocês no treino. Qualquer dúvida, é só chamar por aqui! ⚽🎽`;
 }
+function mensagemBoasVindasVolta(nome){
+  const primeiroNome = (nome||'').trim().split(' ')[0];
+  return `👋 Olá! Aqui é da equipe BSA (Brazilian Skills Academy). Que bom ter vocês de volta, ${primeiroNome}! Já estamos contando com a presença no treino. Qualquer dúvida, é só chamar por aqui! ⚽🎽`;
+}
 function renderNovatos(){
   const ativo = document.querySelector('#novatosChips .chip.active');
   const range = ativo ? ativo.dataset.range : 'semana';
-  let lista = alunosCache.filter(a => a.statusGeral !== 'inativo' && a.dataMatricula);
-  lista = lista.map(a => ({...a, _dias: diasDesdeMatricula(a.dataMatricula)}));
+  let lista = alunosCache.filter(a => a.statusGeral !== 'inativo' && (a.dataMatricula || a.dataReativacao));
+  lista = lista.map(a=>{
+    const diasMat = a.dataMatricula ? diasDesdeMatricula(a.dataMatricula) : Infinity;
+    const diasReat = a.dataReativacao ? diasDesdeMatricula(a.dataReativacao) : Infinity;
+    const ehReativ = diasReat < diasMat;
+    return {...a, _dias: ehReativ ? diasReat : diasMat, _dataRef: ehReativ ? a.dataReativacao : a.dataMatricula, _tipo: ehReativ ? 'reativado' : 'matriculado'};
+  });
   lista = lista.filter(a => a._dias >= 0);
   if(range === 'semana') lista = lista.filter(a => a._dias <= 7);
   else if(range === 'mes') lista = lista.filter(a => a._dias <= 31);
@@ -1704,19 +1713,20 @@ function renderNovatos(){
 
   const container = document.getElementById('novatosListContainer');
   if(lista.length === 0){
-    container.innerHTML = `<div class="empty"><div class="big">👋</div><div>Nenhum aluno novo matriculado nesse período.</div></div>`;
+    container.innerHTML = `<div class="empty"><div class="big">👋</div><div>Nenhum aluno novo ou reativado nesse período.</div></div>`;
     return;
   }
   container.innerHTML = lista.map(a=>{
     const label = a._dias === 0 ? 'hoje' : (a._dias === 1 ? 'ontem' : 'há ' + a._dias + ' dias');
-    const msg = mensagemBoasVindas(a.nome);
+    const msg = a._tipo === 'reativado' ? mensagemBoasVindasVolta(a.nome) : mensagemBoasVindas(a.nome);
     const link = a.responsavelWhatsapp ? gerarLinkWhatsApp(a.responsavelWhatsapp, msg) : null;
+    const verbo = a._tipo === 'reativado' ? 'reativado' : 'matriculado';
     return `
       <div class="bday-list-row">
-        <div class="bday-date mono">${formatarDataLonga(a.dataMatricula)}</div>
+        <div class="bday-date mono">${formatarDataLonga(a._dataRef)}</div>
         <div class="bday-info">
           <div class="n">${a.nome}</div>
-          <div class="m">${a.unidade} · matriculado ${label}</div>
+          <div class="m">${a.unidade} · ${verbo} ${label}</div>
         </div>
         ${link ? `<a class="bday-wpp" href="${link}" target="_blank" rel="noopener">👋</a>` : ''}
       </div>`;
@@ -1829,7 +1839,9 @@ async function toggleAtivo(docId){
   const a = alunosCache.find(x=>x._docId === docId);
   if(!a) return;
   const novoStatus = a.statusGeral === 'inativo' ? 'ativo' : 'inativo';
-  await db.collection('alunos').doc(docId).update({statusGeral: novoStatus});
+  const upd = {statusGeral: novoStatus};
+  if(novoStatus === 'ativo') upd.dataReativacao = hojeLocalISO();
+  await db.collection('alunos').doc(docId).update(upd);
   if(novoStatus === 'inativo') await zerarPendenciasFinanceiras(docId);
   showToast(novoStatus === 'inativo' ? 'Aluno marcado como inativo e pendências financeiras zeradas' : 'Aluno reativado');
   fecharDetalhe();
