@@ -855,6 +855,10 @@ function renderAlunoDetail(app){
     + '<button class="btn btn-primary" data-action="salvarConfig" data-id="'+a.id+'">Salvar configuração</button>'
     + '</div>';
 
+  var matriculaPendente = !!(a.valorMatricula && Number(a.valorMatricula)>0 && !a.matriculaPaga);
+  var uniformePendente = !!(a.valorUniforme && Number(a.valorUniforme)>0 && !a.uniformePago);
+  var extras = (matriculaPendente?Number(a.valorMatricula):0) + (uniformePendente?Number(a.valorUniforme):0);
+
   if(m){
     var st = statusComputado(m);
     var pillTxt = {pago:'Pago', pendente:'Pendente', atrasado:'Atrasado', isento:'Isento'}[st];
@@ -871,14 +875,30 @@ function renderAlunoDetail(app){
         html += '<a class="btn btn-outline" style="text-decoration:none;flex:1;text-align:center;" target="_blank" href="'+waLink(a.responsavelWhatsapp, msgLembrete(a))+'">Lembrete</a>';
       }
       html += '</div>';
+      if(extras>0){
+        html += '<div class="meta" style="font-size:13px;margin-top:10px;line-height:1.6;">'
+          + 'Mensalidade: '+fmtMoeda(m.valor)+'<br>'
+          + (matriculaPendente ? 'Matrícula: '+fmtMoeda(a.valorMatricula)+'<br>' : '')
+          + (uniformePendente ? 'Uniforme: '+fmtMoeda(a.valorUniforme)+'<br>' : '')
+          + '<b>Total: '+fmtMoeda(Number(m.valor)+extras)+'</b>'
+          + '</div>';
+      }
       html += '<div class="field" style="margin-top:10px;"><label>Banco do pagamento</label><select data-banco-for="'+m.id+'">'
         + '<option value="">Selecione</option>'
         + '<option value="C6">C6 Bank</option>'
         + '<option value="Nubank">Nubank</option>'
         + '</select></div>';
-      html += '<button class="btn btn-blue" style="width:100%;margin-top:6px;" data-action="marcarPago" data-id="'+m.id+'">Marcar pago</button>';
+      html += '<button class="btn btn-blue" style="width:100%;margin-top:6px;" data-action="marcarPagoComExtras" data-id="'+m.id+'" data-aluno-id="'+a.id+'">'
+        + (extras>0 ? 'Marcar tudo como pago ('+fmtMoeda(Number(m.valor)+extras)+')' : 'Marcar pago') + '</button>';
     } else {
       html += '<div class="meta" style="font-size:12px;color:var(--ink-soft);">Pago em '+fmtDataBR(m.dataPagamento)+(m.bancoPagamento?' · '+m.bancoPagamento:'')+'</div>';
+      if(extras>0){
+        html += '<div class="meta" style="font-size:13px;margin-top:10px;line-height:1.6;">'
+          + (matriculaPendente ? 'Matrícula pendente: '+fmtMoeda(a.valorMatricula)+'<br>' : '')
+          + (uniformePendente ? 'Uniforme pendente: '+fmtMoeda(a.valorUniforme)+'<br>' : '')
+          + '</div>';
+        html += '<button class="btn btn-blue" style="width:100%;margin-top:6px;" data-action="marcarPagoComExtras" data-id="" data-aluno-id="'+a.id+'">Marcar matrícula/uniforme como pago ('+fmtMoeda(extras)+')</button>';
+      }
     }
     html += '</div>';
   } else {
@@ -1046,6 +1066,52 @@ var Actions = {
       await db.collection('mensalidades').doc(id).update(dados);
       var m = state.mensalidades.find(function(x){return x.id===id;});
       if(m){ m.statusPagamento='pago'; m.dataPagamento=dados.dataPagamento; if(dados.bancoPagamento) m.bancoPagamento=dados.bancoPagamento; }
+      showToast('Marcado como pago!');
+      render();
+    }catch(e){ showToast('Não foi possível salvar: '+e.message); }
+  },
+  marcarPagoComExtras:async function(el){
+    var id = el.dataset.id;
+    var alunoId = el.dataset.alunoId;
+    var a = state.alunos.find(function(x){return x.id===alunoId;});
+    if(!a){ showToast('Aluno não encontrado.'); return; }
+    var matriculaPendente = !!(a.valorMatricula && Number(a.valorMatricula)>0 && !a.matriculaPaga);
+    var uniformePendente = !!(a.valorUniforme && Number(a.valorUniforme)>0 && !a.uniformePago);
+    var banco = null;
+    if(id){
+      var selBanco = document.querySelector('select[data-banco-for="'+id+'"]');
+      if(!selBanco || !selBanco.value){ showToast('Selecione o banco do pagamento antes de marcar como pago.'); return; }
+      banco = selBanco.value;
+    }
+    try{
+      var hoje = hojeStr();
+      if(id){
+        await db.collection('mensalidades').doc(id).update({ statusPagamento:'pago', dataPagamento:hoje, bancoPagamento:banco });
+        var m = state.mensalidades.find(function(x){return x.id===id;});
+        if(m){ m.statusPagamento='pago'; m.dataPagamento=hoje; m.bancoPagamento=banco; }
+      }
+      var alunoUpdate = {};
+      if(matriculaPendente) alunoUpdate.matriculaPaga = true;
+      if(uniformePendente) alunoUpdate.uniformePago = true;
+      if(Object.keys(alunoUpdate).length){
+        await db.collection('alunos').doc(alunoId).update(alunoUpdate);
+        if(matriculaPendente) a.matriculaPaga = true;
+        if(uniformePendente) a.uniformePago = true;
+      }
+      if(matriculaPendente){
+        var refM = await db.collection('movimentacoesFinanceiras').add({
+          tipo:'entrada', categoria:'matricula', valor:Number(a.valorMatricula), data:hoje, descricao:'',
+          alunoId:alunoId, nomeAluno:a.nome, criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        state.movimentacoes.push({id:refM.id, tipo:'entrada', categoria:'matricula', valor:Number(a.valorMatricula), data:hoje, descricao:'', alunoId:alunoId, nomeAluno:a.nome});
+      }
+      if(uniformePendente){
+        var refU = await db.collection('movimentacoesFinanceiras').add({
+          tipo:'entrada', categoria:'uniforme', valor:Number(a.valorUniforme), data:hoje, descricao:'',
+          alunoId:alunoId, nomeAluno:a.nome, criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        state.movimentacoes.push({id:refU.id, tipo:'entrada', categoria:'uniforme', valor:Number(a.valorUniforme), data:hoje, descricao:'', alunoId:alunoId, nomeAluno:a.nome});
+      }
       showToast('Marcado como pago!');
       render();
     }catch(e){ showToast('Não foi possível salvar: '+e.message); }
