@@ -711,6 +711,11 @@ function renderInadimplentes(app){
         + '<div class="info"><div class="name">'+m.nomeAluno+'</div><div class="meta">Responsável: '+m.responsavelNome+' · '+fmtMoeda(m.valor)+'</div></div>'
         + '<span class="pill atrasado">'+diasAtraso(m)+'d atraso</span>'
         + '</div>'
+        + '<div class="field" style="margin-top:8px;"><label>Banco do pagamento</label><select data-banco-for="'+m.id+'">'
+        + '<option value="">Selecione</option>'
+        + '<option value="C6">C6 Bank</option>'
+        + '<option value="Nubank">Nubank</option>'
+        + '</select></div>'
         + '<div class="btn-row">'
         + '<a class="btn btn-outline" style="text-decoration:none;flex:1;text-align:center;" target="_blank" href="'+waLink(m.responsavelWhatsapp, msgCobranca({responsavelNome:m.responsavelNome, nome:m.nomeAluno}))+'">Enviar cobrança</a>'
         + '<button class="btn btn-blue" data-action="marcarPago" data-id="'+m.id+'">Marcar pago</button>'
@@ -864,7 +869,7 @@ function renderAlunoDetail(app){
         html += '<a class="btn btn-outline" style="text-decoration:none;flex:1;text-align:center;" target="_blank" href="'+waLink(a.responsavelWhatsapp, msgLembrete(a))+'">Lembrete</a>';
       }
       html += '</div>';
-      html += '<div class="field" style="margin-top:10px;"><label>Banco do pagamento</label><select id="fBancoPagamento">'
+      html += '<div class="field" style="margin-top:10px;"><label>Banco do pagamento</label><select data-banco-for="'+m.id+'">'
         + '<option value="">Selecione</option>'
         + '<option value="C6">C6 Bank</option>'
         + '<option value="Nubank">Nubank</option>'
@@ -1030,9 +1035,9 @@ var Actions = {
   marcarPago:async function(el){
     var id = el.dataset.id;
     var dados = { statusPagamento:'pago', dataPagamento: hojeStr() };
-    var selBanco = document.getElementById('fBancoPagamento');
+    var selBanco = document.querySelector('select[data-banco-for="'+id+'"]');
     if(selBanco){
-      if(!selBanco.value){ showToast('Selecione o banco do pagamento.'); return; }
+      if(!selBanco.value){ showToast('Selecione o banco do pagamento antes de marcar como pago.'); return; }
       dados.bancoPagamento = selBanco.value;
     }
     try{
