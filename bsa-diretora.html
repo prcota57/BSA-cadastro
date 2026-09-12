@@ -363,6 +363,8 @@ function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
 function calcularScore(tempo, impacto, repeticao){ return Math.round(clamp(tempo,0,40) + clamp(impacto,0,30) + clamp(repeticao,0,30)); }
 function nivelDe(score){ return score >= 65 ? 'red' : (score >= 35 ? 'yellow' : 'green'); }
 
+/* Mensalidades de meses anteriores a este são ignoradas em toda pendência e cálculo de saúde — mesma regra do BSA Finanças */
+const MES_INICIO_SISTEMA = '2026-09';
 let alunosCache = [];
 let presencasCache = [];   // últimos 40 dias
 let presentesHojeSet = new Set();
@@ -458,6 +460,7 @@ async function carregarTudo(){
 
   mensalidadesCache = [];
   mensalidadesSnap.forEach(doc=> mensalidadesCache.push({ id: doc.id, ...doc.data() }));
+  mensalidadesCache = mensalidadesCache.filter(m=> m.mesReferencia >= MES_INICIO_SISTEMA);
 
   danosCache = [];
   danosSnap.forEach(doc=> danosCache.push({ id: doc.id, ...doc.data() }));
