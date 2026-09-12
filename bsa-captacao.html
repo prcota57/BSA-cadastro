@@ -325,6 +325,34 @@ function getAlerts(){
     .sort(function(a,b){ return (b.info.urgent?1:0)-(a.info.urgent?1:0); });
 }
 
+/* ---------- remarketing de aula experimental (vídeo/lembrete antes da aula) ---------- */
+var TRIAL_REMKT_STAGES = [
+  {days:3, key:'d3', tag:'Faltam 3 dias', tagClass:'soon',
+   msg:function(l){ return 'Oi '+l.parentName+'! Passando pra lembrar: a aula experimental do(a) '+l.studentName+' está chegando, dia '+fmtDate(l.trialDate)+(l.trialTime?' às '+l.trialTime:'')+', na unidade '+l.unit+'. Já vou te mandar um vídeo bacana pra vocês conhecerem um pouco da BSA! ⚽🎥'; }},
+  {days:2, key:'d2', tag:'Faltam 2 dias', tagClass:'soon',
+   msg:function(l){ return 'Oi '+l.parentName+'! Só reforçando: faltam 2 dias pra aula experimental do(a) '+l.studentName+', dia '+fmtDate(l.trialDate)+(l.trialTime?' às '+l.trialTime:'')+', na '+l.unit+'. Estamos preparando tudo pra receber vocês! ⚽'; }},
+  {days:0, key:'d0', tag:'É hoje!', tagClass:'today',
+   msg:function(l){ return 'Hoje é o dia! A aula experimental do(a) '+l.studentName+' é hoje'+(l.trialTime?' às '+l.trialTime:'')+', na '+l.unit+'. Estamos te esperando! ⚽🔥'; }}
+];
+function trialRemktList(){
+  var t = todayStr(), out=[];
+  state.leads.forEach(function(l){
+    if(l.status!=='agendado' || !l.trialDate) return;
+    var d = daysBetween(t, l.trialDate);
+    TRIAL_REMKT_STAGES.forEach(function(st){
+      if(st.days===d){
+        var sent = !!(l.remktSent && l.remktSent[st.key]);
+        out.push({lead:l, stage:st, sent:sent});
+      }
+    });
+  });
+  out.sort(function(a,b){
+    if(a.sent!==b.sent) return a.sent?1:-1;
+    return a.stage.days - b.stage.days;
+  });
+  return out;
+}
+
 /* ---------- router ---------- */
 function render(){
   var app=document.getElementById('app');
@@ -508,13 +536,32 @@ function renderImportarConversas(app){
 function renderHome(app){
   setHeader('BSA Experimental','Central de aulas experimentais',false);
   var alerts = getAlerts();
+  var trialRemkt = trialRemktList();
   var counts = {agendado:0,realizada:0,matriculado:0,desistencia:0,nao_compareceu:0,aguardando:0};
   state.leads.forEach(function(l){ counts[l.status] = (counts[l.status]||0)+1; });
   var prontos = state.leads.filter(function(l){ return l.status==='aguardando' && isWaitReady(l); });
   var pendCount = state.pendentesPublicos.length;
   var remktAltaCount = state.remarketing.filter(function(r){ return r.prioridade==='ALTA' && !r.remarketingFeito; }).length;
 
-  var html = '<div class="shortcuts">'
+  var html = '';
+  if(trialRemkt.length>0){
+    html += '<p class="section-label">🎥 Remarketing — aula experimental chegando</p>';
+    trialRemkt.forEach(function(x){
+      var l=x.lead, st=x.stage;
+      var cardClass = 'alert-card' + (st.tagClass==='today' ? ' urgent' : '');
+      var styleAttr = x.sent ? ' style="opacity:.55"' : '';
+      html += '<div class="'+cardClass+'"'+styleAttr+'>'
+        + '<div class="a-top"><p class="a-name">'+escapeHtml(l.studentName)+'</p><span class="a-tag '+st.tagClass+'">'+st.tag+'</span></div>'
+        + '<p class="a-sub">'+escapeHtml(l.unit)+' · '+fmtDate(l.trialDate)+(l.trialTime?' às '+l.trialTime:'')+' · resp.: '+escapeHtml(l.parentName)+'</p>'
+        + '<div class="btn-row" style="margin-top:8px;">'
+        + '<button class="btn btn-whats" data-action="whatsTrialRemkt" data-id="'+l.id+'" data-stage="'+st.key+'">💬 WhatsApp</button>'
+        + (x.sent
+            ? '<button class="btn btn-secondary" data-action="undoTrialRemktDone" data-id="'+l.id+'" data-stage="'+st.key+'">Reabrir</button>'
+            : '<button class="btn btn-secondary" data-action="markTrialRemktDone" data-id="'+l.id+'" data-stage="'+st.key+'">Feito</button>')
+        + '</div></div>';
+    });
+  }
+  html += '<div class="shortcuts">'
     + '<div class="shortcut" data-action="showNewLead"><span class="ic">&#10133;</span><span class="lb">Nova aula<br>experimental</span></div>'
     + '<div class="shortcut" data-action="showPipeline"><span class="ic">&#128203;</span><span class="lb">Pipeline</span>'+(alerts.length?'<div class="badge">'+alerts.length+'</div>':'')+'</div>'
     + '<div class="shortcut" data-action="showReports"><span class="ic">&#128202;</span><span class="lb">Relatórios</span></div>'
@@ -918,6 +965,25 @@ var Actions = {
     var quandoTxt = fmtDate(l.trialDate) + (l.trialTime ? ' às ' + l.trialTime : '');
     var msg = 'Aula experimental de '+l.studentName+' agendada para dia '+quandoTxt+'. Segue abaixo orientações. Até breve!';
     window.open('https://wa.me/55'+digits+'?text='+encodeURIComponent(msg), '_blank');
+  },
+  whatsTrialRemkt:function(el){
+    var l = getLead(el.dataset.id); if(!l) return;
+    var stageKey = el.dataset.stage;
+    var st = TRIAL_REMKT_STAGES.filter(function(s){ return s.key===stageKey; })[0];
+    if(!st) return;
+    var digits = onlyDigits(l.parentPhone); if(digits.length<=11) digits='55'+digits;
+    window.open('https://wa.me/'+digits+'?text='+encodeURIComponent(st.msg(l)), '_blank');
+  },
+  markTrialRemktDone:function(el){
+    var l = getLead(el.dataset.id); if(!l) return;
+    if(!l.remktSent) l.remktSent = {};
+    l.remktSent[el.dataset.stage] = true;
+    saveLeads(); render(); showToast('Marcado como feito.');
+  },
+  undoTrialRemktDone:function(el){
+    var l = getLead(el.dataset.id); if(!l) return;
+    if(l.remktSent) l.remktSent[el.dataset.stage] = false;
+    saveLeads(); render(); showToast('Reaberto.');
   },
   markAttended:function(el){ var l=getLead(el.dataset.id); l.status='realizada'; l.attendedAt=new Date().toISOString(); saveLeads(); render(); showToast('Presença confirmada.'); },
   markNoShow:function(el){ var l=getLead(el.dataset.id); l.status='nao_compareceu'; saveLeads(); render(); showToast('Marcado como não compareceu.'); },
