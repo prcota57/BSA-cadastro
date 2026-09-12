@@ -867,6 +867,16 @@ function renderAlunoDetail(app){
       + '<div><div class="mono" style="font-size:20px;font-weight:700;">'+fmtMoeda(m.valor)+'</div><div class="meta" style="color:var(--ink-soft);font-size:12px;">vence em '+fmtDataBR(m.dataVencimento)+'</div></div>'
       + '<span class="pill '+st+'">'+pillTxt+'</span>'
       + '</div>';
+
+    if(st !== 'pago' && extras>0){
+      html += '<div class="meta" style="font-size:13px;margin:0 0 10px;line-height:1.6;background:#f7f2f2;padding:10px;border-radius:10px;">'
+        + 'Mensalidade: '+fmtMoeda(m.valor)+'<br>'
+        + (matriculaPendente ? 'Matrícula: '+fmtMoeda(a.valorMatricula)+'<br>' : '')
+        + (uniformePendente ? 'Uniforme: '+fmtMoeda(a.valorUniforme)+'<br>' : '')
+        + '<b>Total em aberto: '+fmtMoeda(Number(m.valor)+extras)+'</b>'
+        + '</div>';
+    }
+
     if(st !== 'pago'){
       html += '<div class="btn-row">';
       if(st === 'atrasado'){
@@ -875,31 +885,56 @@ function renderAlunoDetail(app){
         html += '<a class="btn btn-outline" style="text-decoration:none;flex:1;text-align:center;" target="_blank" href="'+waLink(a.responsavelWhatsapp, msgLembrete(a))+'">Lembrete</a>';
       }
       html += '</div>';
-      if(extras>0){
-        html += '<div class="meta" style="font-size:13px;margin-top:10px;line-height:1.6;">'
-          + 'Mensalidade: '+fmtMoeda(m.valor)+'<br>'
-          + (matriculaPendente ? 'Matrícula: '+fmtMoeda(a.valorMatricula)+'<br>' : '')
-          + (uniformePendente ? 'Uniforme: '+fmtMoeda(a.valorUniforme)+'<br>' : '')
-          + '<b>Total: '+fmtMoeda(Number(m.valor)+extras)+'</b>'
-          + '</div>';
-      }
-      html += '<div class="field" style="margin-top:10px;"><label>Banco do pagamento</label><select data-banco-for="'+m.id+'">'
+      html += '<div class="field" style="margin-top:10px;"><label>Banco do pagamento'+(extras>0?' (mensalidade)':'')+'</label><select data-banco-for="'+m.id+'">'
         + '<option value="">Selecione</option>'
         + '<option value="C6">C6 Bank</option>'
         + '<option value="Nubank">Nubank</option>'
         + '</select></div>';
-      html += '<button class="btn btn-blue" style="width:100%;margin-top:6px;" data-action="marcarPagoComExtras" data-id="'+m.id+'" data-aluno-id="'+a.id+'">'
-        + (extras>0 ? 'Marcar tudo como pago ('+fmtMoeda(Number(m.valor)+extras)+')' : 'Marcar pago') + '</button>';
+      html += '<button class="btn btn-blue" style="width:100%;margin-top:6px;" data-action="marcarPago" data-id="'+m.id+'">'
+        + (extras>0 ? 'Marcar só a mensalidade como paga' : 'Marcar pago') + '</button>';
     } else {
       html += '<div class="meta" style="font-size:12px;color:var(--ink-soft);">Pago em '+fmtDataBR(m.dataPagamento)+(m.bancoPagamento?' · '+m.bancoPagamento:'')+'</div>';
-      if(extras>0){
-        html += '<div class="meta" style="font-size:13px;margin-top:10px;line-height:1.6;">'
-          + (matriculaPendente ? 'Matrícula pendente: '+fmtMoeda(a.valorMatricula)+'<br>' : '')
-          + (uniformePendente ? 'Uniforme pendente: '+fmtMoeda(a.valorUniforme)+'<br>' : '')
-          + '</div>';
-        html += '<button class="btn btn-blue" style="width:100%;margin-top:6px;" data-action="marcarPagoComExtras" data-id="" data-aluno-id="'+a.id+'">Marcar matrícula/uniforme como pago ('+fmtMoeda(extras)+')</button>';
-      }
     }
+
+    if(matriculaPendente){
+      html += '<div style="margin-top:16px;padding-top:14px;border-top:1px solid #eee;">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><b>Matrícula — '+fmtMoeda(a.valorMatricula)+'</b><span class="pill atrasado">Pendente</span></div>'
+        + '<div class="field"><label>Banco do pagamento</label><select data-banco-for="matricula_'+a.id+'">'
+        + '<option value="">Selecione</option>'
+        + '<option value="C6">C6 Bank</option>'
+        + '<option value="Nubank">Nubank</option>'
+        + '</select></div>'
+        + '<button class="btn btn-blue" style="width:100%;margin-top:6px;" data-action="marcarItemPago" data-tipo="matricula" data-aluno-id="'+a.id+'">Marcar matrícula como paga</button>'
+        + '</div>';
+    } else if(a.valorMatricula){
+      html += '<div class="meta" style="font-size:12px;color:var(--ink-soft);margin-top:12px;">Matrícula ('+fmtMoeda(a.valorMatricula)+') já paga ✅</div>';
+    }
+
+    if(uniformePendente){
+      html += '<div style="margin-top:16px;padding-top:14px;border-top:1px solid #eee;">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><b>Uniforme — '+fmtMoeda(a.valorUniforme)+'</b><span class="pill atrasado">Pendente</span></div>'
+        + '<div class="field"><label>Banco do pagamento</label><select data-banco-for="uniforme_'+a.id+'">'
+        + '<option value="">Selecione</option>'
+        + '<option value="C6">C6 Bank</option>'
+        + '<option value="Nubank">Nubank</option>'
+        + '</select></div>'
+        + '<button class="btn btn-blue" style="width:100%;margin-top:6px;" data-action="marcarItemPago" data-tipo="uniforme" data-aluno-id="'+a.id+'">Marcar uniforme como pago</button>'
+        + '</div>';
+    } else if(a.valorUniforme){
+      html += '<div class="meta" style="font-size:12px;color:var(--ink-soft);margin-top:12px;">Uniforme ('+fmtMoeda(a.valorUniforme)+') já pago ✅</div>';
+    }
+
+    if(st !== 'pago' && extras>0){
+      html += '<div style="margin-top:16px;padding-top:14px;border-top:1px solid #eee;">'
+        + '<div class="field"><label>Banco do pagamento (tudo junto)</label><select data-banco-for="combo_'+m.id+'">'
+        + '<option value="">Selecione</option>'
+        + '<option value="C6">C6 Bank</option>'
+        + '<option value="Nubank">Nubank</option>'
+        + '</select></div>'
+        + '<button class="btn btn-primary" style="width:100%;margin-top:6px;" data-action="marcarPagoComExtras" data-id="'+m.id+'" data-aluno-id="'+a.id+'" data-banco-key="combo_'+m.id+'">Marcar tudo como pago ('+fmtMoeda(Number(m.valor)+extras)+')</button>'
+        + '</div>';
+    }
+
     html += '</div>';
   } else {
     html += '<div class="banner">Configure valor e dia de vencimento acima para gerar a cobrança deste mês.</div>';
@@ -1073,16 +1108,14 @@ var Actions = {
   marcarPagoComExtras:async function(el){
     var id = el.dataset.id;
     var alunoId = el.dataset.alunoId;
+    var bancoKey = el.dataset.bancoKey;
     var a = state.alunos.find(function(x){return x.id===alunoId;});
     if(!a){ showToast('Aluno não encontrado.'); return; }
     var matriculaPendente = !!(a.valorMatricula && Number(a.valorMatricula)>0 && !a.matriculaPaga);
     var uniformePendente = !!(a.valorUniforme && Number(a.valorUniforme)>0 && !a.uniformePago);
-    var banco = null;
-    if(id){
-      var selBanco = document.querySelector('select[data-banco-for="'+id+'"]');
-      if(!selBanco || !selBanco.value){ showToast('Selecione o banco do pagamento antes de marcar como pago.'); return; }
-      banco = selBanco.value;
-    }
+    var selBanco = document.querySelector('select[data-banco-for="'+bancoKey+'"]');
+    if(!selBanco || !selBanco.value){ showToast('Selecione o banco do pagamento antes de marcar como pago.'); return; }
+    var banco = selBanco.value;
     try{
       var hoje = hojeStr();
       if(id){
@@ -1113,6 +1146,32 @@ var Actions = {
         state.movimentacoes.push({id:refU.id, tipo:'entrada', categoria:'uniforme', valor:Number(a.valorUniforme), data:hoje, descricao:'', alunoId:alunoId, nomeAluno:a.nome});
       }
       showToast('Marcado como pago!');
+      render();
+    }catch(e){ showToast('Não foi possível salvar: '+e.message); }
+  },
+  marcarItemPago:async function(el){
+    var tipo = el.dataset.tipo; // 'matricula' ou 'uniforme'
+    var alunoId = el.dataset.alunoId;
+    var a = state.alunos.find(function(x){return x.id===alunoId;});
+    if(!a){ showToast('Aluno não encontrado.'); return; }
+    var campoValor = tipo==='matricula' ? 'valorMatricula' : 'valorUniforme';
+    var campoPago = tipo==='matricula' ? 'matriculaPaga' : 'uniformePago';
+    var valor = Number(a[campoValor]);
+    if(!valor || valor<=0){ showToast('Valor não configurado.'); return; }
+    var selBanco = document.querySelector('select[data-banco-for="'+tipo+'_'+alunoId+'"]');
+    if(!selBanco || !selBanco.value){ showToast('Selecione o banco do pagamento antes de marcar como pago.'); return; }
+    var banco = selBanco.value;
+    try{
+      var hoje = hojeStr();
+      var upd = {}; upd[campoPago] = true;
+      await db.collection('alunos').doc(alunoId).update(upd);
+      a[campoPago] = true;
+      var ref = await db.collection('movimentacoesFinanceiras').add({
+        tipo:'entrada', categoria:tipo, valor:valor, data:hoje, descricao:'Banco: '+banco,
+        alunoId:alunoId, nomeAluno:a.nome, criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      state.movimentacoes.push({id:ref.id, tipo:'entrada', categoria:tipo, valor:valor, data:hoje, descricao:'Banco: '+banco, alunoId:alunoId, nomeAluno:a.nome});
+      showToast((tipo==='matricula'?'Matrícula':'Uniforme')+' marcado como pago!');
       render();
     }catch(e){ showToast('Não foi possível salvar: '+e.message); }
   },
