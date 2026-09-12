@@ -557,6 +557,16 @@
   <main id="bdayListContainer"></main>
 </section>
 
+<!-- NOVATOS -->
+<section class="screen" id="screen-novatos">
+  <div class="chipsrow" id="novatosChips" style="padding-top:14px;">
+    <div class="chip active" data-range="semana">Esta semana</div>
+    <div class="chip" data-range="mes">Este mês</div>
+    <div class="chip" data-range="todos">Todos os recentes</div>
+  </div>
+  <main id="novatosListContainer"></main>
+</section>
+
 <section class="screen" id="screen-pendentes">
   <div class="pend-header">
     <div class="pend-header-txt">Cadastros enviados pelo formulário público, aguardando revisão.</div>
@@ -573,6 +583,7 @@
   <button class="active" data-screen="lista"><span class="ic">📋</span>Alunos</button>
   <button data-screen="cadastro"><span class="ic">➕</span>Novo</button>
   <button data-screen="pendentes"><span class="ic">🆕</span>Pendentes<span id="pendCountBadge" class="pend-badge" style="display:none;"></span></button>
+  <button data-screen="novatos"><span class="ic">👋</span>Novatos</button>
   <button data-screen="importar"><span class="ic">📥</span>Importar</button>
   <button data-screen="aniversarios"><span class="ic">🎂</span>Aniversários</button>
 </nav>
@@ -1052,6 +1063,9 @@ function goToScreen(name){
   }
   if(name === 'aniversarios'){
     renderAniversariantes();
+  }
+  if(name === 'novatos'){
+    renderNovatos();
   }
 }
 document.querySelectorAll('nav.tabbar button').forEach(b=>{
@@ -1647,6 +1661,62 @@ document.querySelectorAll('#bdayChips .chip').forEach(c=>{
     document.querySelectorAll('#bdayChips .chip').forEach(x=>x.classList.remove('active'));
     c.classList.add('active');
     renderAniversariantes();
+  });
+});
+
+/* ---------- Novatos (matriculados recentemente) ---------- */
+function diasDesdeMatricula(iso){
+  if(!iso) return 9999;
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const d = new Date(iso + 'T00:00:00');
+  if(isNaN(d)) return 9999;
+  return Math.round((hoje - d) / 86400000);
+}
+function formatarDataLonga(iso){
+  if(!iso) return '—';
+  const [y,m,d] = iso.split('-');
+  return d + '/' + m + '/' + y;
+}
+function mensagemBoasVindas(nome){
+  const primeiroNome = (nome||'').trim().split(' ')[0];
+  return `👋 Olá! Aqui é da equipe BSA (Brazilian Skills Academy). Sejam bem-vindos, ${primeiroNome}! Ficamos muito felizes com a matrícula e já estamos contando com a presença de vocês no treino. Qualquer dúvida, é só chamar por aqui! ⚽🎽`;
+}
+function renderNovatos(){
+  const ativo = document.querySelector('#novatosChips .chip.active');
+  const range = ativo ? ativo.dataset.range : 'semana';
+  let lista = alunosCache.filter(a => a.statusGeral !== 'inativo' && a.dataMatricula);
+  lista = lista.map(a => ({...a, _dias: diasDesdeMatricula(a.dataMatricula)}));
+  lista = lista.filter(a => a._dias >= 0);
+  if(range === 'semana') lista = lista.filter(a => a._dias <= 7);
+  else if(range === 'mes') lista = lista.filter(a => a._dias <= 31);
+  else lista = lista.filter(a => a._dias <= 90);
+  lista.sort((a,b) => a._dias - b._dias);
+
+  const container = document.getElementById('novatosListContainer');
+  if(lista.length === 0){
+    container.innerHTML = `<div class="empty"><div class="big">👋</div><div>Nenhum aluno novo matriculado nesse período.</div></div>`;
+    return;
+  }
+  container.innerHTML = lista.map(a=>{
+    const label = a._dias === 0 ? 'hoje' : (a._dias === 1 ? 'ontem' : 'há ' + a._dias + ' dias');
+    const msg = mensagemBoasVindas(a.nome);
+    const link = a.responsavelWhatsapp ? gerarLinkWhatsApp(a.responsavelWhatsapp, msg) : null;
+    return `
+      <div class="bday-list-row">
+        <div class="bday-date mono">${formatarDataLonga(a.dataMatricula)}</div>
+        <div class="bday-info">
+          <div class="n">${a.nome}</div>
+          <div class="m">${a.unidade} · matriculado ${label}</div>
+        </div>
+        ${link ? `<a class="bday-wpp" href="${link}" target="_blank" rel="noopener">👋</a>` : ''}
+      </div>`;
+  }).join('');
+}
+document.querySelectorAll('#novatosChips .chip').forEach(c=>{
+  c.addEventListener('click', ()=>{
+    document.querySelectorAll('#novatosChips .chip').forEach(x=>x.classList.remove('active'));
+    c.classList.add('active');
+    renderNovatos();
   });
 });
 
