@@ -130,6 +130,8 @@ var firebaseConfig = {
   appId: "1:455452879388:web:7135d93c116b2fe7cfcdd9"
 };
 var db = null;
+/* Mensalidades de meses anteriores a este são ignoradas em toda cobrança, relatório e cálculo de saúde — sistema passou a ser abastecido a partir daqui */
+var MES_INICIO_SISTEMA = '2026-09';
 var state = { screen:'dashboard', alunos:[], todosAlunoIds:[], mensalidades:[], movimentacoes:[], movTab:'entrada', search:'', searchInad:'', currentAlunoId:null, filaLista:[], filaIndex:0, extratoTexto:'', extratoResultado:null };
 
 function initFirebase(){
@@ -250,6 +252,7 @@ async function carregarMensalidades(){
   var snap = await db.collection('mensalidades').get();
   state.mensalidades = [];
   snap.forEach(function(doc){ state.mensalidades.push(Object.assign({id:doc.id}, doc.data())); });
+  state.mensalidades = state.mensalidades.filter(function(m){ return m.mesReferencia >= MES_INICIO_SISTEMA; });
   await sincronizarResponsavelPendentes();
 }
 
