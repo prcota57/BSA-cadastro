@@ -434,6 +434,13 @@
     <div class="empty" id="historyEmpty">Nenhuma presença registrada nesse dia.</div>
   </div>
 
+  <div class="panel" id="backupLocalPanel" style="display:none;">
+    <h2>🔒 Backup local de segurança</h2>
+    <div class="hint" style="margin-bottom:10px;">Cópia guardada neste aparelho de presenças que ainda não foram confirmadas pelo servidor (ou que falharam). Normalmente fica vazio — se tiver algo aqui, mande pro suporte.</div>
+    <div id="backupLocalStatus" class="empty">Nenhum registro pendente de confirmação.</div>
+    <button class="btn btn-outline-pitch" id="btnCopiarBackupLocal" type="button" style="display:none; margin-top:10px;">📋 Copiar dados do backup local</button>
+  </div>
+
   <div class="panel" id="faltantesPanel" style="display:none;">
     <h2>Faltantes de hoje <span id="faltantesUnitLabel" style="color:var(--ink-soft); font-weight:500;"></span></h2>
     <div class="hint" style="margin-bottom:10px;">Alunos com treino fixo hoje que ainda não registraram presença. Toque em WhatsApp para avisar o responsável.</div>
@@ -627,6 +634,7 @@
 <audio id="somTrombeta" src="sounds/fail-trombeta.wav" preload="auto"></audio>
 
 <div class="toast" id="toast"></div>
+<div id="pendingBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:#c0392b;color:#fff;font-weight:bold;text-align:center;padding:10px 14px;font-size:15px;box-shadow:0 2px 8px rgba(0,0,0,.3);"></div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -670,6 +678,121 @@ let ultimoReconhecidoId = null;
 let ultimoReconhecidoTs = 0;
 let audioCtx = null;
 let audioDesbloqueado = false;
+
+/* ---------- Confirmação real de gravação + backup local de segurança ----------
+   Motivo: o Firestore só resolve a promise do .set() quando o SERVIDOR confirma —
+   até lá, o registro pode estar só na memória da sessão. Antes, isso não era
+   acompanhado em nenhum lugar: a tela mostrava "presença registrada ✓" na hora
+   e ninguém saberia se aquilo realmente chegou a sincronizar ou se sumiu. Agora
+   cada registro fica "pendente" até confirmar de verdade, e se demorar demais
+   aparece um aviso vermelho fixo na tela. Além disso, toda tentativa de presença
+   é salva também numa cópia local (localStorage), independente do Firestore —
+   se algo se perder mesmo assim, dá pra recuperar esses dados manualmente. */
+let presencasPendentes = new Map(); // docId -> { nome, hora, avisoTimeout }
+const TEMPO_AVISO_PENDENCIA_MS = 12000; // se não confirmar em 12s, avisa na tela
+
+function atualizarPainelBackupLocal(){
+  const statusEl = document.getElementById('backupLocalStatus');
+  const btn = document.getElementById('btnCopiarBackupLocal');
+  if(!statusEl || !btn) return;
+  const lista = exportarBackupLocal();
+  if(lista.length === 0){
+    statusEl.textContent = 'Nenhum registro pendente de confirmação.';
+    statusEl.style.display = 'block';
+    btn.style.display = 'none';
+  } else {
+    statusEl.textContent = '⚠️ ' + lista.length + ' registro(s) aqui — ainda não confirmados pelo servidor.';
+    statusEl.style.display = 'block';
+    btn.style.display = 'inline-block';
+  }
+}
+
+document.getElementById('btnCopiarBackupLocal').addEventListener('click', async ()=>{
+  const lista = exportarBackupLocal();
+  const texto = JSON.stringify(lista, null, 2);
+  try{
+    await navigator.clipboard.writeText(texto);
+    toast('📋 Copiado! Cole numa mensagem pro suporte.');
+  }catch(e){
+    toast('Não deu pra copiar automático — veja o console.');
+    console.log(texto);
+  }
+});
+
+function atualizarBannerPendencias(){
+  const banner = document.getElementById('pendingBanner');
+  if(!banner) return;
+  const pendentesComAviso = [...presencasPendentes.values()].filter(p=> p.avisado);
+  if(pendentesComAviso.length === 0){
+    banner.style.display = 'none';
+    return;
+  }
+  const nomes = pendentesComAviso.map(p=> p.nome).join(', ');
+  banner.textContent = '⚠️ ' + pendentesComAviso.length + ' presença(s) não confirmada(s) — NÃO FECHE O APP: ' + nomes;
+  banner.style.display = 'block';
+  atualizarPainelBackupLocal();
+}
+
+function registrarPendencia(docId, nome){
+  const avisoTimeout = setTimeout(()=>{
+    const p = presencasPendentes.get(docId);
+    if(p){ p.avisado = true; atualizarBannerPendencias(); }
+  }, TEMPO_AVISO_PENDENCIA_MS);
+  presencasPendentes.set(docId, { nome, hora: new Date().toISOString(), avisado: false, avisoTimeout });
+}
+
+function confirmarPendencia(docId){
+  const p = presencasPendentes.get(docId);
+  if(p){ clearTimeout(p.avisoTimeout); }
+  presencasPendentes.delete(docId);
+  atualizarBannerPendencias();
+  // some do backup local também, já que confirmou de verdade no servidor
+  removerDoBackupLocal(docId);
+}
+
+const CHAVE_BACKUP_LOCAL = 'bsaPresencaBackupLocal';
+const MAX_BACKUP_LOCAL = 300;
+
+function salvarBackupLocal(docId, dados){
+  try{
+    const lista = JSON.parse(localStorage.getItem(CHAVE_BACKUP_LOCAL) || '[]');
+    lista.push({ docId, salvoEm: new Date().toISOString(), ...dados });
+    while(lista.length > MAX_BACKUP_LOCAL) lista.shift();
+    localStorage.setItem(CHAVE_BACKUP_LOCAL, JSON.stringify(lista));
+  }catch(e){ console.error('Falha ao salvar backup local:', e); }
+}
+
+function removerDoBackupLocal(docId){
+  try{
+    const lista = JSON.parse(localStorage.getItem(CHAVE_BACKUP_LOCAL) || '[]');
+    const filtrada = lista.filter(item=> item.docId !== docId);
+    localStorage.setItem(CHAVE_BACKUP_LOCAL, JSON.stringify(filtrada));
+  }catch(e){}
+}
+
+function exportarBackupLocal(){
+  try{
+    const lista = JSON.parse(localStorage.getItem(CHAVE_BACKUP_LOCAL) || '[]');
+    return lista;
+  }catch(e){ return []; }
+}
+window.exportarBackupLocalBSA = exportarBackupLocal; // acessível pelo console em caso de suporte remoto
+
+/* Roda uma vez ao abrir o app: confere no servidor se cada registro que ficou marcado como
+   "pendente" (de hoje ou de dias anteriores — ex: recarregou a página antes de confirmar)
+   já chegou lá de verdade. Se já chegou, limpa do backup local — evita ficar mostrando aviso
+   de "pendente" pra sempre por causa só de um reload no meio do caminho. */
+async function reconciliarBackupLocalComServidor(){
+  const lista = exportarBackupLocal();
+  if(lista.length === 0) return;
+  for(const item of lista){
+    try{
+      const snap = await comTimeout(db.collection('presencas').doc(item.docId).get(), 5000);
+      if(snap.exists) removerDoBackupLocal(item.docId);
+    }catch(e){ /* sem internet ou deu timeout — deixa como está, tenta de novo na próxima abertura */ }
+  }
+  atualizarPainelBackupLocal();
+}
 
 /* iOS/Safari só libera áudio depois de um toque real do usuário — destrava tudo no primeiro toque na tela */
 function desbloquearAudioGlobal(){
@@ -870,6 +993,7 @@ function initFirebase(){
       document.getElementById('unitPanel').style.display = 'block';
       retomarUltimaUnidade();
       aquecerCacheDasDuasUnidades();
+      reconciliarBackupLocalComServidor();
       listenPresencasHojeGlobal();
       listenPresencasSemanaGlobal();
       carregarModelosEAlunos();
@@ -1352,6 +1476,8 @@ document.querySelectorAll('.unit-btn').forEach(btn=>{
     document.getElementById('historyPanel').style.display = 'block';
     document.getElementById('historyUnitLabel').textContent = '· ' + unidadeAtual;
     document.getElementById('faltantesPanel').style.display = 'block';
+    document.getElementById('backupLocalPanel').style.display = 'block';
+    atualizarPainelBackupLocal();
     listenHistoricoHoje();
     renderFaltantes();
   });
@@ -1466,11 +1592,19 @@ let dataHistoricoAtual = dataHojeISO();
 function listenPresencasHojeGlobal(){
   const hoje = dataHojeISO();
   if(unsubPresencasHojeGlobal) unsubPresencasHojeGlobal();
+  // includeMetadataChanges: true — pra saber diferenciar "já está na tela" (metadata.hasPendingWrites
+  // = true, ainda só local) de "confirmado de verdade pelo servidor" (hasPendingWrites = false).
+  // Isso reconcilia o backup local/aviso de pendência mesmo se a página recarregar no meio do
+  // caminho (o .then() do ref.set() original se perderia num reload, mas esse listener continua
+  // rodando e detecta a confirmação de qualquer jeito).
   unsubPresencasHojeGlobal = db.collection('presencas')
     .where('data', '==', hoje)
-    .onSnapshot(snap=>{
+    .onSnapshot({ includeMetadataChanges: true }, snap=>{
       presentesHojeIds = new Set(snap.docs.map(d=> d.data().alunoId));
       presencasHojeMap = new Map(snap.docs.map(d=> [d.data().alunoId, d.data()]));
+      if(!snap.metadata.hasPendingWrites){
+        snap.docs.forEach(d=> confirmarPendencia(d.id));
+      }
       renderFaltantes();
     }, err=>{ console.error(err); });
 }
@@ -1957,13 +2091,7 @@ async function marcarPresenca(aluno, distance, origem, dataOverride){
 
   const duvidoso = (origem === 'facial') && (distance !== null && distance !== undefined) && (distance >= DISTANCIA_DUVIDOSA);
 
-  // IMPORTANTE: não usa "await" aqui. O Firestore só resolve a promise de .set() quando o
-  // SERVIDOR confirma o recebimento — offline, isso nunca chega, e a promise fica pendurada
-  // pra sempre (mesmo já tendo salvo local e aparecendo na lista). A gravação no cache local
-  // acontece na hora (por isso o aluno já aparece na lista mesmo sem internet); então
-  // consideramos "registrado" nesse momento, e deixamos o Firestore sincronizar com o
-  // servidor sozinho, em segundo plano, quando a internet voltar.
-  ref.set({
+  const dadosRegistro = {
     alunoId: aluno.id,
     nome: aluno.nome,
     unidade: aluno.unidade,
@@ -1982,8 +2110,23 @@ async function marcarPresenca(aluno, distance, origem, dataOverride){
     diasTreino: aluno.diasTreino || [],
     horarioTreino: aluno.horarioTreino || '',
     retroativo: retroativo
+  };
+
+  // Cópia de segurança local — independente do Firestore. Se o registro se perder antes de
+  // sincronizar (sem confirmação do servidor), fica salvo aqui mesmo assim e dá pra recuperar.
+  salvarBackupLocal(docId, dadosRegistro);
+  // Fica "pendente" até o servidor confirmar de verdade — se demorar demais, avisa na tela.
+  registrarPendencia(docId, aluno.nome);
+
+  // IMPORTANTE: não usa "await" aqui (pra não travar a tela esperando). O Firestore só
+  // resolve a promise de .set() quando o SERVIDOR confirma o recebimento — por isso agora
+  // tratamos o "então" (sucesso real) e o "catch" (falha real) separadamente, em vez de só
+  // considerar "registrado" no instante em que mandamos salvar. Enquanto isso não resolve,
+  // o registro segue como pendente (backup local + aviso na tela se demorar).
+  ref.set(dadosRegistro).then(()=>{
+    confirmarPendencia(docId);
   }).catch(err=>{
-    console.error('Presença ficou na fila local pra sincronizar depois (sem internet agora):', err);
+    console.error('Presença NÃO confirmada pelo servidor (fica pendente/backup local):', err);
   });
 
   const avisoUnidade = unidadeDivergente ? (' · aluno da unidade ' + aluno.unidade) : '';
