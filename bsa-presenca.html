@@ -411,6 +411,8 @@
     <div class="loadmsg"><div class="spinner"></div> <span id="modelStatus">Baixando modelos, aguarde...</span></div>
   </div>
 
+  <div class="panel" id="bdayBannerPresenca" style="display:none; background:var(--gold-soft); border-color:var(--gold);"></div>
+
   <div class="panel" id="unitPanel" style="display:none;">
     <h2>1. Escolha a unidade</h2>
     <div id="offlineStatus" style="margin:-6px 0 12px 0; font-size:12.5px; font-weight:600; cursor:pointer;"></div>
@@ -1127,11 +1129,13 @@ function carregarTodosAlunos(){
           diasTreino: d.diasTreino || [],
           horarioTreino: d.horarioTreino || '',
           responsavelNome: d.responsavelNome || '',
-          responsavelWhatsapp: d.responsavelWhatsapp || ''
+          responsavelWhatsapp: d.responsavelWhatsapp || '',
+          dataNascimento: d.dataNascimento || ''
         });
       }
     });
     renderFaltantes();
+    renderAniversariantesSemanaPresenca();
   }, err=>{ console.error(err); });
   carregarMensalidades();
 }
@@ -1656,6 +1660,47 @@ function gerarLinkWhatsApp(numero, mensagem){
   let n = (numero||'').toString().replace(/\D/g,'');
   if(n && !n.startsWith('55')) n = '55' + n;
   return 'https://wa.me/' + n + '?text=' + encodeURIComponent(mensagem);
+}
+
+/* Aniversariantes da semana — banner na tela inicial (unitPanel), antes de escolher a unidade */
+function mesDiaFromISO(iso){
+  if(!iso) return null;
+  const partes = iso.split('-');
+  return {mes: parseInt(partes[1],10), dia: parseInt(partes[2],10)};
+}
+function diasAteProximoAniversario(iso){
+  const md = mesDiaFromISO(iso);
+  if(!md) return 9999;
+  const hoje = new Date();
+  hoje.setHours(0,0,0,0);
+  let prox = new Date(hoje.getFullYear(), md.mes-1, md.dia);
+  if(prox < hoje) prox = new Date(hoje.getFullYear()+1, md.mes-1, md.dia);
+  return Math.round((prox - hoje) / 86400000);
+}
+function mensagemParabensPresenca(nome){
+  const primeiroNome = (nome||'').trim().split(' ')[0];
+  return `🎉 Parabéns, ${primeiroNome}! A equipe BSA (Brazilian Skills Academy) deseja um feliz aniversário! Que este novo ano venha cheio de gols, amizade e muita evolução dentro e fora de campo. Um abraço da nossa comissão técnica! 🎽⚽🎂`;
+}
+function renderAniversariantesSemanaPresenca(){
+  const banner = document.getElementById('bdayBannerPresenca');
+  if(!banner) return;
+  const lista = todosAlunosCache
+    .filter(a => a.dataNascimento)
+    .map(a => ({...a, _dias: diasAteProximoAniversario(a.dataNascimento)}))
+    .filter(a => a._dias <= 7)
+    .sort((a,b) => a._dias - b._dias);
+  if(lista.length === 0){ banner.style.display = 'none'; return; }
+  banner.style.display = 'block';
+  banner.innerHTML = '<div style="font-weight:700; margin-bottom:8px; color:var(--pitch-dark);">🎂 Aniversariantes da semana</div>' + lista.map(a=>{
+    const label = a._dias === 0 ? 'HOJE' : (a._dias === 1 ? 'amanhã' : 'em ' + a._dias + ' dias');
+    const msg = mensagemParabensPresenca(a.nome);
+    const link = a.responsavelWhatsapp ? gerarLinkWhatsApp(a.responsavelWhatsapp, msg) : null;
+    return `
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:7px 0; border-top:1px solid var(--gold-soft);">
+        <div style="font-size:14px;"><b>${a.nome}</b> <span style="color:var(--ink-soft);">(${a.unidade} · ${label})</span></div>
+        ${link ? `<a href="${link}" target="_blank" rel="noopener" style="flex:0 0 auto; font-size:12.5px; font-weight:700; color:var(--pitch); background:var(--pitch-soft); padding:6px 10px; border-radius:20px; text-decoration:none;">Parabenizar</a>` : ''}
+      </div>`;
+  }).join('');
 }
 const MENSAGENS_FALTA = [
   (nome) => `Olá! Aqui é da equipe do BSA (Brazilian Skills Academy) 🎽⚽. Notamos que ${nome} não compareceu ao treino hoje. Está tudo bem com ele(a)? Se puder, nos conta rapidinho o motivo da ausência. E se quiserem remarcar, é só nos chamar por aqui que a gente agenda a reposição com prazer! 💚`,
