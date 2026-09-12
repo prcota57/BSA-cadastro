@@ -883,6 +883,9 @@ function listenAlunos(){
     if(document.getElementById('screen-aniversarios').classList.contains('active')){
       renderAniversariantes();
     }
+    if(document.getElementById('screen-novatos').classList.contains('active')){
+      renderNovatos();
+    }
     if(abrirAlunoIdInicial && !abrirAlunoJaExecutado){
       const alvo = alunosCache.find(a=>a._docId === abrirAlunoIdInicial);
       if(alvo){
@@ -1029,7 +1032,7 @@ async function aprovarPendente(p){
       diasTreino: p.diasPreferidos || [], horarioTreino: horario,
       responsavelNome: p.responsavelNome || '', responsavelWhatsapp: p.responsavelWhatsapp || '',
       valorMensalidade: valor, diaVencimento: vencimento, statusMensalidade: 'ativo',
-      dataMatricula: new Date().toISOString().slice(0,10), statusGeral: 'ativo',
+      dataMatricula: hojeLocalISO(), statusGeral: 'ativo',
       observacoes: p.observacoes || '', foto: p.foto || null
     };
     await db.collection('alunos').add(novoAluno);
@@ -1424,7 +1427,7 @@ function resetForm(){
   document.getElementById('fRespNome').value = '';
   document.getElementById('fRespWhats').value = '';
   document.getElementById('fStatusMens').value = 'ativo';
-  document.getElementById('fMatricula').value = new Date().toISOString().slice(0,10);
+  document.getElementById('fMatricula').value = hojeLocalISO();
   document.getElementById('fStatusGeral').value = 'ativo';
   document.getElementById('fObs').value = '';
   document.getElementById('photoPreview').innerHTML = '📷';
@@ -1566,6 +1569,13 @@ function mesDiaFromISO(iso){
   const partes = iso.split('-');
   return {mes: parseInt(partes[1],10), dia: parseInt(partes[2],10)};
 }
+function hojeLocalISO(){
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const dia = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${dia}`;
+}
 function diasAteProximoAniversario(iso){
   const md = mesDiaFromISO(iso);
   if(!md) return 9999;
@@ -1601,7 +1611,7 @@ function mensagemParabens(nome){
 }
 
 function renderBdayBanner(){
-  const hojeMd = mesDiaFromISO(new Date().toISOString().slice(0,10));
+  const hojeMd = mesDiaFromISO(hojeLocalISO());
   const aniversariantesHoje = alunosCache.filter(a=>{
     if(a.statusGeral === 'inativo' || !a.dataNascimento) return false;
     const md = mesDiaFromISO(a.dataNascimento);
@@ -2053,7 +2063,7 @@ async function confirmarImportacao(){
           responsavelNome: r.responsavelNome || '',
           responsavelWhatsapp: r.responsavelWhatsapp || '',
           statusMensalidade: 'ativo',
-          dataMatricula: r.dataMatricula || new Date().toISOString().slice(0,10),
+          dataMatricula: r.dataMatricula || hojeLocalISO(),
           statusGeral: r.statusAluno || 'ativo',
           observacoes: '',
           criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
@@ -2179,7 +2189,7 @@ document.getElementById('btnApagarTudo').addEventListener('click', async ()=>{
 });
 
 /* ---------- Início ---------- */
-document.getElementById('fMatricula').value = new Date().toISOString().slice(0,10);
+document.getElementById('fMatricula').value = hojeLocalISO();
 /* Wake Lock: impede que a tela apague enquanto o módulo estiver aberto (útil na captura de fotos) */
 var __wakeLock=null;
 async function __pedirWakeLock(){try{if('wakeLock' in navigator){__wakeLock=await navigator.wakeLock.request('screen');}}catch(e){}}
