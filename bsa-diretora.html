@@ -133,6 +133,23 @@
     border-radius:10px; padding:10px 11px; font-size:14.5px; font-family:'Inter';
   }
   .rev-row{display:flex; gap:8px;}
+
+  .acao-chips{display:flex; flex-wrap:wrap; gap:7px;}
+  .acao-chip{
+    background:var(--board-line); border:1px solid rgba(255,255,255,0.18); color:var(--chalk);
+    padding:8px 12px; border-radius:16px; font-size:13px; font-family:'Inter';
+  }
+  .acao-chip.sel{background:var(--gold); border-color:var(--gold); color:#14201A; font-weight:700;}
+  .resultado-btn{
+    flex:1; background:var(--board-line); border:1px solid rgba(255,255,255,0.18); color:var(--chalk);
+    padding:10px 6px; border-radius:10px; font-size:12.5px; font-family:'Inter'; text-align:center;
+  }
+  .resultado-btn.sel{background:var(--gold); border-color:var(--gold); color:#14201A; font-weight:700;}
+  .acao-registrar{
+    background:transparent; border:1px solid rgba(255,200,51,0.5); color:var(--gold);
+    padding:8px 13px; border-radius:16px; font-size:12.5px; font-family:'Inter'; font-weight:700;
+  }
+  .nota-acao{color:var(--gold); opacity:0.85;}
   .rev-row .rev-field{flex:1;}
   .rev-actions{display:flex; gap:10px; margin-top:16px;}
   .rev-actions button{flex:1; padding:12px; border-radius:12px; font-size:13.5px; font-weight:700; border:none;}
@@ -299,6 +316,10 @@
   <div class="sheet" id="revSheet"></div>
 </div>
 
+<div class="rev-modal" id="acaoModal">
+  <div class="sheet" id="acaoSheet"></div>
+</div>
+
 <div class="cam-overlay" id="camOverlay">
   <div class="cam-hint">Aponte a câmera para o rosto do aluno</div>
   <video id="camVideo" autoplay playsinline muted></video>
@@ -363,6 +384,33 @@ function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
 function calcularScore(tempo, impacto, repeticao){ return Math.round(clamp(tempo,0,40) + clamp(impacto,0,30) + clamp(repeticao,0,30)); }
 function nivelDe(score){ return score >= 65 ? 'red' : (score >= 35 ? 'yellow' : 'green'); }
 
+// ---------- registrar ação (motivo + resultado) por pendência ----------
+const MOTIVOS_POR_TIPO = {
+  evasao: ['Atestado médico','Viagem','Já contatei/aguardando resposta','Vai continuar treinando','Cancelou','Outro'],
+  financeiro: ['Já pagou (aguardando baixa)','Combinado novo prazo','Vai cancelar','Outro'],
+  estoque: ['Já entreguei','Aluno ainda não veio buscar','Outro']
+};
+
+// retorna a ação se ela deve SUPRIMIR a pendência da lista agora (resolvido, ou
+// acompanhamento com data ainda não vencida); null se não existe ação ou ela expirou
+function acaoAtiva(chave){
+  const a = pendenciaAcoesCache[chave];
+  if(!a) return null;
+  if(a.resultado === 'resolvido') return a;
+  if(a.resultado === 'acompanhamento' && a.ateData && a.ateData >= dataHojeISO()) return a;
+  return null;
+}
+
+// nota curta pra anexar no detalhe do card quando existe ação registrada mas ela
+// não está suprimindo o card (ex: "continua urgente", ou acompanhamento vencido)
+function notaAcaoTexto(chave){
+  const a = pendenciaAcoesCache[chave];
+  if(!a) return '';
+  if(a.resultado === 'urgente') return ' · <span class="nota-acao">📝 ' + a.motivo + '</span>';
+  if(a.resultado === 'acompanhamento' && (!a.ateData || a.ateData < dataHojeISO())) return ' · <span class="nota-acao">📝 acompanhamento vencido — reavaliar</span>';
+  return '';
+}
+
 /* Mensalidades de meses anteriores a este são ignoradas em toda pendência e cálculo de saúde — mesma regra do BSA Finanças */
 const MES_INICIO_SISTEMA = '2026-09';
 let alunosCache = [];
@@ -376,6 +424,7 @@ let cadastrosPendentesCache = [];
 let pendReconhecimentoCache = [];
 let remarketingCache = [];
 let remarketingFullCache = [];
+let pendenciaAcoesCache = {}; // chave -> {motivo, ateData, resultado, historico...}
 let unidadeFiltro = 'todas';
 let itensAtuais = [];
 let itensResolvidosNestaSessao = new Set();
@@ -412,7 +461,7 @@ async function init(){
 
 async function carregarTudo(){
   document.getElementById('subStatus').textContent = 'atualizando…';
-  const [alunosSnap, presencasSnap, mensalidadesSnap, danosSnap, tarefasSnap, avaliacoesSnap, cadastrosPendentesSnap, pendReconhecimentoSnap, remarketingDoc] = await Promise.all([
+  const [alunosSnap, presencasSnap, mensalidadesSnap, danosSnap, tarefasSnap, avaliacoesSnap, cadastrosPendentesSnap, pendReconhecimentoSnap, remarketingDoc, pendenciaAcoesSnap] = await Promise.all([
     db.collection('alunos').get(),
     db.collection('presencas').where('data','>=', dataISOOffset(40)).get(),
     db.collection('mensalidades').get(),
@@ -421,8 +470,12 @@ async function carregarTudo(){
     db.collection('avaliacoesFisicas').get(),
     db.collection('cadastrosPendentes').where('status','==','pendente').get(),
     db.collection('pendenciasReconhecimento').where('resolvido','==', false).get(),
-    db.collection('appdata').doc('captacao_remarketing').get()
+    db.collection('appdata').doc('captacao_remarketing').get(),
+    db.collection('pendenciaAcoes').get()
   ]);
+
+  pendenciaAcoesCache = {};
+  pendenciaAcoesSnap.forEach(doc=> pendenciaAcoesCache[doc.id] = doc.data());
 
   pendReconhecimentoCache = [];
   pendReconhecimentoSnap.forEach(doc=> pendReconhecimentoCache.push({ id: doc.id, ...doc.data() }));
@@ -536,6 +589,8 @@ function computarChamadaPendenteEFaltantes(){
       turma.alunos.forEach(a=>{
         if(presentesHojeSet.has(a.id)) return;
         const streak = contarFaltasSeguidas(a);
+        const chaveAcao = 'evasao_' + a.id;
+        if(streak >= 2 && acaoAtiva(chaveAcao)) return; // já tem ação cobrindo (atestado, viagem, resolvido...)
         const tempo = clamp(minutosPassados * 0.5, 0, 40);
         const impacto = streak >= 2 ? 30 : 18;
         const repeticao = clamp(streak * 9, 0, 30);
@@ -543,14 +598,15 @@ function computarChamadaPendenteEFaltantes(){
         const msg = `Olá! Aqui é da equipe do BSA (Brazilian Skills Academy) 🎽⚽. Notamos que ${primeiroNome(a.nome)} não compareceu ao treino hoje. Está tudo bem com ele(a)? Se puder, nos conta rapidinho o motivo. E se quiserem remarcar, agendamos a reposição com prazer! 💚`;
         const acoes = [];
         if(a.responsavelWhatsapp) acoes.push({ tipo:'wpp', label:'WhatsApp', url: gerarLinkWhatsApp(a.responsavelWhatsapp, msg) });
+        if(streak >= 2) acoes.push({ tipo:'registrar', label:'📝 Registrar ação', chave: chaveAcao, pendTipo:'evasao', refNome: a.nome });
         itens.push({
           id: 'falta_' + a.id + '_' + hoje,
           tipo: 'falta', unidade: a.unidade, score, alunoId: a.id, alunoNome: a.nome,
           ico: streak >= 2 ? '🚨' : '❌',
           titulo: (streak >= 2 ? 'Risco de evasão — ' : 'Faltou hoje — ') + a.nome,
-          detalhe: streak >= 2
+          detalhe: (streak >= 2
             ? streak + ' faltas seguidas sem contato · treino ' + a.horarioTreino
-            : 'Não compareceu ao treino de hoje · ' + a.horarioTreino,
+            : 'Não compareceu ao treino de hoje · ' + a.horarioTreino) + (streak >= 2 ? notaAcaoTexto(chaveAcao) : ''),
           acoes
         });
       });
@@ -569,6 +625,8 @@ function computarMensalidades(){
     const atrasado = m.dataVencimento < hoje;
     const venceHoje = m.dataVencimento === hoje;
     if(!atrasado && !venceHoje) return;
+    const chaveAcao = 'financeiro_' + m.id;
+    if(acaoAtiva(chaveAcao)) return; // já tem ação cobrindo (pago aguardando baixa, prazo combinado...)
 
     let diasAtraso = 0;
     if(atrasado){
@@ -583,12 +641,13 @@ function computarMensalidades(){
     const acoes = [];
     if(m.responsavelWhatsapp) acoes.push({ tipo:'wpp', label:'WhatsApp', url: gerarLinkWhatsApp(m.responsavelWhatsapp, texto) });
     acoes.push({ tipo:'link', label:'Abrir financeiro', url:'bsa-financas.html' });
+    acoes.push({ tipo:'registrar', label:'📝 Registrar ação', chave: chaveAcao, pendTipo:'financeiro', refNome: m.nomeAluno || '' });
 
     itens.push({
       id: 'mens_' + m.id, tipo:'financeiro', unidade: m.unidade, score, alunoId: m.alunoId, alunoNome: m.nomeAluno,
       ico: '💰',
       titulo: (atrasado ? 'Mensalidade atrasada — ' : 'Vence hoje — ') + (m.nomeAluno || ''),
-      detalhe: fmtMoeda(m.valor) + (atrasado ? ' · ' + diasAtraso + ' dia(s) de atraso' : ' · vence hoje') + ' · venc. ' + fmtDataBR(m.dataVencimento),
+      detalhe: fmtMoeda(m.valor) + (atrasado ? ' · ' + diasAtraso + ' dia(s) de atraso' : ' · vence hoje') + ' · venc. ' + fmtDataBR(m.dataVencimento) + notaAcaoTexto(chaveAcao),
       acoes
     });
   });
@@ -599,6 +658,8 @@ function computarDanos(){
   const itens = [];
   const hoje = dataHojeISO();
   danosCache.forEach(m=>{
+    const chaveAcao = 'estoque_' + m.id;
+    if(acaoAtiva(chaveAcao)) return; // já tem ação cobrindo (já entregue, aguardando aluno buscar...)
     const dataStr = (m.data||'').slice(0,10);
     let dias = 0;
     if(dataStr) dias = Math.max(0, Math.round((new Date(hoje+'T00:00:00') - new Date(dataStr+'T00:00:00')) / 86400000));
@@ -610,8 +671,11 @@ function computarDanos(){
       id: 'dano_' + m.id, tipo:'estoque', unidade: m.unidade, score,
       ico: '👕',
       titulo: 'Dano/uniforme pendente — ' + (m.itemNome || 'item'),
-      detalhe: (m.professor ? 'reportado por ' + m.professor + ' · ' : '') + (dias > 0 ? dias + ' dia(s) sem resolver' : 'reportado hoje') + (m.observacao ? ' · ' + m.observacao : ''),
-      acoes: [{ tipo:'link', label:'Abrir estoque', url:'bsa-estoque.html' }]
+      detalhe: (m.professor ? 'reportado por ' + m.professor + ' · ' : '') + (dias > 0 ? dias + ' dia(s) sem resolver' : 'reportado hoje') + (m.observacao ? ' · ' + m.observacao : '') + notaAcaoTexto(chaveAcao),
+      acoes: [
+        { tipo:'link', label:'Abrir estoque', url:'bsa-estoque.html' },
+        { tipo:'registrar', label:'📝 Registrar ação', chave: chaveAcao, pendTipo:'estoque', refNome: m.itemNome || 'item' }
+      ]
     });
   });
   return itens;
@@ -833,6 +897,9 @@ function renderLista(itens){
   cont.querySelectorAll('button[data-remkt]').forEach(btn=>{
     btn.addEventListener('click', (ev)=>{ ev.stopPropagation(); marcarRemktFeito(btn.dataset.remkt); });
   });
+  cont.querySelectorAll('button[data-acao-chave]').forEach(btn=>{
+    btn.addEventListener('click', (ev)=>{ ev.stopPropagation(); abrirModalAcao(btn.dataset.acaoChave, btn.dataset.acaoTipo, btn.dataset.acaoNome); });
+  });
 }
 
 async function marcarRemktFeito(id){
@@ -868,6 +935,106 @@ async function resolverPendenciaReconhecimento(id){
   }catch(err){
     toast('Erro ao marcar como resolvido. Tente de novo.');
   }
+}
+
+// ---------- registrar ação (motivo + resultado) ----------
+function abrirModalAcao(chave, tipo, refNome){
+  const existente = pendenciaAcoesCache[chave] || null;
+  const motivos = MOTIVOS_POR_TIPO[tipo] || ['Outro'];
+  const motivoExistenteConhecido = existente && motivos.includes(existente.motivo);
+  const sheet = document.getElementById('acaoSheet');
+  sheet.innerHTML = `
+    <h3>📝 Registrar ação</h3>
+    <div style="color:var(--chalk-dim); font-size:13px; margin-bottom:14px;">${refNome || ''}</div>
+    <div class="rev-field">
+      <label>Motivo</label>
+      <div class="acao-chips" id="acaoChips">
+        ${motivos.map(m=>`<button type="button" class="acao-chip${(existente && ((motivoExistenteConhecido && existente.motivo===m) || (!motivoExistenteConhecido && m==='Outro')))?' sel':''}" data-motivo="${m}">${m}</button>`).join('')}
+      </div>
+      <textarea id="acaoMotivoLivre" placeholder="Detalhe o motivo" style="display:${(existente && !motivoExistenteConhecido) ? 'block':'none'}; width:100%; margin-top:8px; background:var(--board-line); border:1px solid rgba(255,255,255,0.14); color:var(--chalk); border-radius:10px; padding:9px 11px; font-size:14px; font-family:'Inter'; min-height:56px;">${(existente && !motivoExistenteConhecido) ? existente.motivo : ''}</textarea>
+    </div>
+    <div class="rev-field">
+      <label>Em acompanhamento até (opcional)</label>
+      <input type="date" id="acaoAteData" value="${(existente && existente.ateData) ? existente.ateData : ''}">
+    </div>
+    <div class="rev-field">
+      <label>Resultado</label>
+      <div class="rev-row">
+        <button type="button" class="resultado-btn${(existente && existente.resultado==='acompanhamento')?' sel':''}" data-resultado="acompanhamento">Em acompanhamento</button>
+        <button type="button" class="resultado-btn${(existente && existente.resultado==='resolvido')?' sel':''}" data-resultado="resolvido">Resolvido</button>
+        <button type="button" class="resultado-btn${(existente && existente.resultado==='urgente')?' sel':''}" data-resultado="urgente">Continua urgente</button>
+      </div>
+    </div>
+    <div class="rev-row" style="margin-top:16px;">
+      <button type="button" id="btnCancelarAcao" style="flex:1; background:transparent; border:1px solid rgba(255,255,255,0.3); color:var(--chalk); padding:11px; border-radius:12px; font-family:'Inter';">Cancelar</button>
+      <button type="button" id="btnSalvarAcao" style="flex:2; background:var(--gold); border:none; color:#14201A; font-weight:700; padding:11px; border-radius:12px; font-family:'Inter';">Salvar</button>
+    </div>
+  `;
+
+  let motivoSel = existente ? (motivoExistenteConhecido ? existente.motivo : 'Outro') : null;
+  let resultadoSel = existente ? existente.resultado : null;
+
+  sheet.querySelectorAll('.acao-chip').forEach(c=>{
+    c.addEventListener('click', ()=>{
+      sheet.querySelectorAll('.acao-chip').forEach(x=>x.classList.remove('sel'));
+      c.classList.add('sel');
+      motivoSel = c.dataset.motivo;
+      document.getElementById('acaoMotivoLivre').style.display = (motivoSel === 'Outro') ? 'block' : 'none';
+    });
+  });
+  sheet.querySelectorAll('.resultado-btn').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      sheet.querySelectorAll('.resultado-btn').forEach(x=>x.classList.remove('sel'));
+      b.classList.add('sel');
+      resultadoSel = b.dataset.resultado;
+    });
+  });
+  document.getElementById('btnCancelarAcao').addEventListener('click', fecharModalAcao);
+  document.getElementById('btnSalvarAcao').addEventListener('click', async ()=>{
+    let motivoFinal = motivoSel;
+    if(motivoFinal === 'Outro'){
+      const livre = document.getElementById('acaoMotivoLivre').value.trim();
+      if(livre) motivoFinal = livre;
+    }
+    if(!motivoFinal){ toast('Escolha um motivo'); return; }
+    if(!resultadoSel){ toast('Escolha o resultado'); return; }
+    const ateData = document.getElementById('acaoAteData').value || null;
+    await salvarAcao(chave, tipo, refNome, motivoFinal, ateData, resultadoSel);
+  });
+
+  document.getElementById('acaoModal').classList.add('active');
+}
+
+function fecharModalAcao(){
+  document.getElementById('acaoModal').classList.remove('active');
+}
+
+async function salvarAcao(chave, tipo, refNome, motivo, ateData, resultado){
+  const btn = document.getElementById('btnSalvarAcao');
+  if(btn){ btn.disabled = true; btn.textContent = 'Salvando...'; }
+  try{
+    const existente = pendenciaAcoesCache[chave];
+    const historico = existente ? (existente.historico || []).concat([{
+      motivo: existente.motivo, ateData: existente.ateData || null, resultado: existente.resultado, data: existente.atualizadoEmISO || null
+    }]) : [];
+    const dados = {
+      chave, tipo, refNome: refNome || '',
+      motivo, ateData: ateData || null, resultado,
+      historico,
+      atualizadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+      atualizadoEmISO: new Date().toISOString()
+    };
+    await db.collection('pendenciaAcoes').doc(chave).set(dados);
+    pendenciaAcoesCache[chave] = dados;
+    fecharModalAcao();
+    if(navigator.vibrate) navigator.vibrate(80);
+    toast('Ação registrada ✓');
+    computarERenderizar();
+    computarVisaoGeral();
+  }catch(err){
+    toast('Erro ao salvar ação. Tente de novo.');
+  }
+  if(btn){ btn.disabled = false; btn.textContent = 'Salvar'; }
 }
 
 // ---------- revisão de cadastro pendente ----------
@@ -1009,6 +1176,7 @@ function cardHtml(item){
     if(a.tipo === 'revisar') return `<button class="primaria" data-revisar="${a.pendenteId}">${a.label}</button>`;
     if(a.tipo === 'resolverReco') return `<button class="primaria" data-reco="${a.pendReconId}">${a.label}</button>`;
     if(a.tipo === 'remktFeito') return `<button class="primaria" data-remkt="${a.remktId}">${a.label}</button>`;
+    if(a.tipo === 'registrar') return `<button class="acao-registrar" data-acao-chave="${a.chave}" data-acao-tipo="${a.pendTipo}" data-acao-nome="${(a.refNome||'').replace(/"/g,'&quot;')}">${a.label}</button>`;
     return '';
   }).join('');
   return `<div class="card nivel-${nivel}" data-id="${item.id}">
@@ -1197,6 +1365,13 @@ function alunosEmRisco(unidadeAlvo){
   return base.filter(a=> a.diasTreino && a.diasTreino.length && contarFaltasSeguidas(a) >= 2).length;
 }
 
+// mesma contagem, mas descontando quem já tem uma ação registrada cobrindo a ausência
+// (atestado médico, viagem etc.) — é essa versão que entra no cálculo de saúde
+function alunosEmRiscoAtivo(unidadeAlvo){
+  const base = unidadeAlvo ? alunosCache.filter(a=>a.unidade===unidadeAlvo) : alunosCache;
+  return base.filter(a=> a.diasTreino && a.diasTreino.length && contarFaltasSeguidas(a) >= 2 && !acaoAtiva('evasao_'+a.id)).length;
+}
+
 function mesAtualDiretora(){ const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 
 function statusChamadaHoje(){
@@ -1244,34 +1419,38 @@ function indiceOperacional(){
   return pesos > 0 ? Math.round(partes.reduce((a,b)=>a+b,0)/pesos) : null;
 }
 
+// Cálculo único de saúde da BSA — usado tanto pelo radar (Visão Geral) quanto pelas Sugestões,
+// pra nunca ficarem dessincronizados entre si.
+// Pesos: 30% inadimplência + 20% risco de evasão + 50% índice operacional.
+// Presença bruta (14 dias) não entra mais no cálculo — dia sem chamada registrada não é
+// confiável como "aluno ausente" (ver histórico). Risco de evasão voltou ao cálculo porque
+// agora só conta quem NÃO tem uma ação registrada cobrindo a ausência (atestado, viagem,
+// resolvido...) — o "Registrar ação" em cada card elimina o alarme falso que existia antes.
+function calcularSaudeBSA(unidadeAlvo){
+  const inadimplencia = taxaInadimplencia(unidadeAlvo || null);
+  const riscoAtivo = alunosEmRiscoAtivo(unidadeAlvo || null);
+  const operacional = indiceOperacional();
+  const totalComTreino = (unidadeAlvo ? alunosCache.filter(a=>a.unidade===unidadeAlvo) : alunosCache).filter(a=> a.diasTreino && a.diasTreino.length).length || 1;
+  const riscoScore = 100 - clamp((riscoAtivo/totalComTreino)*100, 0, 100);
+
+  const partesValidas = [riscoScore * 0.20];
+  if(inadimplencia !== null) partesValidas.push((100-inadimplencia) * 0.30);
+  if(operacional !== null) partesValidas.push(operacional * 0.50);
+  const somaPesos = 0.20 + (inadimplencia!==null?0.30:0) + (operacional!==null?0.50:0);
+  const saude = somaPesos > 0 ? Math.round(partesValidas.reduce((a,b)=>a+b,0) / somaPesos) : null;
+
+  return { saude, inadimplencia, riscoAtivo, operacional };
+}
+
 function computarVisaoGeral(){
   // Radar de saúde
-  // AVISO: presença do aluno e risco de evasão foram temporariamente TIRADOS do cálculo
-  // (continuam exibidos nos cartões individuais, só não entram na média ponderada).
-  // Motivo: a chamada não estava sendo registrada com regularidade, o que fazia dia sem
-  // chamada ser contado como "aluno ausente" — gerando alarme falso de evasão em massa.
-  // No lugar entrou o índice operacional (tarefas, estoque, cadastros, chamada do dia),
-  // pra saúde continuar medindo "tudo que a empresa precisa fazer" e não só financeiro.
-  // Reativar presença/risco (pesos 0.4 / 0.25 comentados abaixo) quando o registro de
-  // chamada estiver consistente de novo (combinado: a partir do mês seguinte).
   const presenca = taxaPresenca14dias(null);
-  const inadimplencia = taxaInadimplencia(null);
-  const risco = alunosEmRisco(null);
-  const operacional = indiceOperacional();
-  const totalComTreino = alunosCache.filter(a=> a.diasTreino && a.diasTreino.length).length || 1;
-
-  const partesValidas = [];
-  // if(presenca !== null) partesValidas.push(presenca * 0.4); // desativado — ver aviso acima
-  if(inadimplencia !== null) partesValidas.push((100-inadimplencia) * 0.35);
-  if(operacional !== null) partesValidas.push(operacional * 0.65);
-  // partesValidas.push((100 - clamp((risco/totalComTreino)*100, 0, 100)) * 0.25); // desativado — ver aviso acima
-  const somaPesos = (inadimplencia!==null?0.35:0) + (operacional!==null?0.65:0);
-  const saude = somaPesos > 0 ? Math.round(partesValidas.reduce((a,b)=>a+b,0) / somaPesos) : null;
+  const { saude, inadimplencia, riscoAtivo } = calcularSaudeBSA(null);
 
   document.getElementById('radarNum').textContent = saude !== null ? saude + '%' : '—';
   document.getElementById('radarPresenca').textContent = presenca !== null ? presenca+'%' : '—';
   document.getElementById('radarInadimplencia').textContent = inadimplencia !== null ? inadimplencia+'%' : '—';
-  document.getElementById('radarRisco').textContent = risco;
+  document.getElementById('radarRisco').textContent = riscoAtivo;
 
   // Previsão de caixa
   const mes = mesAtualDiretora();
@@ -1417,18 +1596,10 @@ function computarSugestoes(){
     sugestoes.push({ ico:'👕', titulo:`${danosCache.length} itens de estoque pendentes de resolução`, texto:'Já acumulou bastante coisa pra resolver no estoque. Pode valer um mutirão rápido pra zerar tudo de uma vez, em vez de ir resolvendo um por um.' });
   }
 
-  // 8. Saúde geral baixa
-  const totalComTreino = alunosCache.filter(a=> a.diasTreino && a.diasTreino.length).length || 1;
-  const presenca = taxaPresenca14dias(null);
-  const inadGeral = taxaInadimplencia(null);
-  const partesValidas = [];
-  if(presenca !== null) partesValidas.push(presenca * 0.4);
-  if(inadGeral !== null) partesValidas.push((100-inadGeral) * 0.35);
-  partesValidas.push((100 - clamp((riscoTotal/totalComTreino)*100, 0, 100)) * 0.25);
-  const somaPesos = (presenca!==null?0.4:0) + (inadGeral!==null?0.35:0) + 0.25;
-  const saudeGeral = somaPesos > 0 ? Math.round(partesValidas.reduce((a,b)=>a+b,0) / somaPesos) : null;
+  // 8. Saúde geral baixa (usa o mesmo cálculo do radar — ver calcularSaudeBSA)
+  const { saude: saudeGeral } = calcularSaudeBSA(null);
   if(saudeGeral !== null && saudeGeral < 60){
-    sugestoes.push({ ico:'🩺', titulo:'Saúde geral da BSA abaixo do ideal', texto:`O indicador (por enquanto baseado em inadimplência e índice operacional — tarefas, estoque, cadastros e chamada do dia — com presença e risco temporariamente fora do cálculo) está em ${saudeGeral}%. Vale olhar a aba Visão Geral pra entender qual frente está puxando o número pra baixo.` });
+    sugestoes.push({ ico:'🩺', titulo:'Saúde geral da BSA abaixo do ideal', texto:`O indicador (inadimplência, risco de evasão sem ação registrada, e índice operacional — tarefas, estoque, cadastros e chamada do dia) está em ${saudeGeral}%. Vale olhar a aba Visão Geral pra entender qual frente está puxando o número pra baixo.` });
   }
 
   // 9. Leads frios acumulando na fila de remarketing
