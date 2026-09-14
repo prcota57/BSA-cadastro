@@ -67,6 +67,7 @@
   .pill.pendente{background:var(--gold-soft); color:#8A6D00;}
   .pill.atrasado{background:var(--danger-soft); color:var(--danger);}
   .pill.semconfig{background:var(--line); color:var(--ink-soft);}
+.pill.isento{background:var(--blue-soft); color:var(--blue);}
 
   .btn{border:none; border-radius:12px; padding:11px 14px; font-family:'Space Grotesk'; font-weight:600; font-size:13.5px; cursor:pointer; text-align:center;}
   .btn-primary{background:var(--wine); color:#fff; width:100%;}
@@ -200,7 +201,8 @@ async function carregarTudo(){
         foto: d.foto||null, responsavelNome: d.responsavelNome||'',
         responsavelWhatsapp: d.responsavelWhatsapp||'',
         valorMensalidade: d.valorMensalidade || null,
-        diaVencimento: d.diaVencimento || null
+        diaVencimento: d.diaVencimento || null,
+        isento: !!d.isento
       });
     });
     await garantirMensalidadesDoMes();
@@ -231,18 +233,24 @@ async function garantirMensalidadesDoMes(){
         responsavelNome: a.responsavelNome, responsavelWhatsapp: a.responsavelWhatsapp,
         mesReferencia: mes, valor: a.valorMensalidade, diaVencimento: a.diaVencimento,
         dataVencimento: calcularDataVencimento(mes, a.diaVencimento),
-        dataPagamento: null, statusPagamento: 'pendente'
+        dataPagamento: null, statusPagamento: a.isento ? 'isento' : 'pendente'
       });
       algumaAlteracao = true;
-    } else if(existente.statusPagamento !== 'pago' && (existente.valor !== a.valorMensalidade || existente.diaVencimento !== a.diaVencimento || existente.responsavelNome !== a.responsavelNome || existente.responsavelWhatsapp !== a.responsavelWhatsapp || existente.nomeAluno !== a.nome)){
-      // Aluno já tem mensalidade do mês gerada, mas o cadastro mudou depois (valor, dia, nome do aluno ou do responsável) — sincroniza (só se ainda não foi paga)
-      var ref2 = db.collection('mensalidades').doc(id);
-      batch.update(ref2, {
-        valor: a.valorMensalidade, diaVencimento: a.diaVencimento,
-        dataVencimento: calcularDataVencimento(mes, a.diaVencimento),
-        nomeAluno: a.nome, responsavelNome: a.responsavelNome, responsavelWhatsapp: a.responsavelWhatsapp
-      });
-      algumaAlteracao = true;
+    } else if(existente.statusPagamento !== 'pago'){
+      var deveSerIsento = !!a.isento;
+      var jaEhIsento = existente.statusPagamento === 'isento';
+      var precisaSincronizar = existente.valor !== a.valorMensalidade || existente.diaVencimento !== a.diaVencimento || existente.responsavelNome !== a.responsavelNome || existente.responsavelWhatsapp !== a.responsavelWhatsapp || existente.nomeAluno !== a.nome || deveSerIsento !== jaEhIsento;
+      if(precisaSincronizar){
+        // Aluno já tem mensalidade do mês gerada, mas o cadastro mudou depois (valor, dia, nome, isenção) — sincroniza (só se ainda não foi paga)
+        var ref2 = db.collection('mensalidades').doc(id);
+        batch.update(ref2, {
+          valor: a.valorMensalidade, diaVencimento: a.diaVencimento,
+          dataVencimento: calcularDataVencimento(mes, a.diaVencimento),
+          nomeAluno: a.nome, responsavelNome: a.responsavelNome, responsavelWhatsapp: a.responsavelWhatsapp,
+          statusPagamento: deveSerIsento ? 'isento' : 'pendente'
+        });
+        algumaAlteracao = true;
+      }
     }
   });
   if(algumaAlteracao) await batch.commit();
@@ -856,6 +864,11 @@ function renderAlunoDetail(app){
     + '<div class="field"><label>Valor da matrícula (R$)</label><input type="number" id="fValorMatricula" value="'+(a.valorMatricula||'')+'" placeholder="ex: 120"></div>'
     + '<div class="field"><label>Valor do uniforme (R$)</label><input type="number" id="fValorUniforme" value="'+(a.valorUniforme||'')+'" placeholder="ex: 170"></div>'
     + '<button class="btn btn-primary" data-action="salvarConfig" data-id="'+a.id+'">Salvar configuração</button>'
+    + '<div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);">'
+    + (a.isento
+        ? '<div class="meta" style="font-size:12.5px;margin-bottom:8px;">🔓 Este aluno está <b>isento</b> — não entra em inadimplentes nem gera cobrança.</div><button class="btn btn-outline" style="width:100%;" data-action="alternarIsento" data-id="'+a.id+'">Remover isenção</button>'
+        : '<button class="btn btn-outline" style="width:100%;" data-action="alternarIsento" data-id="'+a.id+'">🔓 Marcar aluno como isento</button>')
+    + '</div>'
     + '</div>';
 
   var matriculaPendente = !!(a.valorMatricula && Number(a.valorMatricula)>0 && !a.matriculaPaga);
@@ -1131,6 +1144,34 @@ var Actions = {
       showToast('Lançamento excluído');
       render();
     }catch(e){ showToast('Não foi possível excluir: '+e.message); }
+  },
+  alternarIsento:async function(el){
+    var id = el.dataset.id;
+    var a = state.alunos.find(function(x){return x.id===id;});
+    if(!a) return;
+    var novoValor = !a.isento;
+    try{
+      await db.collection('alunos').doc(id).update({ isento: novoValor });
+      a.isento = novoValor;
+      if(novoValor){
+        // Marca isento (perdoa) tudo que esse aluno tinha pendente/atrasado até agora, em qualquer mês
+        var pendentes = state.mensalidades.filter(function(m){
+          return m.alunoId===id && m.statusPagamento!=='pago' && m.statusPagamento!=='isento';
+        });
+        if(pendentes.length){
+          var batch = db.batch();
+          pendentes.forEach(function(m){
+            batch.update(db.collection('mensalidades').doc(m.id), { statusPagamento:'isento' });
+            m.statusPagamento = 'isento';
+          });
+          await batch.commit();
+        }
+        showToast('Aluno marcado como isento — pendências zeradas.');
+      } else {
+        showToast('Isenção removida — passa a gerar cobrança normal a partir de agora (o que já ficou isento continua perdoado).');
+      }
+      render();
+    }catch(e){ showToast('Não foi possível salvar: '+e.message); }
   },
   salvarConfig:async function(el){
     var id = el.dataset.id;
