@@ -204,7 +204,10 @@ function listenPendentesPublicos(){
   db.collection('captacaoPublica').where('status','==','pendente').onSnapshot(function(snap){
     state.pendentesPublicos = snap.docs.map(function(d){ var data=d.data(); data._docId=d.id; return data; });
     if(state.screen==='home' || state.screen==='pendentesPublicos') render();
-  }, function(e){ /* silencioso — não impede o resto do app */ });
+  }, function(err){
+    console.error('Erro ao carregar pendentes públicos:', err);
+    showToast('Não consegui carregar os pendentes: '+err.message);
+  });
 }
 
 var WEEKDAYS = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
@@ -1282,7 +1285,15 @@ function showCelebration(lead){
 
 document.addEventListener('click', function(e){
   var el = e.target.closest('[data-action]');
-  if(el && Actions[el.dataset.action]) Actions[el.dataset.action](el);
+  if(!el) return;
+  var fn = Actions[el.dataset.action];
+  if(!fn) return;
+  try{
+    fn(el);
+  }catch(err){
+    console.error('Erro na ação "'+el.dataset.action+'":', err);
+    showToast('Erro: '+(err && err.message ? err.message : err));
+  }
 });
 document.addEventListener('input', function(e){
   if(e.target.id && e.target.id.indexOf('f_')===0){
