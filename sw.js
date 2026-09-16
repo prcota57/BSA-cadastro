@@ -19,14 +19,30 @@ try {
   var messaging = firebase.messaging();
   messaging.onBackgroundMessage(function(payload){
     var titulo = (payload.notification && payload.notification.title) || '🔔 BSA';
+    var link = (payload.fcmOptions && payload.fcmOptions.link) || (payload.data && payload.data.url) || 'index.html';
     var opcoes = {
       body: (payload.notification && payload.notification.body) || '',
       icon: 'icon-192.png',
-      badge: 'icon-192.png'
+      badge: 'icon-192.png',
+      data: { url: link }
     };
     self.registration.showNotification(titulo, opcoes);
   });
 } catch(e) { /* navegador sem suporte a push — segue só com o cache offline */ }
+
+// Toque na notificação abre a tela certa (ex: o app de tarefas de quem recebeu o lembrete)
+self.addEventListener('notificationclick', function(event) {
+  event.notification.close();
+  var url = (event.notification.data && event.notification.data.url) || 'index.html';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(list) {
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].url.indexOf(url) !== -1 && 'focus' in list[i]) return list[i].focus();
+      }
+      if (clients.openWindow) return clients.openWindow(url);
+    })
+  );
+});
 
 self.addEventListener('install', function(event) {
   self.skipWaiting();
