@@ -79,6 +79,7 @@
     border:1px solid var(--line);
   }
   .card.inativo{opacity:0.5;}
+  .card.trancado{opacity:0.7;}
   .avatar-wrap{position:relative; flex:0 0 auto;}
   .avatar{
     width:56px; height:56px; border-radius:50%; object-fit:cover;
@@ -485,10 +486,18 @@
     <div class="field-row">
       <div class="field">
         <label>Status do aluno</label>
-        <select id="fStatusGeral">
+        <select id="fStatusGeral" onchange="atualizarCampoRetorno()">
           <option value="ativo">Ativo</option>
+          <option value="trancado">Trancado (pausa temporária)</option>
           <option value="inativo">Inativo</option>
         </select>
+      </div>
+    </div>
+
+    <div class="field-row" id="rowDataRetorno" style="display:none;">
+      <div class="field">
+        <label>Data prevista de retorno</label>
+        <input type="date" id="fDataRetorno">
       </div>
     </div>
 
@@ -1046,7 +1055,7 @@ async function aprovarPendente(p){
 
 /* ---------- Contador de alunos por unidade ---------- */
 function updateUnitCounts(){
-  const ativos = alunosCache.filter(a => a.statusGeral !== 'inativo');
+  const ativos = alunosCache.filter(a => a.statusGeral !== 'inativo' && a.statusGeral !== 'trancado');
   const cp = ativos.filter(a => a.unidade === 'Carlos Prates').length;
   const est = ativos.filter(a => a.unidade === 'Estoril').length;
   document.getElementById('cnt-todas').textContent = '(' + ativos.length + ')';
@@ -1429,6 +1438,8 @@ function resetForm(){
   document.getElementById('fStatusMens').value = 'ativo';
   document.getElementById('fMatricula').value = hojeLocalISO();
   document.getElementById('fStatusGeral').value = 'ativo';
+  document.getElementById('fDataRetorno').value = '';
+  atualizarCampoRetorno();
   document.getElementById('fObs').value = '';
   document.getElementById('photoPreview').innerHTML = '📷';
   atualizarBotaoRemoverFoto(false);
@@ -1443,6 +1454,11 @@ async function gerarProximoId(){
     t.set(ref, {ultimo}, {merge:true});
     return 'BSA' + String(ultimo).padStart(4,'0');
   });
+}
+
+function atualizarCampoRetorno(){
+  const status = document.getElementById('fStatusGeral').value;
+  document.getElementById('rowDataRetorno').style.display = status === 'trancado' ? 'flex' : 'none';
 }
 
 document.getElementById('btnSalvar').addEventListener('click', async ()=>{
@@ -1467,6 +1483,7 @@ document.getElementById('btnSalvar').addEventListener('click', async ()=>{
     dataMatricula: document.getElementById('fMatricula').value,
     observacoes: document.getElementById('fObs').value.trim(),
     statusGeral: document.getElementById('fStatusGeral').value || 'ativo',
+    dataRetornoPrevista: document.getElementById('fStatusGeral').value === 'trancado' ? (document.getElementById('fDataRetorno').value || null) : null,
     atualizadoEm: firebase.firestore.FieldValue.serverTimestamp()
   };
   if(capturedPhoto) dados.foto = capturedPhoto;
@@ -1482,7 +1499,7 @@ document.getElementById('btnSalvar').addEventListener('click', async ()=>{
   try{
     if(editingId){
       await db.collection('alunos').doc(editingId).update(dados);
-      if(dados.statusGeral === 'inativo') await zerarPendenciasFinanceiras(editingId);
+      if(dados.statusGeral === 'inativo' || dados.statusGeral === 'trancado') await zerarPendenciasFinanceiras(editingId);
       showToast('Aluno atualizado');
     }else{
       dados.id = await gerarProximoId();
@@ -1541,8 +1558,9 @@ function renderLista(){
     const foto = a.foto ? `<img class="avatar" src="${a.foto}">` : `<div class="avatar placeholder">${iniciais}</div>`;
     const qtdFotos = descritoresExistentes(a).length;
     const seloFotos = qtdFotos < 3 ? `<span class="schedule-pill" style="background:rgba(255,200,51,.16); color:#8a6d1f;">📷 ${qtdFotos}/3</span>` : '';
+    const seloTrancado = a.statusGeral === 'trancado' ? `<span class="schedule-pill" style="background:rgba(90,140,255,.16); color:#2952a3;">🔒 Trancado${a.dataRetornoPrevista ? ' até ' + formatarDataBR(a.dataRetornoPrevista) : ''}</span>` : '';
     return `
-      <div class="card ${a.statusGeral === 'inativo' ? 'inativo' : ''}" onclick="abrirDetalhe('${a._docId}')">
+      <div class="card ${a.statusGeral === 'inativo' ? 'inativo' : (a.statusGeral === 'trancado' ? 'trancado' : '')}" onclick="abrirDetalhe('${a._docId}')">
         <div class="avatar-wrap">
           ${foto}
           <div class="dot ${a.statusMensalidade}"></div>
@@ -1555,6 +1573,7 @@ function renderLista(){
             <span>· ${a.unidade}</span>
             ${a.diasTreino && a.diasTreino.length ? `<span class="schedule-pill">${formatarHorarioFixo(a.diasTreino, a.horarioTreino)}</span>` : ''}
             ${seloFotos}
+            ${seloTrancado}
           </div>
         </div>
         <div class="chevron">›</div>
@@ -1568,6 +1587,11 @@ function mesDiaFromISO(iso){
   if(!iso) return null;
   const partes = iso.split('-');
   return {mes: parseInt(partes[1],10), dia: parseInt(partes[2],10)};
+}
+function formatarDataBR(iso){
+  if(!iso) return '';
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
 }
 function hojeLocalISO(){
   const d = new Date();
@@ -1613,7 +1637,7 @@ function mensagemParabens(nome){
 function renderBdayBanner(){
   const hojeMd = mesDiaFromISO(hojeLocalISO());
   const aniversariantesHoje = alunosCache.filter(a=>{
-    if(a.statusGeral === 'inativo' || !a.dataNascimento) return false;
+    if(a.statusGeral === 'inativo' || a.statusGeral === 'trancado' || !a.dataNascimento) return false;
     const md = mesDiaFromISO(a.dataNascimento);
     return md && md.mes === hojeMd.mes && md.dia === hojeMd.dia;
   });
@@ -1637,7 +1661,7 @@ function renderBdayBanner(){
 function renderAniversariantes(){
   const ativo = document.querySelector('#bdayChips .chip.active');
   const range = ativo ? ativo.dataset.range : 'hoje';
-  let lista = alunosCache.filter(a => a.statusGeral !== 'inativo' && a.dataNascimento);
+  let lista = alunosCache.filter(a => a.statusGeral !== 'inativo' && a.statusGeral !== 'trancado' && a.dataNascimento);
   lista = lista.map(a => ({...a, _dias: diasAteProximoAniversario(a.dataNascimento)}));
   if(range === 'hoje') lista = lista.filter(a => a._dias === 0);
   else if(range === 'semana') lista = lista.filter(a => a._dias <= 7);
@@ -1698,7 +1722,7 @@ function mensagemBoasVindasVolta(nome){
 function renderNovatos(){
   const ativo = document.querySelector('#novatosChips .chip.active');
   const range = ativo ? ativo.dataset.range : 'semana';
-  let lista = alunosCache.filter(a => a.statusGeral !== 'inativo' && (a.dataMatricula || a.dataReativacao));
+  let lista = alunosCache.filter(a => a.statusGeral !== 'inativo' && a.statusGeral !== 'trancado' && (a.dataMatricula || a.dataReativacao));
   lista = lista.map(a=>{
     const diasMat = a.dataMatricula ? diasDesdeMatricula(a.dataMatricula) : Infinity;
     const diasReat = a.dataReativacao ? diasDesdeMatricula(a.dataReativacao) : Infinity;
@@ -1772,13 +1796,20 @@ function abrirDetalhe(docId){
       <b>${a.responsavelWhatsapp || '—'}</b>
     </div>
     ${a.observacoes ? `<div class="card" style="display:block; margin-bottom:16px;"><div class="hint">Observações</div>${a.observacoes}</div>` : ''}
+    ${a.statusGeral === 'trancado' ? `<div class="card" style="display:block; margin-bottom:16px;"><div class="hint">🔒 Matrícula trancada</div><b>Retorno previsto: ${a.dataRetornoPrevista ? formatarDataBR(a.dataRetornoPrevista) : 'não definido'}</b></div>` : ''}
     <div class="card" style="display:block; margin-bottom:16px;">
       <div class="hint">Fotos para reconhecimento facial</div>
       <b>${descritoresExistentes(a).length}/3 fotos</b>
       ${descritoresExistentes(a).length < 3 ? `<button class="btn btn-outline btn-block" style="margin-top:10px;" onclick="abrirCompletarFotos('${docId}')">➕ Adicionar foto</button>` : ''}
     </div>
     <button class="btn btn-primary btn-block" onclick="editarAluno('${docId}')">Editar</button>
-    <button class="btn btn-outline btn-block" onclick="toggleAtivo('${docId}')">${a.statusGeral === 'inativo' ? 'Reativar aluno' : 'Marcar como inativo'}</button>
+    ${a.statusGeral === 'ativo' ? `
+      <button class="btn btn-outline btn-block" onclick="trancarAluno('${docId}')">🔒 Trancar matrícula</button>
+      <button class="btn btn-outline btn-block" onclick="marcarInativo('${docId}')">Marcar como inativo</button>
+    ` : `
+      <button class="btn btn-outline btn-block" onclick="reativarAluno('${docId}')">▶️ Reativar aluno</button>
+      ${a.statusGeral === 'trancado' ? `<button class="btn btn-outline btn-block" onclick="marcarInativo('${docId}')">Marcar como inativo</button>` : ''}
+    `}
     <button class="btn btn-danger btn-block" onclick="excluirAluno('${docId}')">Excluir cadastro</button>
     <button class="btn btn-outline btn-block" onclick="fecharDetalhe()">Fechar</button>
   `;
@@ -1813,7 +1844,9 @@ function editarAluno(docId){
   document.getElementById('fRespWhats').value = a.responsavelWhatsapp || '';
   document.getElementById('fStatusMens').value = a.statusMensalidade;
   document.getElementById('fMatricula').value = a.dataMatricula || '';
-  document.getElementById('fStatusGeral').value = a.statusGeral === 'inativo' ? 'inativo' : 'ativo';
+  document.getElementById('fStatusGeral').value = (a.statusGeral === 'inativo' || a.statusGeral === 'trancado') ? a.statusGeral : 'ativo';
+  document.getElementById('fDataRetorno').value = a.dataRetornoPrevista || '';
+  atualizarCampoRetorno();
   document.getElementById('fObs').value = a.observacoes || '';
   document.getElementById('photoPreview').innerHTML = a.foto ? `<img src="${a.foto}">` : '📷';
   atualizarBotaoRemoverFoto(!!a.foto);
@@ -1835,15 +1868,33 @@ async function zerarPendenciasFinanceiras(alunoId){
   }
 }
 
-async function toggleAtivo(docId){
+async function trancarAluno(docId){
   const a = alunosCache.find(x=>x._docId === docId);
   if(!a) return;
-  const novoStatus = a.statusGeral === 'inativo' ? 'ativo' : 'inativo';
-  const upd = {statusGeral: novoStatus};
-  if(novoStatus === 'ativo') upd.dataReativacao = hojeLocalISO();
-  await db.collection('alunos').doc(docId).update(upd);
-  if(novoStatus === 'inativo') await zerarPendenciasFinanceiras(docId);
-  showToast(novoStatus === 'inativo' ? 'Aluno marcado como inativo e pendências financeiras zeradas' : 'Aluno reativado');
+  const entrada = window.prompt('Data prevista de retorno (formato DD/MM/AAAA):', '');
+  if(entrada === null) return; // cancelou
+  let dataRetorno = null;
+  const m = entrada.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if(entrada.trim() !== ''){
+    if(!m){ showToast('Data inválida. Use o formato DD/MM/AAAA.'); return; }
+    dataRetorno = `${m[3]}-${m[2]}-${m[1]}`;
+  }
+  await db.collection('alunos').doc(docId).update({statusGeral:'trancado', dataRetornoPrevista: dataRetorno});
+  await zerarPendenciasFinanceiras(docId);
+  showToast('Matrícula trancada e pendências financeiras zeradas' + (dataRetorno ? ' · retorno previsto ' + formatarDataBR(dataRetorno) : ''));
+  fecharDetalhe();
+}
+
+async function marcarInativo(docId){
+  await db.collection('alunos').doc(docId).update({statusGeral:'inativo', dataRetornoPrevista:null});
+  await zerarPendenciasFinanceiras(docId);
+  showToast('Aluno marcado como inativo e pendências financeiras zeradas');
+  fecharDetalhe();
+}
+
+async function reativarAluno(docId){
+  await db.collection('alunos').doc(docId).update({statusGeral:'ativo', dataRetornoPrevista:null, dataReativacao: hojeLocalISO()});
+  showToast('Aluno reativado');
   fecharDetalhe();
 }
 
@@ -1932,6 +1983,7 @@ function parseStatusAluno(v){
   if(v === null || v === undefined || v === '') return '';
   const norm = String(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
   if(norm.includes('inativo')) return 'inativo';
+  if(norm.includes('trancado')) return 'trancado';
   if(norm.includes('ativo')) return 'ativo';
   return '';
 }
@@ -2057,7 +2109,7 @@ async function confirmarImportacao(){
         if(r.statusAluno) upd.statusGeral = r.statusAluno;
         await db.collection('alunos').doc(existente._docId).update(upd);
         Object.assign(existente, upd);
-        if(upd.statusGeral === 'inativo') await zerarPendenciasFinanceiras(existente._docId);
+        if(upd.statusGeral === 'inativo' || upd.statusGeral === 'trancado') await zerarPendenciasFinanceiras(existente._docId);
         atualizados++;
       }else{
         const id = await gerarProximoId();
