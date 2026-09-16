@@ -39,14 +39,15 @@ async function main() {
 
   const tokensSnap = await db.collection('notificacaoTokens').get();
   const tokensPorPessoa = {};
-  const todosTokens = [];
+  const todosTokensSet = new Set();
   tokensSnap.forEach((doc) => {
     const d = doc.data();
     if (!d.token) return;
-    todosTokens.push(d.token);
-    if (!tokensPorPessoa[d.pessoa]) tokensPorPessoa[d.pessoa] = [];
-    tokensPorPessoa[d.pessoa].push(d.token);
+    todosTokensSet.add(d.token);
+    if (!tokensPorPessoa[d.pessoa]) tokensPorPessoa[d.pessoa] = new Set();
+    tokensPorPessoa[d.pessoa].add(d.token);
   });
+  const todosTokens = [...todosTokensSet];
 
   for (const doc of docsVencidos) {
     const lembrete = doc.data();
@@ -60,7 +61,7 @@ async function main() {
 
     const tokens =
       lembrete.responsavel && tokensPorPessoa[lembrete.responsavel]
-        ? tokensPorPessoa[lembrete.responsavel]
+        ? [...tokensPorPessoa[lembrete.responsavel]]
         : todosTokens;
 
     if (tokens.length) {
