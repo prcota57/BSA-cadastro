@@ -30,16 +30,22 @@ try {
   });
 } catch(e) { /* navegador sem suporte a push — segue só com o cache offline */ }
 
-// Toque na notificação abre a tela certa (ex: o app de tarefas de quem recebeu o lembrete)
+// Toque na notificação abre a tela certa (ex: o app de tarefas de quem recebeu o lembrete),
+// forçando a navegação mesmo se o app já estiver aberto numa outra tela (ex: o app foi
+// instalado na tela de início com atalho que abre direto no microfone) — o iOS às vezes
+// ignora um simples focus() e mantém a tela antiga aberta.
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
   var url = (event.notification.data && event.notification.data.url) || 'index.html';
+  var fullUrl = new URL(url, self.location.href).href;
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(list) {
-      for (var i = 0; i < list.length; i++) {
-        if (list[i].url.indexOf(url) !== -1 && 'focus' in list[i]) return list[i].focus();
+      if (list.length > 0 && 'navigate' in list[0]) {
+        return list[0].navigate(fullUrl).then(function(c) {
+          return c ? c.focus() : clients.openWindow(fullUrl);
+        }).catch(function() { return clients.openWindow(fullUrl); });
       }
-      if (clients.openWindow) return clients.openWindow(url);
+      return clients.openWindow(fullUrl);
     })
   );
 });
