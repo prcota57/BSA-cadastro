@@ -588,10 +588,24 @@
   </main>
 </section>
 
+<!-- INCOMPLETOS -->
+<section class="screen" id="screen-incompletos">
+  <div class="pend-header">
+    <div class="pend-header-txt">Alunos matriculados direto pela captação (aula experimental) cujo cadastro ainda está faltando dados. Copie o link e mande pro responsável completar.</div>
+  </div>
+  <main id="incompListContainer">
+    <div class="empty">
+      <div class="big">✅</div>
+      <div>Nenhum cadastro incompleto no momento.</div>
+    </div>
+  </main>
+</section>
+
 <nav class="tabbar">
   <button class="active" data-screen="lista"><span class="ic">📋</span>Alunos</button>
   <button data-screen="cadastro"><span class="ic">➕</span>Novo</button>
   <button data-screen="pendentes"><span class="ic">🆕</span>Pendentes<span id="pendCountBadge" class="pend-badge" style="display:none;"></span></button>
+  <button data-screen="incompletos"><span class="ic">⚠️</span>Incompletos<span id="incompCountBadge" class="pend-badge" style="display:none;"></span></button>
   <button data-screen="novatos"><span class="ic">👋</span>Novatos</button>
   <button data-screen="importar"><span class="ic">📥</span>Importar</button>
   <button data-screen="aniversarios"><span class="ic">🎂</span>Aniversários</button>
@@ -895,6 +909,10 @@ function listenAlunos(){
     if(document.getElementById('screen-novatos').classList.contains('active')){
       renderNovatos();
     }
+    atualizarBadgeIncompletos();
+    if(document.getElementById('screen-incompletos').classList.contains('active')){
+      renderIncompletos();
+    }
     if(abrirAlunoIdInicial && !abrirAlunoJaExecutado){
       const alvo = alunosCache.find(a=>a._docId === abrirAlunoIdInicial);
       if(alvo){
@@ -1078,6 +1096,9 @@ function goToScreen(name){
   }
   if(name === 'novatos'){
     renderNovatos();
+  }
+  if(name === 'incompletos'){
+    renderIncompletos();
   }
 }
 document.querySelectorAll('nav.tabbar button').forEach(b=>{
@@ -1763,6 +1784,63 @@ document.querySelectorAll('#novatosChips .chip').forEach(c=>{
     renderNovatos();
   });
 });
+
+/* ---------- Cadastros incompletos (matriculados direto pela captação) ---------- */
+function camposFaltantes(a){
+  const faltando = [];
+  if(!a.foto) faltando.push('Foto');
+  if(!a.diasTreino || a.diasTreino.length === 0) faltando.push('Dias de treino');
+  if(!a.horarioTreino) faltando.push('Horário');
+  if(!a.valorMensalidade) faltando.push('Mensalidade');
+  if(!a.diaVencimento) faltando.push('Dia de vencimento');
+  return faltando;
+}
+function listaIncompletos(){
+  return alunosCache.filter(a => a.statusGeral !== 'inativo' && camposFaltantes(a).length > 0);
+}
+function atualizarBadgeIncompletos(){
+  const n = listaIncompletos().length;
+  const badge = document.getElementById('incompCountBadge');
+  if(n > 0){ badge.style.display = 'inline-flex'; badge.textContent = n; }
+  else{ badge.style.display = 'none'; }
+}
+function copiarLinkCompletar(alunoId, btn){
+  const link = 'https://prcota57.github.io/BSA-cadastro/bsa-completar-cadastro.html?id=' + alunoId + '&v=' + Date.now();
+  const original = btn.textContent;
+  function done(ok){ btn.textContent = ok ? '✅ Copiado!' : '⚠️ Não copiou'; setTimeout(()=>{ btn.textContent = original; }, 2200); }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(link).then(()=>done(true)).catch(()=>done(false));
+  }else{
+    const temp = document.createElement('textarea');
+    temp.value = link; temp.style.position='fixed'; temp.style.opacity='0';
+    document.body.appendChild(temp); temp.focus(); temp.select();
+    try{ document.execCommand('copy'); done(true); } catch(e){ done(false); }
+    document.body.removeChild(temp);
+  }
+}
+function renderIncompletos(){
+  const lista = listaIncompletos();
+  const container = document.getElementById('incompListContainer');
+  if(lista.length === 0){
+    container.innerHTML = `<div class="empty"><div class="big">✅</div><div>Nenhum cadastro incompleto no momento.</div></div>`;
+    return;
+  }
+  container.innerHTML = lista.map(a=>{
+    const faltando = camposFaltantes(a).join(' · ');
+    return `
+      <div class="pend-row" data-id="${a._docId}">
+        <div class="pend-foto">${a.foto ? `<img src="${a.foto}">` : '👤'}</div>
+        <div class="pend-info">
+          <div class="n">${a.nome}</div>
+          <div class="m">${a.unidade} · falta: ${faltando}</div>
+        </div>
+        <button class="btn-pend-revisar btn-copiar-incompleto" data-id="${a._docId}">🔗 Copiar link</button>
+      </div>`;
+  }).join('');
+  container.querySelectorAll('.btn-copiar-incompleto').forEach(btn=>{
+    btn.addEventListener('click', ()=> copiarLinkCompletar(btn.dataset.id, btn));
+  });
+}
 
 /* ---------- Detalhe / edição ---------- */
 function abrirDetalhe(docId){
