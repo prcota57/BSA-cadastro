@@ -195,7 +195,7 @@ async function carregarTudo(){
     alunosSnap.forEach(function(doc){
       var d = doc.data();
       state.todosAlunoIds.push(doc.id);
-      if(d.statusGeral === 'inativo') return;
+      if(d.statusGeral === 'inativo' || d.statusGeral === 'trancado') return;
       state.alunos.push({
         id: doc.id, nome: d.nome||'(sem nome)', unidade: d.unidade||'',
         foto: d.foto||null, responsavelNome: d.responsavelNome||'',
