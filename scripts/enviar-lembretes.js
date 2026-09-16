@@ -15,14 +15,17 @@ const db = admin.firestore();
 
 async function main() {
   const agora = admin.firestore.Timestamp.now();
-  const snap = await db
-    .collection('lembretesAgendados')
-    .where('enviado', '==', false)
-    .where('dataHora', '<=', agora)
-    .get();
+  // Só um filtro no Firestore (enviado == false) pra não depender de índice composto
+  // (que nunca foi criado, já que a Cloud Function original nunca rodou de verdade).
+  // O filtro de horário (dataHora <= agora) é feito aqui no código.
+  const snapTodos = await db.collection('lembretesAgendados').where('enviado', '==', false).get();
+  const docsVencidos = snapTodos.docs.filter((doc) => {
+    const dh = doc.data().dataHora;
+    return dh && dh.toMillis() <= agora.toMillis();
+  });
 
-  if (snap.empty) {
-    console.log('Nenhum lembrete pendente.');
+  if (docsVencidos.length === 0) {
+    console.log(`Nenhum lembrete vencido (${snapTodos.size} pendente(s) aguardando o horário).`);
     return;
   }
 
@@ -37,7 +40,7 @@ async function main() {
     tokensPorPessoa[d.pessoa].push(d.token);
   });
 
-  for (const doc of snap.docs) {
+  for (const doc of docsVencidos) {
     const lembrete = doc.data();
     const tokens =
       lembrete.responsavel && tokensPorPessoa[lembrete.responsavel]
