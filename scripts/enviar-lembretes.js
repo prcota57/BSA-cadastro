@@ -13,6 +13,14 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
+const LIMITE_ATRASO_MS = 60 * 60 * 1000; // 1h — acima disso, marca como enviado sem notificar (evita reaparecer lembrete velho de uma pane)
+
+function linkParaResponsavel(responsavel) {
+  if (responsavel === 'Ronaldo') return 'bsa-tarefas-ronaldo.html';
+  if (responsavel === 'Iasmin') return 'bsa-tarefas-iasmin.html';
+  return 'bsa-tarefas.html';
+}
+
 async function main() {
   const agora = admin.firestore.Timestamp.now();
   // Só um filtro no Firestore (enviado == false) pra não depender de índice composto
@@ -42,6 +50,14 @@ async function main() {
 
   for (const doc of docsVencidos) {
     const lembrete = doc.data();
+    const atrasoMs = agora.toMillis() - lembrete.dataHora.toMillis();
+
+    if (atrasoMs > LIMITE_ATRASO_MS) {
+      console.log(`Lembrete "${lembrete.texto}" atrasado demais (${Math.round(atrasoMs / 60000)} min) — marcando como enviado sem notificar.`);
+      await doc.ref.update({ enviado: true, enviadoEm: admin.firestore.FieldValue.serverTimestamp(), puladoPorAtraso: true });
+      continue;
+    }
+
     const tokens =
       lembrete.responsavel && tokensPorPessoa[lembrete.responsavel]
         ? tokensPorPessoa[lembrete.responsavel]
@@ -54,6 +70,9 @@ async function main() {
           notification: {
             title: '🔔 Lembrete BSA',
             body: lembrete.texto,
+          },
+          webpush: {
+            fcmOptions: { link: linkParaResponsavel(lembrete.responsavel) },
           },
         });
         console.log(
