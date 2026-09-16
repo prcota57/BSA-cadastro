@@ -414,6 +414,7 @@ function notaAcaoTexto(chave){
 /* Mensalidades de meses anteriores a este são ignoradas em toda pendência e cálculo de saúde — mesma regra do BSA Finanças */
 const MES_INICIO_SISTEMA = '2026-09';
 let alunosCache = [];
+let trancadosCache = [];
 let presencasCache = [];   // últimos 40 dias
 let presentesHojeSet = new Set();
 let mensalidadesCache = [];
@@ -491,9 +492,18 @@ async function carregarTudo(){
   cadastrosPendentesSnap.forEach(doc=> cadastrosPendentesCache.push({ id: doc.id, ...doc.data() }));
 
   alunosCache = [];
+  trancadosCache = [];
   alunosSnap.forEach(doc=>{
     const d = doc.data();
     if(d.statusGeral === 'inativo') return;
+    if(d.statusGeral === 'trancado'){
+      trancadosCache.push({
+        id: doc.id, nome: d.nome || '(sem nome)', unidade: d.unidade || '',
+        responsavelWhatsapp: d.responsavelWhatsapp || '',
+        dataRetornoPrevista: d.dataRetornoPrevista || ''
+      });
+      return;
+    }
     alunosCache.push({
       id: doc.id, nome: d.nome || '(sem nome)', unidade: d.unidade || '',
       diasTreino: d.diasTreino || [], horarioTreino: d.horarioTreino || '',
@@ -702,6 +712,33 @@ function computarTarefas(){
   return itens;
 }
 
+function computarTrancados(){
+  const itens = [];
+  const hoje = dataHojeISO();
+  trancadosCache.forEach(a=>{
+    if(!a.dataRetornoPrevista || a.dataRetornoPrevista > hoje) return; // ainda não chegou a data
+    const chaveAcao = 'trancamento_' + a.id;
+    if(acaoAtiva(chaveAcao)) return;
+    const diasAtraso = Math.max(0, Math.round((new Date(hoje+'T00:00:00') - new Date(a.dataRetornoPrevista+'T00:00:00')) / 86400000));
+    const tempo = clamp(14 + diasAtraso*3, 0, 40);
+    const impacto = 20;
+    const repeticao = clamp(diasAtraso*1.5, 0, 25);
+    const score = calcularScore(tempo, impacto, repeticao);
+    const acoes = [];
+    if(a.responsavelWhatsapp) acoes.push({ tipo:'wpp', label:'WhatsApp', url: gerarLinkWhatsApp(a.responsavelWhatsapp, `Olá! 👋🏻⚽\n\nAqui é da BSA! A data prevista de retorno do(a) ${primeiroNome(a.nome)} chegou. Vamos retomar os treinos?`) });
+    acoes.push({ tipo:'link', label:'Abrir cadastro', url:'bsa-cadastro.html' });
+    acoes.push({ tipo:'registrar', label:'📝 Registrar ação', chave: chaveAcao, pendTipo:'trancamento', refNome: a.nome });
+    itens.push({
+      id: 'tranc_' + a.id, tipo:'trancamento', unidade: a.unidade, score, alunoId: a.id, alunoNome: a.nome,
+      ico: '🔓',
+      titulo: 'Data de retorno chegou — ' + a.nome,
+      detalhe: 'Retorno previsto ' + fmtDataBR(a.dataRetornoPrevista) + (diasAtraso > 0 ? ' · ' + diasAtraso + ' dia(s) atrás' : ' · hoje') + notaAcaoTexto(chaveAcao),
+      acoes
+    });
+  });
+  return itens;
+}
+
 function computarAniversarios(){
   const itens = [];
   const hoje = new Date();
@@ -796,6 +833,7 @@ function computarERenderizar(){
     ...computarMensalidades(),
     ...computarDanos(),
     ...computarTarefas(),
+    ...computarTrancados(),
     ...computarAniversarios(),
     ...computarPendenciasReconhecimento(),
     ...computarLeadsRemarketing()
