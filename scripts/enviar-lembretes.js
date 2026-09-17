@@ -60,9 +60,9 @@ async function main() {
     }
 
     const tokens =
-      lembrete.responsavel && tokensPorPessoa[lembrete.responsavel]
-        ? [...tokensPorPessoa[lembrete.responsavel]]
-        : todosTokens;
+      lembrete.responsavel
+        ? (tokensPorPessoa[lembrete.responsavel] ? [...tokensPorPessoa[lembrete.responsavel]] : [])
+        : todosTokens; // sem responsável definido = notifica todo mundo cadastrado
 
     if (tokens.length) {
       try {
