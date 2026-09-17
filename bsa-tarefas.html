@@ -158,7 +158,7 @@
       <div class="saved-toast" id="savedToast">✅ Tarefa salva</div>
       <button class="lista-quick-btn" id="btnDigitar" style="margin-top:14px;" onclick="abrirDigitar()">⌨️ Digitar em vez de falar</button>
       <div id="digitarWrap" style="display:none; width:100%; max-width:360px; margin-top:14px;">
-        <textarea id="digitarTexto" rows="3" placeholder="Ex: Iasmin ligar pro pai do Pedro amanhã às 18h" style="width:100%; box-sizing:border-box; border-radius:12px; border:none; padding:12px; font-family:'Space Grotesk'; font-size:15px;"></textarea>
+        <textarea id="digitarTexto" rows="3" placeholder="Ex: Iasmin ligar pro pai do Pedro amanhã às 18h" style="width:100%; box-sizing:border-box; border-radius:12px; border:none; padding:12px; font-family:'Space Grotesk'; font-size:15px;" onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); salvarDigitado(); }"></textarea>
         <button class="btn btn-primary" style="margin-top:8px; width:100%;" onclick="salvarDigitado()">Salvar tarefa</button>
       </div>
     </div>
