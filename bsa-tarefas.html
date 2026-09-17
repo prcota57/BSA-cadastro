@@ -156,6 +156,11 @@
       <div class="capture-hint">Diga a tarefa. Pode falar "prioridade um/dois/três" e "Ronaldo" ou "Iasmin" em qualquer parte da frase. Pra parar: fale "encerrar", toque no microfone, ou fique 8s em silêncio.</div>
       <div class="live-transcript" id="liveTranscript"></div>
       <div class="saved-toast" id="savedToast">✅ Tarefa salva</div>
+      <button class="lista-quick-btn" id="btnDigitar" style="margin-top:14px;" onclick="abrirDigitar()">⌨️ Digitar em vez de falar</button>
+      <div id="digitarWrap" style="display:none; width:100%; max-width:360px; margin-top:14px;">
+        <textarea id="digitarTexto" rows="3" placeholder="Ex: Iasmin ligar pro pai do Pedro amanhã às 18h" style="width:100%; box-sizing:border-box; border-radius:12px; border:none; padding:12px; font-family:'Space Grotesk'; font-size:15px;"></textarea>
+        <button class="btn btn-primary" style="margin-top:8px; width:100%;" onclick="salvarDigitado()">Salvar tarefa</button>
+      </div>
     </div>
     <div class="exit-hint" id="exitHint" style="display:none;">Toque 2x em qualquer lugar pra sair</div>
   </section>
@@ -315,6 +320,8 @@ function irPara(tela){
   } else {
     document.getElementById('screen-captura').classList.add('active');
     document.getElementById('navCaptura').classList.add('active');
+    document.getElementById('digitarWrap').style.display = 'none';
+    document.getElementById('btnDigitar').style.display = 'block';
   }
 }
 // abre direto na captura se vier com ?modo=captura (usado pelo atalho de tela inicial)
@@ -423,6 +430,7 @@ document.getElementById('micCircle').addEventListener('click', ()=>{
 // 2 toques em qualquer lugar da tela de captura pra sair (padrão dos apps de treino)
 document.getElementById('screen-captura').addEventListener('click', (e)=>{
   if(e.target.id === 'micCircle') return;
+  if(e.target.closest('#digitarWrap') || e.target.id === 'btnDigitar') return;
   saindoTaps++;
   if(saindoTaps===1){
     saindoTimer = setTimeout(()=>{ saindoTaps=0; }, 600);
@@ -464,6 +472,22 @@ function extrairDataHora(lower){
     }
   }
   return { data: alvo, trecho: mHora[0] };
+}
+
+function abrirDigitar(){
+  pararEscuta();
+  document.getElementById('digitarWrap').style.display = 'block';
+  document.getElementById('btnDigitar').style.display = 'none';
+  document.getElementById('digitarTexto').focus();
+}
+function salvarDigitado(){
+  const campo = document.getElementById('digitarTexto');
+  const texto = campo.value.trim();
+  if(!texto) return;
+  processarFala(texto);
+  campo.value = '';
+  document.getElementById('digitarWrap').style.display = 'none';
+  document.getElementById('btnDigitar').style.display = 'block';
 }
 
 function processarFala(textoOriginal){
