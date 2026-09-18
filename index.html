@@ -60,6 +60,7 @@
     padding:7px 11px; border-radius:20px;
   }
   .update-btn:active{ transform:scale(0.96); }
+  .last-update{ position:absolute; top:38px; right:12px; font-size:10px; font-weight:600; color:var(--chalk-dim); text-align:right; }
   .update-btn .ico{ font-size:13px; }
   .update-btn.spin .ico{ display:inline-block; animation:spin 0.8s linear infinite; }
   @keyframes spin{ from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
@@ -130,6 +131,7 @@
   <div class="circle"></div>
   <div class="halfline"></div>
   <button class="update-btn" id="updateBtn"><span class="ico">🔄</span><span id="updateBtnLabel">Atualizar</span></button>
+  <div class="last-update" id="lastUpdate"></div>
   <div class="eyebrow" id="greeting">Bom dia, Ronaldo</div>
   <div class="wordmark">BSA <span>APP</span></div>
   <div class="sub">sua escalação de ferramentas do dia a dia</div>
@@ -341,6 +343,20 @@
 
   var updateBtn = document.getElementById('updateBtn');
   var updateBtnLabel = document.getElementById('updateBtnLabel');
+  var lastUpdateEl = document.getElementById('lastUpdate');
+  function mostrarUltimaAtualizacao(){
+    var t = null;
+    try { t = parseInt(localStorage.getItem('bsa_ultima_atualizacao'), 10); } catch(e) {}
+    if(!t){ lastUpdateEl.textContent = 'Última atualização: ainda não registrada'; return; }
+    var d = new Date(t);
+    var dd = ('0'+d.getDate()).slice(-2), mm = ('0'+(d.getMonth()+1)).slice(-2);
+    var hh = ('0'+d.getHours()).slice(-2), mi = ('0'+d.getMinutes()).slice(-2);
+    lastUpdateEl.textContent = 'Última atualização: ' + dd + '/' + mm + '/' + d.getFullYear() + ' às ' + hh + ':' + mi;
+  }
+  function salvarUltimaAtualizacao(){
+    try { localStorage.setItem('bsa_ultima_atualizacao', String(Date.now())); } catch(e) {}
+  }
+  mostrarUltimaAtualizacao();
   updateBtn.addEventListener('click', function(){
     updateBtn.classList.add('spin');
     updateBtnLabel.textContent = 'Atualizando...';
@@ -360,7 +376,7 @@
         updateBtnLabel.textContent = 'Sem internet — abrindo cada app 1x depois recria o cache dele';
         return;
       }
-      return reaquecerTodosOsModulos();
+      return reaquecerTodosOsModulos().then(salvarUltimaAtualizacao);
     }).then(function(){
       updateBtnLabel.textContent = '✅ Atualizado — pronto pra usar offline';
     }).catch(function(){
