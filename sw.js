@@ -1,6 +1,6 @@
 // Service Worker do BSA APP (Hub) — guarda todas as telas em cache para funcionar sem internet.
 // Só busca conteúdo novo quando o usuário toca em "Atualizar" no cabeçalho.
-var CACHE_NAME = 'bsa-hub-cache-v3';
+var CACHE_NAME = 'bsa-hub-cache-v4';
 var PREFIX = 'bsa-hub-cache-';
 var FILES = ['index.html', 'bsa-avaliacao.html', 'bsa-backup.html', 'bsa-cadastro.html', 'bsa-captacao.html', 'bsa-descritores.html', 'bsa-diretora.html', 'bsa-estoque.html', 'bsa-financas.html', 'bsa-mensageiro.html', 'bsa-presenca.html', 'bsa-relatorios.html', 'bsa-tarefas.html', 'bsa-treino-index.html'];
 
@@ -100,7 +100,17 @@ self.addEventListener('fetch', function(event) {
           caches.open(CACHE_NAME).then(function(cache) { return cache.put(event.request, copy); })
         );
         return resp;
-      }).catch(function() { return cached; });
+      }).catch(function() {
+        // Sem internet e sem essa URL exata em cache: se for navegação (abrir uma tela do Hub
+        // ou de um módulo dele), tenta servir a página certa pelo nome do arquivo salvo;
+        // se não achar essa página específica, cai pro index.html do Hub em vez de travar.
+        if (event.request.mode === 'navigate') {
+          return caches.match(path).then(function(porPagina) {
+            return porPagina || caches.match('index.html');
+          });
+        }
+        return cached;
+      });
     })
   );
 });
