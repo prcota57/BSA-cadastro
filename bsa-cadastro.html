@@ -27,7 +27,9 @@
     --radius:18px;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  html,body{margin:0; padding:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif; height:100%;}
+  html{height:100%;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif;}
+  body{min-height:100%;}
   body{
     padding-bottom:calc(110px + env(safe-area-inset-bottom));
     padding-top:env(safe-area-inset-top);
@@ -171,6 +173,7 @@
 
   .screen{display:none;}
   .screen.active{display:block;}
+  .screen.active::after{content:''; display:block; height:calc(40px + env(safe-area-inset-bottom));}
 
   /* Form */
   .formwrap{padding:16px 16px 30px;}
