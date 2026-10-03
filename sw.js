@@ -2,7 +2,9 @@
 // Só busca conteúdo novo quando o usuário toca em "Atualizar" no cabeçalho.
 var CACHE_NAME = 'bsa-hub-cache-v4';
 var PREFIX = 'bsa-hub-cache-';
-var FILES = ['index.html', 'bsa-avaliacao.html', 'bsa-backup.html', 'bsa-cadastro.html', 'bsa-captacao.html', 'bsa-descritores.html', 'bsa-diretora.html', 'bsa-estoque.html', 'bsa-financas.html', 'bsa-mensageiro.html', 'bsa-presenca.html', 'bsa-relatorios.html', 'bsa-tarefas.html', 'bsa-treino-index.html'];
+// './' é a "porta de entrada" (endereço da pasta, usado pelo ícone da tela de início e pelos botões
+// "← Hub" dos módulos). Sem ele o Hub nunca abria sem internet, mesmo com tudo salvo.
+var FILES = ['./', 'index.html', 'bsa-avaliacao.html', 'bsa-backup.html', 'bsa-cadastro.html', 'bsa-captacao.html', 'bsa-descritores.html', 'bsa-diretora.html', 'bsa-estoque.html', 'bsa-financas.html', 'bsa-mensageiro.html', 'bsa-presenca.html', 'bsa-relatorios.html', 'bsa-tarefas.html', 'bsa-treino-index.html'];
 
 // ---------- NOTIFICAÇÕES (Firebase Cloud Messaging) ----------
 try {
@@ -76,6 +78,8 @@ function ehArquivoEssencialExterno(url) {
   if (url.hostname === 'cdn.jsdelivr.net' && (url.pathname.indexOf('face-api.js') !== -1 || url.pathname.indexOf('/weights/') !== -1)) return true;
   if (url.hostname === 'www.gstatic.com' && url.pathname.indexOf('/firebasejs/') !== -1) return true;
   if (url.pathname.indexOf('.wav') !== -1) return true;
+  // Fontes do Google: sem isso, com wifi fraco a tela fica em branco esperando a fonte baixar.
+  if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') return true;
   return false;
 }
 
@@ -83,13 +87,18 @@ self.addEventListener('fetch', function(event) {
   if (event.request.method !== 'GET') return;
   var url = new URL(event.request.url);
   var path = url.pathname.split('/').pop();
+  // Endereço da pasta (ex: .../BSA-cadastro/) é o próprio index.html do Hub.
+  if (path === '' && url.origin === self.location.origin) path = 'index.html';
   var ehArquivoDoHub = FILES.indexOf(path) !== -1;
   var ehEssencialExterno = ehArquivoEssencialExterno(url);
+  var ehNavegacao = event.request.mode === 'navigate';
   // só usa cache para os arquivos do Hub, os modelos/lib/sons/firebase essenciais;
   // qualquer outra requisição (dados do Firestore, apps pessoais de tarefas, etc.) sempre busca da rede.
   if (!ehArquivoDoHub && !ehEssencialExterno) return;
   event.respondWith(
-    caches.match(event.request).then(function(cached) {
+    // Ao abrir uma tela, ignora o que vem depois do "?" (ex: ?upd=123 do botão Atualizar)
+    // e procura pela página salva — abre direto da memória do aparelho, sem tocar na rede.
+    (ehNavegacao ? caches.match(path) : caches.match(event.request)).then(function(cached) {
       if (cached) return cached;
       return fetch(event.request).then(function(resp) {
         var copy = resp.clone();

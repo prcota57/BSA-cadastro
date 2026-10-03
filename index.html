@@ -292,6 +292,12 @@
     window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
   }
 
+  // Pede ao aparelho pra NÃO apagar sozinho os apps salvos (o iOS/Android pode limpar a memória
+  // de sites quando o armazenamento aperta). Vale pro Hub e todos os módulos (mesmo endereço).
+  try {
+    if (navigator.storage && navigator.storage.persist) { navigator.storage.persist().catch(function(){}); }
+  } catch(e) {}
+
   // Botão "Atualizar": limpa o cache de TODOS os apps do BSA APP (Hub + todos os módulos,
   // já que todos vivem no mesmo endereço prcota57.github.io), depois abre cada módulo escondido
   // (iframe invisível) pra reconstruir o cache dele na hora, um por um — assim, quando terminar,
