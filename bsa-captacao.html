@@ -50,7 +50,8 @@
   .shortcut .badge{position:absolute;top:6px;right:8px;background:var(--clay-500);color:#fff;font-size:9.5px;font-family:var(--font-mono);padding:1px 6px;border-radius:100px;}
 
   .funnel-mini{display:flex;gap:8px;margin-bottom:4px;}
-  .funnel-mini .f{flex:1;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 8px;text-align:center;}
+  .funnel-mini .f{flex:1;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 8px;text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+  .funnel-mini .f:active{background:var(--chalk-200);transform:scale(.97);}
   .funnel-mini .f .n{font-family:var(--font-mono);font-weight:700;font-size:20px;color:var(--pitch-800);}
   .funnel-mini .f .l{font-size:10px;color:#8a8a80;font-family:var(--font-mono);}
 
@@ -575,10 +576,10 @@ function renderHome(app){
   html += '<button class="btn btn-secondary" style="margin-bottom:16px;" data-action="copyPublicLink">🔗 Copiar link para o pai preencher</button>';
 
   html += '<div class="funnel-mini">'
-    + '<div class="f"><div class="n">'+counts.agendado+'</div><div class="l">AGENDADAS</div></div>'
-    + '<div class="f"><div class="n">'+counts.realizada+'</div><div class="l">DECIDIR</div></div>'
-    + '<div class="f"><div class="n">'+counts.matriculado+'</div><div class="l">MATRICULADOS</div></div>'
-    + '<div class="f"><div class="n">'+counts.aguardando+'</div><div class="l">AGUARDANDO</div></div>'
+    + '<div class="f" data-action="showPipelineStatus" data-status="agendado"><div class="n">'+counts.agendado+'</div><div class="l">AGENDADAS</div></div>'
+    + '<div class="f" data-action="showPipelineStatus" data-status="realizada"><div class="n">'+counts.realizada+'</div><div class="l">DECIDIR</div></div>'
+    + '<div class="f" data-action="showPipelineStatus" data-status="matriculado"><div class="n">'+counts.matriculado+'</div><div class="l">MATRICULADOS</div></div>'
+    + '<div class="f" data-action="showPipelineStatus" data-status="aguardando"><div class="n">'+counts.aguardando+'</div><div class="l">AGUARDANDO</div></div>'
     + '</div>';
 
   if(prontos.length>0){
@@ -667,6 +668,8 @@ function renderPipeline(app){
     });
   }
   app.innerHTML = html;
+  var act = app.querySelector('.status-tab.active');
+  if(act && act.scrollIntoView){ try{ act.scrollIntoView({block:'nearest',inline:'center'}); }catch(e){} }
 }
 
 function renderMarkWaiting(app){
@@ -900,6 +903,7 @@ var Actions = {
     render();
   },
   showPipeline:function(){ state.screen='pipeline'; render(); },
+  showPipelineStatus:function(el){ state.filterStatus=el.dataset.status; state.screen='pipeline'; render(); window.scrollTo(0,0); },
   showReports:function(){ state.screen='reports'; render(); },
   openLead:function(el){ state.currentId=el.dataset.id; state.screen='leadDetail'; render(); },
   toggleWeekday:function(el){
