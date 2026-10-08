@@ -1,6 +1,6 @@
 // Service Worker do BSA APP (Hub) — guarda todas as telas em cache para funcionar sem internet.
 // Só busca conteúdo novo quando o usuário toca em "Atualizar" no cabeçalho.
-var CACHE_NAME = 'bsa-hub-cache-v4';
+var CACHE_NAME = 'bsa-hub-cache-v5';
 var PREFIX = 'bsa-hub-cache-';
 // './' é a "porta de entrada" (endereço da pasta, usado pelo ícone da tela de início e pelos botões
 // "← Hub" dos módulos). Sem ele o Hub nunca abria sem internet, mesmo com tudo salvo.

@@ -191,6 +191,21 @@
     width:100%; border:1px solid var(--line); border-radius:12px; padding:11px 12px;
     font-size:15px; font-family:'Inter'; background:var(--surface); color:var(--ink);
   }
+  .manual-dias{display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; -webkit-overflow-scrolling:touch;}
+  .manual-dia{
+    flex:0 0 auto; border:1.5px solid var(--line); background:var(--surface); color:var(--ink);
+    border-radius:12px; padding:9px 13px; font-family:'Space Grotesk'; font-weight:600; font-size:14px;
+    line-height:1.15; text-align:center; cursor:pointer; min-width:62px;
+  }
+  .manual-dia small{display:block; font-family:'Inter'; font-weight:500; font-size:11px; color:var(--ink-soft);}
+  .manual-dia.active{background:var(--pitch); border-color:var(--pitch); color:#fff;}
+  .manual-dia.active small{color:rgba(255,255,255,0.8);}
+  .manual-retro-aviso{
+    margin-top:10px; background:var(--gold-soft); border:1px solid var(--gold); color:var(--ink);
+    border-radius:12px; padding:10px 12px; font-size:13.5px; font-weight:600;
+  }
+  .manual-ja{font-size:12px; font-weight:700; color:var(--pitch); white-space:nowrap;}
+  .presenca-item.ja-presente{opacity:.55;}
   .modal-close-row{display:flex; justify-content:flex-end; margin-bottom:4px;}
   .modal-close-btn{
     border:none; background:var(--pitch-soft); color:var(--pitch-dark);
@@ -526,8 +541,10 @@
     <div class="modal-close-row"><button class="modal-close-btn" id="btnFecharManualModal">✕</button></div>
     <h2>Reconhecimento manual</h2>
     <div class="field" id="manualDataField">
-      <label>Data da presença</label>
-      <input type="date" id="manualData">
+      <label>Dia da chamada</label>
+      <div class="manual-dias" id="manualDias"></div>
+      <input type="date" id="manualData" style="display:none; margin-top:10px;">
+      <div class="manual-retro-aviso" id="manualRetroAviso" style="display:none;"></div>
     </div>
     <div class="field">
       <label>Buscar aluno da unidade <span id="manualUnidadeLabel"></span></label>
@@ -2196,29 +2213,120 @@ async function marcarPresenca(aluno, distance, origem, dataOverride){
 }
 
 /* ---------- Reconhecimento manual ---------- */
+// Chamada retroativa: o dia é escolhido por botões (Hoje, Ontem e os dias anteriores) em vez
+// de depender só do calendário nativo do iPhone, que nem sempre abria dentro desta janela.
+// "Outra data" continua oferecendo o calendário pra dias mais antigos.
+let manualPresentesSet = new Set();   // quem já tem presença no dia escolhido
+let manualBuscaPresentesSeq = 0;
+let manualOutraDataAberta = false;
+const DIA_LABEL_ARR = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+function isoDeDate(d){
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function rotuloDataManual(iso){
+  const [y,m,d] = iso.split('-').map(Number);
+  return DIA_LABEL_ARR[new Date(y, m-1, d).getDay()] + ' ' + String(d).padStart(2,'0') + '/' + String(m).padStart(2,'0');
+}
+function dataManualSelecionada(){
+  const campo = document.getElementById('manualData');
+  const hojeISO = dataHojeISO();
+  const v = (campo && campo.value) ? campo.value : hojeISO;
+  return v > hojeISO ? hojeISO : v; // nunca no futuro
+}
+function renderManualDias(){
+  const sel = dataManualSelecionada();
+  const base = new Date();
+  let html = '';
+  let selEstaNosBotoes = false;
+  for(let i = 0; i < 7; i++){
+    const d = new Date(base.getFullYear(), base.getMonth(), base.getDate() - i);
+    const iso = isoDeDate(d);
+    if(iso === sel) selEstaNosBotoes = true;
+    const titulo = i === 0 ? 'Hoje' : (i === 1 ? 'Ontem' : DIA_LABEL_ARR[d.getDay()]);
+    const sub = String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
+    html += `<button type="button" class="manual-dia${iso === sel ? ' active' : ''}" onclick="definirDataManual('${iso}')">${titulo}<small>${sub}</small></button>`;
+  }
+  const outraAtiva = !selEstaNosBotoes;
+  html += `<button type="button" class="manual-dia${outraAtiva ? ' active' : ''}" onclick="abrirOutraDataManual()">📅 Outra<small>${outraAtiva ? rotuloDataManual(sel) : 'data'}</small></button>`;
+  document.getElementById('manualDias').innerHTML = html;
+  document.getElementById('manualData').style.display = (manualOutraDataAberta || outraAtiva) ? '' : 'none';
+  const aviso = document.getElementById('manualRetroAviso');
+  if(sel !== dataHojeISO()){
+    aviso.textContent = '⚠️ Chamada retroativa de ' + rotuloDataManual(sel) + ' — toque em cada aluno que veio. A lista fica aberta até você fechar.';
+    aviso.style.display = '';
+  } else {
+    aviso.style.display = 'none';
+  }
+}
+function abrirOutraDataManual(){
+  manualOutraDataAberta = true;
+  const campo = document.getElementById('manualData');
+  campo.style.display = '';
+  // Abre o calendário na hora, dentro do próprio toque (onde o navegador permite).
+  try{ if(campo.showPicker) campo.showPicker(); else campo.focus(); }catch(e){ try{ campo.focus(); }catch(_){} }
+}
+function definirDataManual(iso){
+  const hojeISO = dataHojeISO();
+  if(!iso || iso > hojeISO) iso = hojeISO;
+  const campo = document.getElementById('manualData');
+  campo.max = hojeISO;
+  campo.value = iso;
+  renderManualDias();
+  carregarPresentesManual(iso);
+}
+// Descobre quem já tem presença no dia escolhido, pra mostrar "✓ presente" na lista.
+function carregarPresentesManual(iso){
+  const seq = ++manualBuscaPresentesSeq;
+  if(iso === dataHojeISO()){
+    manualPresentesSet = new Set(presentesHojeIds);
+    renderManualLista(document.getElementById('manualBusca').value);
+    return;
+  }
+  manualPresentesSet = new Set();
+  renderManualLista(document.getElementById('manualBusca').value);
+  comTimeout(db.collection('presencas').where('data', '==', iso).get(), 6000).then(snap=>{
+    if(seq !== manualBuscaPresentesSeq) return; // já trocou de dia
+    snap.forEach(doc=>{ const d = doc.data(); if(d && d.alunoId) manualPresentesSet.add(d.alunoId); });
+    renderManualLista(document.getElementById('manualBusca').value);
+  }).catch(()=>{ /* sem internet: segue sem as marcações — gravar de novo não duplica */ });
+}
 function abrirManualModal(){
   if(!unidadeAtual){ toast('Selecione a unidade primeiro'); return; }
   document.getElementById('manualUnidadeLabel').textContent = unidadeAtual;
   document.getElementById('manualBusca').value = '';
-  // Campo de data: começa em hoje, mas dá pra escolher uma data passada (ex: lançar a
-  // presença de ontem que ficou sem registrar). "max" trava em hoje — não deixa marcar
-  // presença no futuro.
-  const campoData = document.getElementById('manualData');
-  const hojeISO = dataHojeISO();
-  campoData.value = hojeISO;
-  campoData.max = hojeISO;
   document.getElementById('manualDataField').style.display = '';
-  renderManualLista('');
+  manualOutraDataAberta = false;
+  // Se a lista de presenças da tela está filtrada num dia passado, a chamada já abre nesse
+  // dia (é o que a pessoa está olhando). Senão, começa em hoje.
+  const hojeISO = dataHojeISO();
+  const inicial = (typeof dataHistoricoAtual === 'string' && dataHistoricoAtual < hojeISO) ? dataHistoricoAtual : hojeISO;
+  definirDataManual(inicial);
   document.getElementById('manualModal').classList.add('active');
-  setTimeout(()=> document.getElementById('manualBusca').focus(), 200);
+  // Sem foco automático na busca: no iPhone isso subia o teclado e atrapalhava escolher o dia.
 }
 function fecharManualModal(){
+  const estavaAberto = document.getElementById('manualModal').classList.contains('active');
   document.getElementById('manualModal').classList.remove('active');
   registrarPendenciaReconhecimentoSeAberta();
+  // Depois de uma chamada retroativa, a lista da tela passa a mostrar o dia lançado, pra conferir.
+  try{
+    const campoVisivel = document.getElementById('manualDataField').style.display !== 'none';
+    const sel = dataManualSelecionada();
+    if(estavaAberto && campoVisivel && unidadeAtual && sel !== dataHistoricoAtual && manualLancouRetro){
+      document.getElementById('historyDateFilter').value = sel;
+      listenHistorico(sel);
+    }
+  }catch(e){}
+  manualLancouRetro = false;
 }
+let manualLancouRetro = false;
 function renderManualLista(termo){
   const lista = document.getElementById('manualLista');
   const t = (termo||'').trim().toLowerCase();
+  const dataSel = dataManualSelecionada();
+  const ehRetro = dataSel !== dataHojeISO();
+  const diaSel = diaSemanaDeISO(dataSel);
+  const daTurmaDoDia = a => (a.diasTreino || []).includes(diaSel) ? 0 : 1;
   const encontrados = todosAlunosCache
     // Sem busca (lista inicial): só alunos da unidade escolhida, sem misturar com a outra.
     // Com busca (digitou algo): pode achar aluno de qualquer unidade também — útil pra
@@ -2229,9 +2337,11 @@ function renderManualLista(termo){
       const da = a.unidade === unidadeAtual ? 0 : 1;
       const db_ = b.unidade === unidadeAtual ? 0 : 1;
       if(da !== db_) return da - db_;
+      // Na chamada retroativa, quem treina naquele dia da semana aparece primeiro.
+      if(ehRetro && daTurmaDoDia(a) !== daTurmaDoDia(b)) return daTurmaDoDia(a) - daTurmaDoDia(b);
       return a.nome.localeCompare(b.nome);
     })
-    .slice(0, 30);
+    .slice(0, ehRetro ? 200 : 30);
   if(encontrados.length === 0){
     // Mensagem diferente quando o problema é a lista de alunos estar vazia (cache não
     // carregado) do que quando é só a busca não achar ninguém — ajuda a diagnosticar.
@@ -2243,7 +2353,8 @@ function renderManualLista(termo){
   lista.innerHTML = encontrados.map(a=>{
     const foto = a.foto ? `<img class="avatar" src="${a.foto}">` : `<div class="avatar" style="display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;color:var(--pitch);">${(a.nome||'?').slice(0,1)}</div>`;
     const tagUnidade = a.unidade !== unidadeAtual ? ` <span class="badge-repo">${a.unidade}</span>` : '';
-    return `<div class="presenca-item" style="cursor:pointer;" onclick="confirmarManual('${a.id}')">${foto}<div class="info"><div class="name">${a.nome}${tagUnidade}</div></div></div>`;
+    const ja = manualPresentesSet.has(a.id);
+    return `<div class="presenca-item${ja ? ' ja-presente' : ''}" style="cursor:pointer;" onclick="confirmarManual('${a.id}')">${foto}<div class="info"><div class="name">${a.nome}${tagUnidade}</div></div>${ja ? '<span class="manual-ja">✓ presente</span>' : ''}</div>`;
   }).join('');
 }
 async function confirmarManual(alunoId){
@@ -2256,10 +2367,26 @@ async function confirmarManual(alunoId){
       return;
     }
     pendenciaReconhecimentoAberta = null; // resolveu escolhendo alguém — não precisa mais da pendência
-    const campoData = document.getElementById('manualData');
     const hojeISO = dataHojeISO();
-    const dataSelecionada = (campoData && campoData.value) ? campoData.value : hojeISO;
+    const dataSelecionada = dataManualSelecionada();
     const ehRetroativo = dataSelecionada !== hojeISO;
+    if(ehRetroativo){
+      // Chamada retroativa: a lista continua aberta, no mesmo dia, pra marcar a turma inteira.
+      if(manualPresentesSet.has(aluno.id)){
+        toast(aluno.nome + ' já está presente em ' + rotuloDataManual(dataSelecionada));
+        return;
+      }
+      const resultadoRetro = await marcarPresenca(aluno, null, 'manual', dataSelecionada);
+      if(!resultadoRetro.bloqueado){
+        manualPresentesSet.add(aluno.id);
+        manualLancouRetro = true;
+      }
+      document.getElementById('manualBusca').value = '';
+      renderManualLista('');
+      toast(resultadoRetro.tocarBip ? ('✓ ' + aluno.nome + ' · ' + rotuloDataManual(dataSelecionada)) : (aluno.nome + ' — ' + resultadoRetro.mensagem));
+      if(resultadoRetro.tocarBip) bip();
+      return;
+    }
     fecharManualModal();
     toast('Registrando presença de ' + aluno.nome + (ehRetroativo ? (' em ' + dataSelecionada.split('-').reverse().join('/')) : '') + '...');
     const resultado = await marcarPresenca(aluno, null, 'manual', dataSelecionada);
@@ -2285,6 +2412,7 @@ document.getElementById('btnManualNaCamera').addEventListener('click', ()=>{ fec
 document.getElementById('btnFecharManualModal').addEventListener('click', fecharManualModal);
 document.getElementById('manualModal').addEventListener('click', e=>{ if(e.target.id === 'manualModal') fecharManualModal(); });
 document.getElementById('manualBusca').addEventListener('input', e=> renderManualLista(e.target.value));
+document.getElementById('manualData').addEventListener('change', e=>{ if(e.target.value) definirDataManual(e.target.value); });
 
 /* =================== MODO QUIOSQUE =================== */
 const KIOSK_MIN_FACE_RATIO = 0.20;   // rosto precisa ocupar pelo menos ~20% da largura do quadro
@@ -2611,6 +2739,7 @@ document.getElementById('btnKioskManual').addEventListener('click', ()=>{
   // No quiosque é sempre presença de agora — esconde o seletor de data e garante hoje.
   document.getElementById('manualData').value = dataHojeISO();
   document.getElementById('manualDataField').style.display = 'none';
+  manualPresentesSet = new Set(presentesHojeIds);
   renderManualLista('');
   document.getElementById('manualModal').classList.add('active');
   setTimeout(()=> document.getElementById('manualBusca').focus(), 200);
@@ -2643,6 +2772,7 @@ document.getElementById('btnKioskVoz').addEventListener('click', async ()=>{
       document.getElementById('manualBusca').value = texto;
       document.getElementById('manualData').value = dataHojeISO();
       document.getElementById('manualDataField').style.display = 'none';
+      manualPresentesSet = new Set(presentesHojeIds);
       renderManualLista(texto);
       document.getElementById('manualModal').classList.add('active');
     };
