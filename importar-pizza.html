@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Importar compras — Pizzas</title>
+<style>
+  body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:#0f1b2d;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box}
+  .card{max-width:420px;width:100%;text-align:center}
+  h1{font-size:26px;margin:0 0 8px}
+  p{opacity:.8;line-height:1.4}
+  button{width:100%;font-size:18px;font-weight:700;border:0;border-radius:14px;padding:16px;background:#2f7de1;color:#fff;margin-top:16px}
+  button:disabled{opacity:.5}
+  a{display:block;margin-top:14px;color:#8fc1ff;font-weight:700;font-size:17px}
+  #status{margin-top:16px;font-weight:700;min-height:24px}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🍕 Compras das pizzas</h1>
+  <p>Adiciona os 30 itens da festa na aba <b>Compras</b> do Tarefas Ronaldo. Itens que já estão pendentes lá não são duplicados.</p>
+  <button id="btn" disabled>Conectando…</button>
+  <div id="status"></div>
+  <a href="bsa-tarefas-ronaldo.html">Abrir Tarefas Ronaldo →</a>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script>
+const ITENS = [
+  "Farinha de trigo – 4 kg","Leite – 2 L","Ovos – 24 (2 dúzias)","Fermento biológico seco – 4 pacotes",
+  "Manteiga – 1 pote 200 g","Açúcar – 150 g (12 col. sopa) – ver em casa","Sal – ver em casa",
+  "Muçarela – 6 kg","Peito de peru defumado – 1 kg","Calabresa – 1,5 kg","Bacon – 2 kg",
+  "Peito de frango desfiado – 1,5 kg","Milho – 2 latas","Azeitona – 1 sachê 200 g","Molho de tomate – 2 sachês",
+  "Orégano – 1 pacote","Cebola – 3 unidades",
+  "Goiabada – 2 de 300 g","Pêssego em calda – 1 lata","Abacaxi – 1","Coco ralado – 1 pacote pequeno",
+  "Canela em pó – 1 pacote pequeno","Chocolate ao leite – 400 g",
+  "Refrigerante 2 L – 8 garrafas","Gelo – 2 sacos","Carvão – 1 pacote","Acendedor de carvão – 1",
+  "Copos descartáveis – 50","Guardanapos – 1 pacote"
+];
+firebase.initializeApp({
+  apiKey: "AIzaSyDmM2m_QnEeRflAKCyb11TzOrZM7iVgLCA",
+  authDomain: "bsa-app-493c3.firebaseapp.com",
+  projectId: "bsa-app-493c3",
+  storageBucket: "bsa-app-493c3.firebasestorage.app",
+  messagingSenderId: "455452879388",
+  appId: "1:455452879388:web:7135d93c116b2fe7cfcdd9"
+});
+const db = firebase.firestore();
+const btn = document.getElementById('btn'), st = document.getElementById('status');
+document.querySelector('p').innerHTML = document.querySelector('p').innerHTML.replace('30', ITENS.length);
+firebase.auth().onAuthStateChanged(u=>{ if(u){ btn.disabled=false; btn.textContent='Adicionar à minha lista'; } });
+firebase.auth().signInAnonymously().catch(()=>{ st.textContent='Erro de conexão. Tente de novo.'; });
+
+btn.onclick = async ()=>{
+  btn.disabled = true; btn.textContent = 'Adicionando…';
+  try{
+    const snap = await db.collection('listaComprasRonaldo').where('comprado','==',false).get();
+    const jaTem = new Set(snap.docs.map(d=>(d.data().item||'').trim().toLowerCase()));
+    const batch = db.batch(); let n = 0;
+    ITENS.forEach(item=>{
+      if(jaTem.has(item.toLowerCase())) return;
+      batch.set(db.collection('listaComprasRonaldo').doc(), {
+        item, comprado:false, criadoPor:'Ronaldo',
+        criadoEm: firebase.firestore.FieldValue.serverTimestamp(), compradoEm:null
+      }); n++;
+    });
+    if(n) await batch.commit();
+    st.textContent = n ? `✅ ${n} itens adicionados!` : '✅ Tudo já estava na lista.';
+    btn.textContent = 'Pronto';
+  }catch(e){
+    st.textContent = 'Não consegui salvar: ' + (e.code||e.message);
+    btn.disabled = false; btn.textContent = 'Tentar de novo';
+  }
+};
+</script>
+</body>
+</html>
