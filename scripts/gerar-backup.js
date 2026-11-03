@@ -17,7 +17,7 @@ const COLECOES = [
   'contadores', 'estoqueUniformes', 'estoqueEquipamentos', 'movimentacoes',
   'interesseUniformes', 'mensageiroCampanhas', 'medicoesVelocidade',
   'medicoesSalto', 'tarefas', 'cadastrosPendentes', 'pendenciasReconhecimento',
-  'captacaoPublica',
+  'captacaoPublica', 'pendenciaAcoes', 'diario',
 ];
 const APPDATA_DOCS = ['captacao_leads'];
 const MAX_BACKUPS = 8; // ~2 meses de backups semanais

@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="BSA Diário">
+<title>BSA Diário</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F6F8F4; --surface:#FFFFFF; --pitch:#0F5C3D; --pitch-dark:#0B4530; --pitch-soft:#E4EFE8;
+    --gold:#FFC800; --gold-soft:#FFF3CC; --coral:#FF5A36; --coral-soft:#FFE4DC;
+    --azul:#1B4F9C; --azul-soft:#DCE7F8; --rosa:#B8336A; --rosa-soft:#F8E1EC;
+    --ink:#142B20; --ink-soft:#5C7268; --line:#DCE5DD;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif; overscroll-behavior:none;}
+  body{padding-bottom:calc(110px + env(safe-area-inset-bottom)); padding-top:env(safe-area-inset-top);}
+  h1,h2,h3{font-family:'Space Grotesk',sans-serif; margin:0;}
+  button{font-family:inherit; cursor:pointer;}
+
+  header.top{position:sticky; top:0; z-index:20; background:var(--pitch); color:#fff; padding:14px 16px 14px; border-radius:0 0 22px 22px; box-shadow:0 6px 18px rgba(15,92,61,0.18);}
+  header.top .row{display:flex; align-items:center; gap:10px; justify-content:space-between;}
+  header.top .left{display:flex; align-items:center; gap:8px;}
+  header.top a.back{color:#fff; text-decoration:none; font-size:26px; padding:4px 10px 4px 2px;}
+  header.top h1{font-size:19px; font-weight:700;}
+  header.top .sub{font-size:12px; opacity:0.85; margin-top:1px;}
+  .hdr-btn{background:rgba(255,255,255,0.15); color:#fff; border:none; border-radius:14px; padding:8px 12px; font-family:'Space Grotesk'; font-weight:700; font-size:13px;}
+
+  .daynav{display:flex; align-items:center; justify-content:space-between; margin-top:12px; background:rgba(255,255,255,0.12); border-radius:16px; padding:6px;}
+  .daynav button{background:none; border:none; color:#fff; font-size:22px; width:44px; height:40px; border-radius:12px;}
+  .daynav button:disabled{opacity:0.25;}
+  .daynav .mid{flex:1; text-align:center; position:relative;}
+  .daynav .mid .d1{font-family:'Space Grotesk'; font-weight:700; font-size:16px;}
+  .daynav .mid .d2{font-size:11.5px; opacity:0.85;}
+  .daynav .mid input{position:absolute; inset:0; opacity:0; width:100%; height:100%;}
+
+  main{padding:14px 14px 10px; max-width:560px; margin:0 auto;}
+
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:14px; margin-bottom:12px; box-shadow:0 2px 8px rgba(20,43,32,0.05);}
+  .sec-title{font-family:'Space Grotesk'; font-weight:700; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); margin:18px 4px 8px;}
+
+  .pres-row{display:flex; gap:8px; flex-wrap:wrap;}
+  .pres-chip{flex:1 1 140px; background:var(--pitch-soft); border-radius:14px; padding:10px 12px;}
+  .pres-chip .n{font-family:'Space Grotesk'; font-weight:800; font-size:24px; color:var(--pitch-dark); line-height:1;}
+  .pres-chip .l{font-size:12px; color:var(--ink-soft); margin-top:4px;}
+  .pres-none{font-size:13px; color:var(--ink-soft);}
+
+  .entry .head{display:flex; align-items:center; gap:8px; margin-bottom:8px;}
+  .avatar{width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Space Grotesk'; font-weight:800; color:#fff; font-size:15px; flex:0 0 auto;}
+  .av-Ronaldo{background:var(--azul);} .av-Iasmin{background:var(--rosa);}
+  .entry .who{font-weight:700; font-size:14.5px;}
+  .entry .meta{font-size:11.5px; color:var(--ink-soft);}
+  .entry .more{margin-left:auto; background:none; border:none; font-size:20px; color:var(--ink-soft); padding:4px 8px;}
+  .entry .txt{font-size:15px; line-height:1.45; white-space:pre-wrap; word-wrap:break-word;}
+  .pill{display:inline-block; font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:10px; font-family:'Space Grotesk'; background:var(--pitch-soft); color:var(--pitch-dark); margin-left:4px;}
+
+  .thumbs{display:grid; grid-template-columns:repeat(auto-fill, minmax(86px,1fr)); gap:6px; margin-top:10px;}
+  .thumbs img{width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:12px; display:block; background:var(--pitch-soft);}
+  .thumbs.single{grid-template-columns:1fr;}
+  .thumbs.single img{aspect-ratio:4/3;}
+
+  .done-item{display:flex; gap:10px; align-items:flex-start; padding:8px 0; border-bottom:1px solid var(--line);}
+  .done-item:last-child{border-bottom:none;}
+  .done-item .ck{width:22px; height:22px; border-radius:50%; background:var(--pitch); color:#fff; font-size:12px; display:flex; align-items:center; justify-content:center; flex:0 0 auto; margin-top:1px;}
+  .done-item .t{font-size:14px; line-height:1.35;}
+  .done-item .s{font-size:11px; color:var(--ink-soft); margin-top:2px;}
+
+  .empty{text-align:center; color:var(--ink-soft); font-size:14px; padding:26px 16px;}
+  .empty .big{font-size:40px; margin-bottom:6px;}
+
+  .fab-bar{position:fixed; left:0; right:0; bottom:0; z-index:30; padding:12px 14px calc(12px + env(safe-area-inset-bottom)); background:linear-gradient(to top, var(--bg) 70%, rgba(246,248,244,0)); display:flex; gap:10px; max-width:560px; margin:0 auto;}
+  .btn{border:none; border-radius:16px; padding:15px 16px; font-family:'Space Grotesk'; font-weight:700; font-size:15.5px;}
+  .btn-primary{background:var(--pitch); color:#fff; flex:1; box-shadow:0 6px 18px rgba(15,92,61,0.3);}
+  .btn-whats{background:#25D366; color:#fff; flex:0 0 auto;}
+  .btn-ghost{background:var(--pitch-soft); color:var(--pitch-dark);}
+  .btn-danger{background:var(--coral-soft); color:var(--coral);}
+
+  /* modal */
+  .modal-bg{position:fixed; inset:0; background:rgba(10,20,15,0.55); z-index:60; display:none; align-items:flex-end; justify-content:center;}
+  .modal-bg.active{display:flex;}
+  .modal{background:#fff; width:100%; max-width:560px; border-radius:22px 22px 0 0; padding:18px 16px calc(18px + env(safe-area-inset-bottom)); max-height:92vh; overflow-y:auto;}
+  .modal h2{font-size:18px; margin-bottom:12px;}
+  .modal label{display:block; font-size:12px; font-weight:700; color:var(--ink-soft); margin:14px 0 6px; text-transform:uppercase; letter-spacing:.05em;}
+  .chip-row{display:flex; gap:6px; flex-wrap:wrap;}
+  .chip{border:1.5px solid var(--line); background:#fff; border-radius:20px; padding:9px 14px; font-size:13.5px; font-weight:600;}
+  .chip.sel{background:var(--pitch); border-color:var(--pitch); color:#fff;}
+  .txt-wrap{position:relative;}
+  textarea{width:100%; border:1.5px solid var(--line); border-radius:14px; padding:12px 12px 12px; font-family:'Inter'; font-size:16px; min-height:130px; resize:vertical; color:var(--ink);}
+  textarea:focus{outline:none; border-color:var(--pitch);}
+  .mic-btn{display:flex; align-items:center; justify-content:center; gap:8px; width:100%; margin-top:8px; background:var(--pitch-soft); color:var(--pitch-dark); border:none; border-radius:14px; padding:13px; font-family:'Space Grotesk'; font-weight:700; font-size:15px;}
+  .mic-btn.on{background:var(--coral); color:#fff; animation:pulse 1.3s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.75;}}
+  .interim{font-size:13px; color:var(--ink-soft); font-style:italic; min-height:18px; margin-top:6px;}
+  input[type=date]{width:100%; border:1.5px solid var(--line); border-radius:14px; padding:11px 12px; font-size:16px; font-family:'Inter'; background:#fff; color:var(--ink);}
+  .ph-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:6px;}
+  .ph-grid .ph{position:relative;}
+  .ph-grid img{width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:12px; display:block;}
+  .ph-grid .x{position:absolute; top:-6px; right:-6px; width:24px; height:24px; border-radius:50%; background:var(--coral); color:#fff; border:2px solid #fff; font-size:12px; line-height:1;}
+  .ph-add{aspect-ratio:1/1; border:2px dashed var(--line); border-radius:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:24px; color:var(--ink-soft); background:#fff;}
+  .ph-add span{font-size:10.5px; font-weight:600; margin-top:2px;}
+  .ph-hint{font-size:11.5px; color:var(--ink-soft); margin-top:6px;}
+  .modal-actions{display:flex; gap:8px; margin-top:18px;}
+  .modal-actions .btn{flex:1;}
+
+  /* quem */
+  .quem-overlay{position:fixed; inset:0; z-index:90; background:var(--pitch); color:#fff; display:none; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:24px;}
+  .quem-overlay.active{display:flex;}
+  .quem-overlay h2{font-size:24px; margin-bottom:10px;}
+  .quem-overlay button{width:100%; max-width:300px; background:#fff; color:var(--pitch-dark); border:none; border-radius:18px; padding:18px; font-family:'Space Grotesk'; font-weight:700; font-size:18px;}
+
+  /* viewer */
+  .viewer{position:fixed; inset:0; z-index:100; background:#000; display:none; align-items:center; justify-content:center;}
+  .viewer.active{display:flex;}
+  .viewer img{max-width:100%; max-height:100%; object-fit:contain;}
+  .viewer .close{position:absolute; top:calc(14px + env(safe-area-inset-top)); right:14px; background:rgba(255,255,255,0.2); color:#fff; border:none; border-radius:50%; width:44px; height:44px; font-size:20px;}
+  .viewer .nav{position:absolute; top:50%; transform:translateY(-50%); background:rgba(255,255,255,0.15); color:#fff; border:none; border-radius:50%; width:44px; height:44px; font-size:22px;}
+  .viewer .prev{left:10px;} .viewer .next{right:10px;}
+  .viewer .loading{position:absolute; bottom:calc(20px + env(safe-area-inset-bottom)); color:#fff; font-size:13px; opacity:.8;}
+
+  .toast{position:fixed; left:50%; bottom:calc(96px + env(safe-area-inset-bottom)); transform:translateX(-50%); background:var(--ink); color:#fff; padding:11px 18px; border-radius:14px; font-size:14px; font-weight:600; z-index:120; opacity:0; transition:opacity .2s; pointer-events:none; max-width:90%; text-align:center;}
+  .toast.show{opacity:1;}
+  .saving{position:fixed; inset:0; z-index:110; background:rgba(255,255,255,0.7); display:none; align-items:center; justify-content:center; font-family:'Space Grotesk'; font-weight:700; color:var(--pitch-dark); font-size:16px;}
+  .saving.active{display:flex;}
+</style>
+</head>
+<body>
+
+<div class="quem-overlay" id="quemOverlay">
+  <h2>Quem é você?</h2>
+  <button onclick="definirUsuario('Ronaldo')">Ronaldo</button>
+  <button onclick="definirUsuario('Iasmin')">Iasmin</button>
+</div>
+
+<header class="top">
+  <div class="row">
+    <div class="left">
+      <a class="back" href="index.html">←</a>
+      <div>
+        <h1>BSA Diário</h1>
+        <div class="sub" id="headerSub">O que foi feito no dia</div>
+      </div>
+    </div>
+    <button class="hdr-btn" id="btnHoje" onclick="irHoje()">Hoje</button>
+  </div>
+  <div class="daynav">
+    <button id="btnPrev" onclick="mudarDia(-1)">‹</button>
+    <div class="mid">
+      <div class="d1" id="dia1">—</div>
+      <div class="d2" id="dia2">toque pra escolher a data</div>
+      <input type="date" id="pickDia" onchange="if(this.value){ setDia(this.value); }">
+    </div>
+    <button id="btnNext" onclick="mudarDia(1)">›</button>
+  </div>
+</header>
+
+<main>
+  <div class="sec-title">👥 Presença do dia</div>
+  <div class="card" id="presencaBox"><div class="pres-none">Carregando...</div></div>
+
+  <div class="sec-title">📝 O que foi realizado</div>
+  <div id="entradasBox"></div>
+
+  <div class="sec-title" id="tarefasTitle" style="display:none;">✅ Tarefas concluídas no dia</div>
+  <div class="card" id="tarefasBox" style="display:none;"></div>
+</main>
+
+<div class="fab-bar">
+  <button class="btn btn-primary" onclick="abrirNovo(false)">＋ Registrar o que fiz</button>
+  <button class="btn btn-whats" onclick="enviarWhats()">💬</button>
+</div>
+
+<!-- Modal novo/editar -->
+<div class="modal-bg" id="modalForm" onclick="if(event.target===this) fecharForm()">
+  <div class="modal">
+    <h2 id="formTitulo">O que você realizou?</h2>
+
+    <div class="txt-wrap">
+      <textarea id="fTexto" placeholder="Ex: Treinei finalização com a turma das 18h, pintei o equipamento novo, conversei com o pai do Pedro..."></textarea>
+    </div>
+    <button class="mic-btn" id="micBtn" onclick="toggleMic()">🎤 Falar em vez de digitar</button>
+    <div class="interim" id="interim"></div>
+
+    <label>Fotos (até 4)</label>
+    <div class="ph-grid" id="phGrid"></div>
+    <div class="ph-hint">Pode tirar na hora ou escolher da galeria.</div>
+    <input type="file" id="fileInput" accept="image/*" multiple style="display:none" onchange="adicionarFotos(this.files); this.value='';">
+
+    <label>Unidade</label>
+    <div class="chip-row" id="fUnidade">
+      <div class="chip" data-v="Carlos Prates" onclick="selUnidade(this)">Carlos Prates</div>
+      <div class="chip" data-v="Estoril" onclick="selUnidade(this)">Estoril</div>
+      <div class="chip" data-v="" onclick="selUnidade(this)">Geral / outro</div>
+    </div>
+
+    <label>Dia em que foi feito</label>
+    <input type="date" id="fData">
+
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="btnExcluir" style="display:none; flex:0 0 auto;" onclick="excluirEntrada()">🗑</button>
+      <button class="btn btn-ghost" onclick="fecharForm()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarEntrada()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="viewer" id="viewer" onclick="if(event.target===this) fecharViewer()">
+  <img id="viewerImg" alt="">
+  <button class="nav prev" id="vPrev" onclick="navViewer(-1)">‹</button>
+  <button class="nav next" id="vNext" onclick="navViewer(1)">›</button>
+  <button class="close" onclick="fecharViewer()">✕</button>
+  <div class="loading" id="viewerLoading"></div>
+</div>
+
+<div class="saving" id="saving">Salvando...</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script>
+/* ============ CONFIG ============ */
+const firebaseConfig = {
+  apiKey: "AIzaSyDmM2m_QnEeRflAKCyb11TzOrZM7iVgLCA",
+  authDomain: "bsa-app-493c3.firebaseapp.com",
+  projectId: "bsa-app-493c3",
+  storageBucket: "bsa-app-493c3.firebasestorage.app",
+  messagingSenderId: "455452879388",
+  appId: "1:455452879388:web:7135d93c116b2fe7cfcdd9"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+db.enablePersistence({synchronizeTabs:true}).catch(()=>{});
+firebase.auth().signInAnonymously().catch(()=>{ toast('Sem conexão — o que você salvar sobe quando a internet voltar'); });
+
+const MAX_FOTOS = 4;
+const DIAS = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
+const MESES = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+
+let usuario = '';
+try{ usuario = localStorage.getItem('bsaTarefasUsuario') || ''; }catch(e){}
+let diaAtual = hojeISO();
+let entradas = [];      // diario do dia selecionado
+let tarefas = [];       // cache de tarefas (para a ponte)
+let presencas = [];     // presenças do dia selecionado
+let unsubDiario = null, unsubPres = null;
+
+/* ============ UTIL ============ */
+function isoDe(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function hojeISO(){ return isoDe(new Date()); }
+function dataDeISO(iso){ const [y,m,d] = iso.split('-').map(Number); return new Date(y, m-1, d); }
+function esc(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'), 2600); }
+function tsParaDate(ts){ if(!ts) return null; if(ts.toDate) return ts.toDate(); if(typeof ts==='number') return new Date(ts); return null; }
+function horaDe(d){ return d ? String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') : ''; }
+function rotuloDia(iso){
+  const d = dataDeISO(iso);
+  const hoje = hojeISO();
+  const ontem = isoDe(new Date(Date.now() - 86400000));
+  const base = d.getDate() + ' ' + MESES[d.getMonth()];
+  if(iso===hoje) return {a:'Hoje', b: DIAS[d.getDay()] + ', ' + base};
+  if(iso===ontem) return {a:'Ontem', b: DIAS[d.getDay()] + ', ' + base};
+  return {a: DIAS[d.getDay()].charAt(0).toUpperCase() + DIAS[d.getDay()].slice(1), b: base + ' ' + d.getFullYear()};
+}
+
+/* ============ QUEM ============ */
+function definirUsuario(n){
+  usuario = n;
+  try{ localStorage.setItem('bsaTarefasUsuario', n); }catch(e){}
+  document.getElementById('quemOverlay').classList.remove('active');
+  document.getElementById('headerSub').textContent = 'Você: ' + n;
+  if(abrirAposQuem){ abrirAposQuem=false; abrirNovo(true); }
+}
+let abrirAposQuem = false;
+if(!usuario) document.getElementById('quemOverlay').classList.add('active');
+else document.getElementById('headerSub').textContent = 'Você: ' + usuario;
+
+/* ============ NAVEGAÇÃO DE DIA ============ */
+function setDia(iso){
+  if(iso > hojeISO()) iso = hojeISO();
+  diaAtual = iso;
+  const r = rotuloDia(iso);
+  document.getElementById('dia1').textContent = r.a;
+  document.getElementById('dia2').textContent = r.b;
+  document.getElementById('pickDia').value = iso;
+  document.getElementById('pickDia').max = hojeISO();
+  document.getElementById('btnNext').disabled = (iso >= hojeISO());
+  document.getElementById('btnHoje').style.visibility = (iso === hojeISO()) ? 'hidden' : 'visible';
+  escutarDia();
+}
+function mudarDia(delta){ const d = dataDeISO(diaAtual); d.setDate(d.getDate()+delta); setDia(isoDe(d)); }
+function irHoje(){ setDia(hojeISO()); }
+
+/* ============ DADOS ============ */
+function escutarDia(){
+  if(unsubDiario) unsubDiario();
+  if(unsubPres) unsubPres();
+  entradas = []; presencas = [];
+  document.getElementById('entradasBox').innerHTML = '<div class="empty">Carregando...</div>';
+  document.getElementById('presencaBox').innerHTML = '<div class="pres-none">Carregando...</div>';
+
+  unsubDiario = db.collection('diario').where('data','==',diaAtual).onSnapshot(snap=>{
+    entradas = [];
+    snap.forEach(doc=> entradas.push(Object.assign({_id:doc.id}, doc.data())));
+    entradas.sort((a,b)=> (a.criadoMs||0) - (b.criadoMs||0));
+    renderEntradas();
+  }, ()=>{ renderEntradas(); });
+
+  unsubPres = db.collection('presencas').where('data','==',diaAtual).onSnapshot(snap=>{
+    presencas = [];
+    snap.forEach(doc=> presencas.push(doc.data()));
+    renderPresenca();
+  }, ()=>{ renderPresenca(); });
+
+  renderTarefas();
+}
+
+// ponte com o Tarefas: tarefas concluídas no dia
+db.collection('tarefas').orderBy('criadoEm','desc').limit(400).onSnapshot(snap=>{
+  tarefas = [];
+  snap.forEach(doc=> tarefas.push(doc.data()));
+  renderTarefas();
+}, ()=>{});
+
+/* ============ RENDER ============ */
+function renderPresenca(){
+  const box = document.getElementById('presencaBox');
+  if(!presencas.length){ box.innerHTML = '<div class="pres-none">Nenhuma presença registrada neste dia.</div>'; return; }
+  const porUnidade = {};
+  presencas.forEach(p=>{
+    const u = p.unidadeCheckin || p.unidade || 'Sem unidade';
+    if(!porUnidade[u]) porUnidade[u] = {total:0, turmas:{}};
+    porUnidade[u].total++;
+    const h = (p.hora || '').slice(0,2);
+    if(h) porUnidade[u].turmas[h+'h'] = (porUnidade[u].turmas[h+'h']||0) + 1;
+  });
+  box.innerHTML = '<div class="pres-row">' + Object.keys(porUnidade).sort().map(u=>{
+    const info = porUnidade[u];
+    return '<div class="pres-chip"><div class="n">' + info.total + '</div><div class="l">alunos · ' + esc(u) + '</div></div>';
+  }).join('') + '</div>';
+}
+
+function renderEntradas(){
+  const box = document.getElementById('entradasBox');
+  if(!entradas.length){
+    box.innerHTML = '<div class="card empty"><div class="big">📓</div>Nada registrado neste dia ainda.<br>Toque em <b>＋ Registrar o que fiz</b>.</div>';
+    return;
+  }
+  box.innerHTML = entradas.map(e=>{
+    const d = tsParaDate(e.criadoEm) || (e.criadoMs ? new Date(e.criadoMs) : null);
+    const thumbs = e.thumbs || [];
+    const meta = [];
+    if(d) meta.push(horaDe(d));
+    if(e.editadoMs) meta.push('editado');
+    const quem = e.autor || '?';
+    return '<div class="card entry">' +
+      '<div class="head">' +
+        '<div class="avatar av-' + esc(quem) + '">' + esc(quem.charAt(0)) + '</div>' +
+        '<div><div class="who">' + esc(quem) + (e.unidade ? '<span class="pill">' + esc(e.unidade) + '</span>' : '') + '</div>' +
+        '<div class="meta">' + meta.join(' · ') + '</div></div>' +
+        (e.autor === usuario ? '<button class="more" onclick="abrirEdicao(\'' + e._id + '\')">✎</button>' : '') +
+      '</div>' +
+      (e.texto ? '<div class="txt">' + esc(e.texto) + '</div>' : '') +
+      (thumbs.length ? '<div class="thumbs' + (thumbs.length===1?' single':'') + '">' + thumbs.map((t,i)=>
+        '<img src="' + t + '" onclick="abrirViewer(\'' + e._id + '\',' + i + ')" alt="">').join('') + '</div>' : '') +
+    '</div>';
+  }).join('');
+}
+
+function tarefasDoDia(){
+  return tarefas.filter(t=>{ const d = t.concluido && tsParaDate(t.concluidoEm); return d && isoDe(d) === diaAtual; })
+    .sort((a,b)=> tsParaDate(a.concluidoEm) - tsParaDate(b.concluidoEm));
+}
+function renderTarefas(){
+  const lista = tarefasDoDia();
+  const show = lista.length > 0;
+  document.getElementById('tarefasTitle').style.display = show ? 'block' : 'none';
+  const box = document.getElementById('tarefasBox');
+  box.style.display = show ? 'block' : 'none';
+  box.innerHTML = lista.map(t=>
+    '<div class="done-item"><div class="ck">✓</div><div><div class="t">' + esc(t.texto) + '</div>' +
+    '<div class="s">' + esc(t.concluidoPor || '?') + ' · ' + horaDe(tsParaDate(t.concluidoEm)) + (t.unidade ? ' · ' + esc(t.unidade) : '') + '</div></div></div>'
+  ).join('');
+}
+
+/* ============ FORMULÁRIO ============ */
+let editandoId = null;
+let fotosForm = []; // {thumb, full (base64) | null, fotoId (existente)}
+let unidadeSel = '';
+
+function abrirNovo(comMic){
+  if(!usuario){ abrirAposQuem = true; document.getElementById('quemOverlay').classList.add('active'); return; }
+  editandoId = null; fotosForm = []; unidadeSel = '';
+  document.getElementById('formTitulo').textContent = 'O que você realizou?';
+  document.getElementById('fTexto').value = '';
+  document.getElementById('fData').value = diaAtual;
+  document.getElementById('fData').max = hojeISO();
+  document.getElementById('btnExcluir').style.display = 'none';
+  marcarUnidade('');
+  renderFotosForm();
+  document.getElementById('modalForm').classList.add('active');
+  if(comMic) setTimeout(()=>{ if(!micOn) toggleMic(); }, 350);
+}
+
+function abrirEdicao(id){
+  const e = entradas.find(x=>x._id===id); if(!e) return;
+  editandoId = id;
+  document.getElementById('formTitulo').textContent = 'Editar registro';
+  document.getElementById('fTexto').value = e.texto || '';
+  document.getElementById('fData').value = e.data;
+  document.getElementById('fData').max = hojeISO();
+  document.getElementById('btnExcluir').style.display = 'block';
+  fotosForm = (e.thumbs||[]).map((t,i)=>({thumb:t, full:null, fotoId:(e.fotoIds||[])[i]||null}));
+  marcarUnidade(e.unidade || '');
+  renderFotosForm();
+  document.getElementById('modalForm').classList.add('active');
+}
+
+function fecharForm(){
+  pararMic();
+  document.getElementById('modalForm').classList.remove('active');
+}
+
+function selUnidade(el){ marcarUnidade(el.dataset.v); }
+function marcarUnidade(v){
+  unidadeSel = v;
+  document.querySelectorAll('#fUnidade .chip').forEach(c=> c.classList.toggle('sel', c.dataset.v === v));
+}
+
+function renderFotosForm(){
+  const g = document.getElementById('phGrid');
+  let html = fotosForm.map((f,i)=> '<div class="ph"><img src="' + f.thumb + '" alt=""><button class="x" onclick="removerFoto(' + i + ')">✕</button></div>').join('');
+  if(fotosForm.length < MAX_FOTOS) html += '<button class="ph-add" onclick="document.getElementById(\'fileInput\').click()">📷<span>Adicionar</span></button>';
+  g.innerHTML = html;
+}
+function removerFoto(i){ fotosForm.splice(i,1); renderFotosForm(); }
+
+async function adicionarFotos(files){
+  const lista = Array.from(files||[]);
+  const espaco = MAX_FOTOS - fotosForm.length;
+  if(lista.length > espaco) toast('Máximo de ' + MAX_FOTOS + ' fotos por registro');
+  for(const file of lista.slice(0, espaco)){
+    try{
+      const img = await carregarImagem(file);
+      const full = reduzir(img, 1400, 0.75, 380000);
+      const thumb = reduzir(img, 360, 0.6, 40000);
+      fotosForm.push({thumb, full, fotoId:null});
+      renderFotosForm();
+    }catch(e){ toast('Não consegui abrir essa foto'); }
+  }
+}
+
+function carregarImagem(file){
+  return new Promise((res, rej)=>{
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = ()=>{ URL.revokeObjectURL(url); res(img); };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); rej(); };
+    img.src = url;
+  });
+}
+// reduz tamanho automaticamente (sem o usuário fazer nada) — mantém nítida na tela do celular
+function reduzir(img, maxLado, qualidade, maxChars){
+  let escala = Math.min(1, maxLado / Math.max(img.naturalWidth, img.naturalHeight));
+  let q = qualidade, out = '';
+  for(let tent=0; tent<6; tent++){
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth * escala);
+    c.height = Math.round(img.naturalHeight * escala);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    out = c.toDataURL('image/jpeg', q);
+    if(out.length <= maxChars) break;
+    if(q > 0.5) q -= 0.1; else escala *= 0.8;
+  }
+  return out;
+}
+
+async function salvarEntrada(){
+  pararMic();
+  const texto = document.getElementById('fTexto').value.trim();
+  const data = document.getElementById('fData').value || diaAtual;
+  if(!texto && !fotosForm.length){ toast('Escreva/fale algo ou adicione uma foto'); return; }
+  document.getElementById('saving').classList.add('active');
+  try{
+    const ref = editandoId ? db.collection('diario').doc(editandoId) : db.collection('diario').doc();
+    // fotos novas vão em documentos separados (pra lista do dia carregar leve)
+    const fotoIds = [];
+    const escritas = [];
+    fotosForm.forEach((f,i)=>{
+      if(f.fotoId){ fotoIds.push(f.fotoId); return; }
+      const fRef = db.collection('diarioFotos').doc();
+      fotoIds.push(fRef.id);
+      escritas.push(fRef.set({entradaId: ref.id, data, autor: usuario, foto: f.full, criadoMs: Date.now()}));
+    });
+    // fotos removidas na edição
+    if(editandoId){
+      const antiga = entradas.find(x=>x._id===editandoId);
+      (antiga && antiga.fotoIds || []).forEach(id=>{ if(!fotoIds.includes(id)) escritas.push(db.collection('diarioFotos').doc(id).delete()); });
+    }
+    const dados = {
+      data, texto, unidade: unidadeSel, autor: usuario,
+      thumbs: fotosForm.map(f=>f.thumb), fotoIds
+    };
+    if(editandoId){ dados.editadoMs = Date.now(); escritas.push(ref.update(dados)); }
+    else{
+      dados.criadoMs = Date.now();
+      dados.criadoEm = firebase.firestore.FieldValue.serverTimestamp();
+      escritas.push(ref.set(dados));
+    }
+    // não espera o servidor (offline salva local e sobe depois)
+    Promise.all(escritas).catch(()=>{});
+    await new Promise(r=>setTimeout(r, 250));
+    document.getElementById('modalForm').classList.remove('active');
+    if(navigator.vibrate) navigator.vibrate(80);
+    toast(navigator.onLine ? '✅ Registro salvo' : '✅ Salvo no celular — sobe quando a internet voltar');
+    if(data !== diaAtual) setDia(data);
+  }catch(e){
+    toast('Erro ao salvar: ' + (e.message||e));
+  }finally{
+    document.getElementById('saving').classList.remove('active');
+  }
+}
+
+function excluirEntrada(){
+  if(!editandoId) return;
+  if(!confirm('Excluir este registro?')) return;
+  const e = entradas.find(x=>x._id===editandoId);
+  (e && e.fotoIds || []).forEach(id=> db.collection('diarioFotos').doc(id).delete().catch(()=>{}));
+  db.collection('diario').doc(editandoId).delete().catch(()=>{});
+  fecharForm();
+  toast('Registro excluído');
+}
+
+/* ============ VOZ (ditado) ============ */
+let rec = null, micOn = false, textoBase = '';
+function toggleMic(){ micOn ? pararMic() : iniciarMic(); }
+function iniciarMic(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ toast('Use o microfone do teclado do iPhone pra ditar'); document.getElementById('fTexto').focus(); return; }
+  rec = new SR(); rec.lang = 'pt-BR'; rec.continuous = true; rec.interimResults = true;
+  textoBase = document.getElementById('fTexto').value;
+  micOn = true;
+  const b = document.getElementById('micBtn'); b.classList.add('on'); b.textContent = '⏹ Parar de ouvir';
+  rec.onresult = (ev)=>{
+    let interim = '';
+    for(let i=ev.resultIndex; i<ev.results.length; i++){
+      const r = ev.results[i];
+      if(r.isFinal){
+        let frase = r[0].transcript.trim();
+        if(!frase) continue;
+        frase = frase.charAt(0).toUpperCase() + frase.slice(1);
+        textoBase = (textoBase ? textoBase.replace(/\s+$/,'') + (/[.!?]$/.test(textoBase.trim()) ? ' ' : '. ') : '') + frase;
+        document.getElementById('fTexto').value = textoBase;
+        detectarUnidade(frase);
+      } else interim += r[0].transcript;
+    }
+    document.getElementById('interim').textContent = interim;
+  };
+  rec.onend = ()=>{ if(micOn){ try{ rec.start(); }catch(e){} } };
+  rec.onerror = (e)=>{ if(e.error==='not-allowed'){ toast('Microfone não autorizado'); pararMic(); } };
+  try{ rec.start(); }catch(e){}
+  if(navigator.vibrate) navigator.vibrate(40);
+}
+function pararMic(){
+  micOn = false;
+  if(rec){ try{ rec.stop(); }catch(e){} rec = null; }
+  const b = document.getElementById('micBtn'); b.classList.remove('on'); b.textContent = '🎤 Falar em vez de digitar';
+  document.getElementById('interim').textContent = '';
+}
+function detectarUnidade(frase){
+  if(unidadeSel) return;
+  const l = frase.toLowerCase();
+  if(/carlos prates|prates/.test(l)) marcarUnidade('Carlos Prates');
+  else if(/estoril/.test(l)) marcarUnidade('Estoril');
+}
+
+/* ============ VISUALIZADOR DE FOTO ============ */
+let vEntrada = null, vIdx = 0;
+function abrirViewer(id, i){
+  vEntrada = entradas.find(x=>x._id===id); if(!vEntrada) return;
+  vIdx = i;
+  document.getElementById('viewer').classList.add('active');
+  mostrarFotoViewer();
+}
+async function mostrarFotoViewer(){
+  const thumbs = vEntrada.thumbs || [];
+  const img = document.getElementById('viewerImg');
+  img.src = thumbs[vIdx];
+  document.getElementById('vPrev').style.display = thumbs.length>1 ? 'block':'none';
+  document.getElementById('vNext').style.display = thumbs.length>1 ? 'block':'none';
+  const fid = (vEntrada.fotoIds||[])[vIdx];
+  if(!fid) return;
+  const idxPedido = vIdx;
+  document.getElementById('viewerLoading').textContent = 'Carregando foto em boa qualidade...';
+  try{
+    const doc = await db.collection('diarioFotos').doc(fid).get();
+    if(idxPedido === vIdx && doc.exists && doc.data().foto) img.src = doc.data().foto;
+    document.getElementById('viewerLoading').textContent = '';
+  }catch(e){
+    document.getElementById('viewerLoading').textContent = 'Sem internet — mostrando versão menor';
+  }
+}
+function navViewer(d){ const n=(vEntrada.thumbs||[]).length; vIdx=(vIdx+d+n)%n; mostrarFotoViewer(); }
+function fecharViewer(){ document.getElementById('viewer').classList.remove('active'); }
+
+/* ============ WHATSAPP ============ */
+function enviarWhats(){
+  const r = rotuloDia(diaAtual);
+  const d = dataDeISO(diaAtual);
+  let msg = '📓 *Diário BSA — ' + DIAS[d.getDay()] + ', ' + d.getDate() + '/' + String(d.getMonth()+1).padStart(2,'0') + '*\n';
+  if(presencas.length){
+    const pu = {};
+    presencas.forEach(p=>{ const u=p.unidadeCheckin||p.unidade||'Sem unidade'; pu[u]=(pu[u]||0)+1; });
+    msg += '\n👥 *Presença:* ' + Object.keys(pu).map(u=> u + ' ' + pu[u]).join(' · ') + '\n';
+  }
+  if(entradas.length){
+    msg += '\n📝 *Realizado:*\n';
+    entradas.forEach(e=>{
+      msg += '• *' + (e.autor||'?') + '*' + (e.unidade ? ' (' + e.unidade + ')' : '') + ': ' + (e.texto || '(foto)') +
+        ((e.thumbs||[]).length ? ' 📷' + e.thumbs.length : '') + '\n';
+    });
+  }
+  const td = tarefasDoDia();
+  if(td.length){
+    msg += '\n✅ *Tarefas concluídas:*\n';
+    td.forEach(t=> msg += '• ' + t.texto + ' (' + (t.concluidoPor||'?') + ')\n');
+  }
+  if(!presencas.length && !entradas.length && !td.length){ toast('Nada registrado neste dia'); return; }
+  if((entradas||[]).some(e=>(e.thumbs||[]).length)) msg += '\nFotos no app BSA Diário 📷';
+  window.location.href = 'https://wa.me/?text=' + encodeURIComponent(msg);
+}
+
+/* ============ INÍCIO ============ */
+setDia(hojeISO());
+// atalho de tela inicial: bsa-diario.html?modo=novo abre direto o registro com o microfone ligado
+if(new URLSearchParams(location.search).get('modo')==='novo') setTimeout(()=>abrirNovo(true), 400);
+// voltando pro app depois de um tempo (ex: virou o dia), atualiza
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && diaAtual > hojeISO()) setDia(hojeISO()); });
+
+if('serviceWorker' in navigator){ window.addEventListener('load', ()=> navigator.serviceWorker.register('sw.js').catch(()=>{})); }
+</script>
+</body>
+</html>
