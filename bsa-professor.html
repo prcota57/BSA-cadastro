@@ -1,0 +1,2968 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<title>BSA Professor</title>
+<link rel="apple-touch-icon" href="icon-professor.png">
+<link rel="icon" href="icon-professor.png">
+<meta name="apple-mobile-web-app-title" content="BSA Professor">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&family=Barlow+Condensed:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F6F8F4; --surface:#FFFFFF; --pitch:#0F5C3D; --pitch-dark:#0B4530;
+    --pitch-soft:#E4EFE8; --gold:#FFC800; --gold-soft:#FFF3CC;
+    --coral:#FF5A36; --coral-soft:#FFE4DC; --ink:#142B20; --ink-soft:#5C7268;
+    --line:#DCE5DD; --radius:18px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif; height:100%;}
+  body{padding-bottom:calc(30px + env(safe-area-inset-bottom)); padding-top:env(safe-area-inset-top);}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+
+  header.top{
+    position:sticky; top:0; z-index:20; background:var(--pitch); color:#fff;
+    padding:18px 20px 16px; border-radius:0 0 22px 22px; box-shadow:0 6px 18px rgba(15,92,61,0.18);
+  }
+  header.top .row{display:flex; align-items:center; justify-content:space-between;}
+  header.top h1{font-family:'Space Grotesk',sans-serif; font-size:20px; font-weight:700; margin:0;}
+  header.top .sub{font-size:12.5px; opacity:0.85; margin-top:2px;}
+  .badge-count{background:var(--gold); color:var(--pitch-dark); font-family:'Space Grotesk'; font-weight:700; font-size:13px; padding:5px 11px; border-radius:20px;}
+
+  main{padding:16px 16px 20px;}
+
+  .panel{background:var(--surface); border-radius:var(--radius); padding:16px; margin-bottom:14px; border:1px solid var(--line); box-shadow:0 2px 8px rgba(20,43,32,0.05);}
+  .panel h2{font-family:'Space Grotesk'; font-size:16px; margin:0 0 12px;}
+
+  .unit-row{display:flex; gap:10px; margin-bottom:14px;}
+  .unit-btn{
+    flex:1; padding:14px 6px; border-radius:14px; border:1.5px solid var(--line); background:var(--surface);
+    color:var(--ink-soft); font-family:'Space Grotesk'; font-weight:600; font-size:14px; cursor:pointer; text-align:center;
+  }
+  .unit-btn.active{background:var(--pitch); color:#fff; border-color:var(--pitch);}
+  .unit-btn .count{display:block; font-size:11px; font-weight:500; margin-top:2px; opacity:0.8;}
+
+  .btn{border:none; border-radius:14px; padding:15px 18px; font-family:'Space Grotesk'; font-weight:600; font-size:15.5px; cursor:pointer; text-align:center; width:100%;}
+  .btn-primary{background:var(--pitch); color:#fff;}
+  .btn-primary:disabled{background:var(--line); color:var(--ink-soft);}
+  .btn-outline{background:transparent; border:1.5px solid var(--coral); color:#B23A20;}
+  .btn-outline-pitch{background:transparent; border:1.5px solid var(--pitch); color:var(--pitch);}
+  .btn:disabled{opacity:0.5; cursor:default;}
+
+  .loadmsg{display:flex; align-items:center; gap:10px; font-size:13.5px; color:var(--ink-soft);}
+  .spinner{width:16px; height:16px; border:2.5px solid var(--pitch-soft); border-top-color:var(--pitch); border-radius:50%; animation:spin 0.8s linear infinite; flex:0 0 auto;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .presenca-item{display:flex; align-items:center; gap:12px; padding:10px 4px; border-bottom:1px solid var(--line);}
+  .presenca-item:last-child{border-bottom:none;}
+  .presenca-item .avatar{width:42px; height:42px; border-radius:50%; object-fit:cover; border:2px solid var(--gold); background:var(--pitch-soft); flex:0 0 auto;}
+  .presenca-item .info{flex:1; min-width:0;}
+  .presenca-item .name{font-weight:600; font-size:14px;}
+  .presenca-item .time{font-size:11.5px; color:var(--ink-soft);}
+  .presenca-item .btn-excluir{flex:0 0 auto; background:none; border:none; font-size:19px; padding:6px; cursor:pointer; opacity:.55; line-height:1;}
+  .presenca-item .btn-excluir:active{opacity:1;}
+  .history-datefilter{display:flex; align-items:center; gap:8px; margin-bottom:10px;}
+  .history-datefilter input[type="date"]{font-family:'Inter',sans-serif; font-size:13px; padding:7px 9px; border-radius:8px; border:1px solid var(--line); background:#fff;}
+  .history-datefilter button{font-size:12.5px; padding:7px 10px; border-radius:8px; border:1px solid var(--line); background:#fff; cursor:pointer;}
+  .empty{text-align:center; padding:30px 20px; color:var(--ink-soft); font-size:13.5px;}
+
+  /* Camera overlay */
+  .camera-overlay{position:fixed; inset:0; background:#000; z-index:100; display:none; flex-direction:column;}
+  .camera-overlay.active{display:flex;}
+  .camera-stage{position:relative; flex:1; overflow:hidden;}
+  .camera-stage video{width:100%; height:100%; object-fit:cover;}
+  .camera-stage video.mirror-video{ transform:scaleX(-1); }
+  .camera-stage canvas{position:absolute; top:0; left:0; width:100%; height:100%;}
+  .camera-topbar{
+    position:absolute; top:0; left:0; right:0; padding:calc(14px + env(safe-area-inset-top)) 16px 14px;
+    background:linear-gradient(to bottom, rgba(0,0,0,0.55), transparent); z-index:5;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .camera-topbar .unit-label{color:#fff; font-family:'Space Grotesk'; font-weight:700; font-size:15px;}
+  .camera-topbar .unit-label small{display:block; font-family:'Inter'; font-weight:400; font-size:11px; opacity:0.75;}
+  .camera-close{
+    background:rgba(255,255,255,0.15); border:none; color:#fff; width:38px; height:38px; border-radius:50%;
+    font-size:18px; display:flex; align-items:center; justify-content:center;
+  }
+  .recognition-card{
+    position:absolute; bottom:0; left:0; right:0; z-index:6;
+    background:rgba(11,69,48,0.94); backdrop-filter:blur(6px);
+    padding:18px 20px calc(18px + env(safe-area-inset-bottom));
+    display:flex; align-items:center; gap:14px;
+    transform:translateY(100%); transition:transform 0.25s ease-out;
+  }
+  .recognition-card.show{transform:translateY(0);}
+  .alerta-inativo-overlay{
+    position:absolute; inset:0; z-index:9; display:none; flex-direction:column; align-items:center; justify-content:center;
+    background:linear-gradient(180deg, rgba(160,20,10,0.97), rgba(110,8,4,0.98)); padding:24px; text-align:center;
+    animation:alertaInativoPisca 0.9s ease-in-out infinite;
+  }
+  .alerta-inativo-overlay.show{display:flex;}
+  @keyframes alertaInativoPisca{ 0%,100%{background-color:rgba(160,20,10,0.97);} 50%{background-color:rgba(90,5,2,0.99);} }
+  .alerta-inativo-icone{font-size:72px; line-height:1; margin-bottom:10px;}
+  .alerta-inativo-titulo{color:#fff; font-family:'Space Grotesk'; font-weight:800; font-size:clamp(28px,9vw,40px); letter-spacing:.02em;}
+  .alerta-inativo-nome{color:#fff; font-family:'Space Grotesk'; font-weight:700; font-size:20px; margin-top:8px;}
+  .alerta-inativo-sub{color:#ffe0da; font-size:15px; margin-top:6px; font-weight:600;}
+  .alerta-inativo-fechar{
+    margin-top:26px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px;
+    border:none; border-radius:14px; padding:14px 26px; cursor:pointer; background:#fff; color:#8c1a10;
+  }
+  .recognition-card img{width:120px; height:120px; border-radius:50%; object-fit:cover; border:3px solid var(--gold); flex:0 0 auto;}
+  .recognition-card .name{color:#fff; font-family:'Space Grotesk'; font-weight:700; font-size:28px; line-height:1.15;}
+  .recognition-card .status{color:var(--gold); font-size:14.5px; margin-top:3px; font-weight:600;}
+  #btnRecErrado{
+    display:none; flex:0 0 auto; width:44px; height:44px; border-radius:50%; border:none;
+    background:rgba(217,85,62,0.18); color:#ff8a70; font-size:18px; align-items:center; justify-content:center;
+  }
+  .scan-hint{
+    position:absolute; bottom:20px; left:0; right:0; text-align:center; color:rgba(255,255,255,0.65);
+    font-size:12.5px; z-index:4;
+  }
+  .today-count-chip{
+    position:absolute; top:calc(14px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%);
+    background:var(--gold); color:var(--pitch-dark); font-family:'Space Grotesk'; font-weight:700;
+    font-size:12.5px; padding:5px 13px; border-radius:20px; z-index:5;
+  }
+
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:var(--pitch-dark); color:#fff; padding:11px 20px; border-radius:30px;
+    font-size:13.5px; font-weight:600; z-index:200; opacity:0; transition:opacity 0.25s;
+    box-shadow:0 6px 16px rgba(0,0,0,0.2); pointer-events:none; white-space:nowrap; max-width:90vw;
+  }
+  .toast.show{opacity:1;}
+
+  .setup-banner{margin:0 0 14px; padding:14px; background:var(--coral-soft); border-radius:14px; color:#8A2E19; font-size:13px; line-height:1.5;}
+  .setup-banner b{display:block; margin-bottom:4px; font-family:'Space Grotesk';}
+
+  .btn-back{
+    display:flex; align-items:center; justify-content:center;
+    width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,0.15);
+    color:#fff; font-size:18px; text-decoration:none; flex:0 0 auto; margin-right:10px;
+  }
+  header.top .titlewrap{display:flex; align-items:center;}
+
+  .repo-row{display:flex; align-items:center; gap:10px; padding:10px 4px; border-bottom:1px solid var(--line);}
+  .repo-row:last-child{border-bottom:none;}
+  .repo-row .info{flex:1; min-width:0;}
+  .repo-row .info .n{font-weight:600; font-size:14px;}
+  .repo-row .info .m{font-size:11.5px; color:var(--ink-soft); margin-top:2px;}
+  .repo-row .badge-repo, .badge-repo{
+    background:var(--gold-soft); color:#8A6A00; font-size:11px; font-weight:700;
+    padding:4px 9px; border-radius:10px; font-family:'IBM Plex Mono'; flex:0 0 auto;
+  }
+  .badge-alerta{
+    background:var(--coral-soft); color:#B23A20; font-size:11px; font-weight:700;
+    padding:4px 9px; border-radius:10px; font-family:'IBM Plex Mono'; flex:0 0 auto;
+  }
+  .falt-row{
+    display:flex; align-items:center; gap:10px; padding:10px 4px; border-bottom:1px solid var(--line);
+  }
+  .falt-row:last-child{border-bottom:none;}
+  .falt-row .info{flex:1; min-width:0;}
+  .falt-row .info .n{font-weight:600; font-size:14px;}
+  .falt-row .info .m{font-size:11.5px; color:var(--ink-soft);}
+  .falt-row .falt-wpp{
+    background:#25D366; color:#fff; border:none; border-radius:20px; padding:8px 13px;
+    font-size:12px; font-weight:700; font-family:'Inter'; text-decoration:none; flex:0 0 auto;
+  }
+  .recognition-card .schedule{color:rgba(255,255,255,0.75); font-size:11.5px; margin-top:3px;}
+  .recognition-card .inadimplente-tag{color:#ff8a70; font-size:11px; font-weight:700; margin-top:5px;}
+  .repo-row .btn-cancel{
+    background:var(--coral-soft); color:#B23A20; border:none; border-radius:10px;
+    padding:6px 10px; font-size:11.5px; font-weight:700; flex:0 0 auto;
+  }
+
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(10,20,15,0.45); z-index:200; display:none;
+    align-items:flex-end; justify-content:center;
+  }
+  .modal-overlay.active{display:flex;}
+  .modal-sheet{
+    background:var(--bg); width:100%; max-width:520px; border-radius:24px 24px 0 0;
+    max-height:90vh; overflow-y:auto; padding:16px 20px calc(24px + env(safe-area-inset-bottom));
+  }
+  .modal-sheet h2{font-family:'Space Grotesk'; font-size:18px; margin:4px 0 16px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block; font-size:12.5px; font-weight:600; color:var(--ink-soft); margin-bottom:5px;}
+  .field input, .field select{
+    width:100%; border:1px solid var(--line); border-radius:12px; padding:11px 12px;
+    font-size:15px; font-family:'Inter'; background:var(--surface); color:var(--ink);
+  }
+  .manual-dias{display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; -webkit-overflow-scrolling:touch;}
+  .manual-dia{
+    flex:0 0 auto; border:1.5px solid var(--line); background:var(--surface); color:var(--ink);
+    border-radius:12px; padding:9px 13px; font-family:'Space Grotesk'; font-weight:600; font-size:14px;
+    line-height:1.15; text-align:center; cursor:pointer; min-width:62px;
+  }
+  .manual-dia small{display:block; font-family:'Inter'; font-weight:500; font-size:11px; color:var(--ink-soft);}
+  .manual-dia.active{background:var(--pitch); border-color:var(--pitch); color:#fff;}
+  .manual-dia.active small{color:rgba(255,255,255,0.8);}
+  .manual-retro-aviso{
+    margin-top:10px; background:var(--gold-soft); border:1px solid var(--gold); color:var(--ink);
+    border-radius:12px; padding:10px 12px; font-size:13.5px; font-weight:600;
+  }
+  .manual-ja{font-size:12px; font-weight:700; color:var(--pitch); white-space:nowrap;}
+  .presenca-item.ja-presente{opacity:.55;}
+  .modal-close-row{display:flex; justify-content:flex-end; margin-bottom:4px;}
+  .modal-close-btn{
+    border:none; background:var(--pitch-soft); color:var(--pitch-dark);
+    width:30px; height:30px; border-radius:50%; font-size:16px; font-weight:700; cursor:pointer;
+  }
+
+  .modal-overlay-center{
+    position:fixed; inset:0; background:rgba(10,20,15,0.6); z-index:250; display:none;
+    align-items:center; justify-content:center; padding:20px;
+  }
+  .modal-overlay-center.active{display:flex;}
+  .alert-sheet{
+    background:var(--bg); width:100%; max-width:420px; border-radius:20px;
+    padding:30px 22px 22px; text-align:center; border:3px solid #D64545;
+    box-shadow:0 12px 40px rgba(0,0,0,0.4);
+  }
+  .alert-sheet .alert-icon{font-size:52px; line-height:1; margin-bottom:12px;}
+  .alert-sheet h2{font-family:'Space Grotesk'; font-size:21px; margin:0 0 12px; color:#D64545;}
+  .alert-sheet p{font-size:15px; line-height:1.5; color:var(--ink); margin:0 0 22px;}
+  .alert-sheet .btn{width:100%;}
+
+  /* ===================== MODO QUIOSQUE ===================== */
+  :root{
+    --k-field-900:#0A1F16; --k-field-800:#0F2A1E; --k-line:#2A4636;
+    --k-gold:#D4AF37; --k-gold-soft:#E8C766; --k-paper:#F3EFE4; --k-paper-dim:#B9C4BA;
+    --k-warn:#E0A430; --k-warn-glow:rgba(224,164,48,0.35);
+    --k-ok:#4CBB6C; --k-ok-glow:rgba(76,187,108,0.35);
+    --k-fail:#D9553E; --k-fail-glow:rgba(217,85,62,0.35);
+  }
+  .kiosk-overlay{
+    position:fixed; inset:0; z-index:150; display:none; flex-direction:column; align-items:center; justify-content:center;
+    background:radial-gradient(120% 100% at 50% 0%, var(--k-field-800) 0%, var(--k-field-900) 65%);
+    overflow:hidden;
+  }
+  .kiosk-overlay.active{display:flex;}
+  .kiosk-overlay video{
+    position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0;
+  }
+  .kiosk-overlay video.mirror{ transform:scaleX(-1); }
+  .kiosk-scrim{
+    position:absolute; inset:0; z-index:1;
+    background:linear-gradient(180deg, rgba(10,31,22,.55) 0%, rgba(10,31,22,.25) 30%, rgba(10,31,22,.35) 70%, rgba(10,31,22,.65) 100%);
+  }
+  .kiosk-overlay::before{
+    content:''; position:absolute; inset:0; z-index:1;
+    background-image:
+      repeating-linear-gradient(0deg, transparent 0 78px, var(--k-line) 78px 79px),
+      repeating-linear-gradient(90deg, transparent 0 78px, var(--k-line) 78px 79px);
+    opacity:.12; pointer-events:none;
+  }
+  .kiosk-topbar{
+    position:absolute; top:0; left:0; right:0; z-index:5;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:calc(20px + env(safe-area-inset-top)) 26px 0 26px;
+  }  .kiosk-brand{
+    display:flex; align-items:center; gap:9px;
+    font-family:'Barlow Condensed', sans-serif; font-weight:700; letter-spacing:.06em; font-size:18px; color:var(--k-paper);
+  }
+  .kiosk-brand .kiosk-dot{width:7px;height:7px;border-radius:50%; background:var(--k-gold);}
+  .kiosk-unit-pill{
+    font-size:11.5px; font-weight:700; letter-spacing:.07em; text-transform:uppercase;
+    color:var(--k-field-900); background:var(--k-gold-soft);
+    padding:6px 13px; border-radius:100px;
+  }
+  .kiosk-clock{
+    font-family:'Barlow Condensed', sans-serif; font-size:18px; font-weight:600;
+    color:var(--k-paper-dim); letter-spacing:.04em;
+  }
+  .kiosk-screen{
+    position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:0 24px; opacity:0; pointer-events:none; transition:opacity .3s ease; z-index:2;
+  }
+  .kiosk-screen.active{ opacity:1; pointer-events:auto; }
+
+  .kiosk-scan-frame{ width:min(58vw,240px); height:min(58vw,240px); position:relative; margin-bottom:30px; }
+  .kiosk-scan-frame .corner{ position:absolute; width:34px; height:34px; border-color:var(--k-gold-soft); }
+  .kiosk-scan-frame .c1{ top:0; left:0; border-top:3px solid; border-left:3px solid; border-radius:14px 0 0 0;}
+  .kiosk-scan-frame .c2{ top:0; right:0; border-top:3px solid; border-right:3px solid; border-radius:0 14px 0 0;}
+  .kiosk-scan-frame .c3{ bottom:0; left:0; border-bottom:3px solid; border-left:3px solid; border-radius:0 0 0 14px;}
+  .kiosk-scan-frame .c4{ bottom:0; right:0; border-bottom:3px solid; border-right:3px solid; border-radius:0 0 14px 0;}
+  .kiosk-scan-frame .kiosk-face-icon{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; opacity:.5; }
+  .kiosk-scan-frame .kiosk-sweep{
+    position:absolute; left:8%; right:8%; height:2px;
+    background:linear-gradient(90deg, transparent, var(--k-gold-soft), transparent);
+    animation:kioskSweep 2.4s ease-in-out infinite;
+  }
+  @keyframes kioskSweep{ 0%{top:12%;} 50%{top:88%;} 100%{top:12%;} }
+
+  .kiosk-headline{
+    font-family:'Barlow Condensed', sans-serif; font-weight:700;
+    font-size:clamp(28px,6vw,42px); color:var(--k-paper); letter-spacing:.01em; text-align:center; margin:0 0 6px 0;
+  }
+  .kiosk-subline{ color:var(--k-paper-dim); font-size:15px; text-align:center; margin:0; }
+  .kiosk-warn-headline{ color:var(--k-warn); }
+  .kiosk-fail-headline{ color:var(--k-fail); }
+
+  .kiosk-warn-ring{
+    width:min(58vw,230px); height:min(58vw,230px); border-radius:50%; border:3px solid var(--k-warn);
+    display:flex; align-items:center; justify-content:center; margin-bottom:28px;
+    box-shadow:0 0 0 14px var(--k-warn-glow); animation:kioskPulseWarn 1.1s ease-in-out infinite;
+  }
+  @keyframes kioskPulseWarn{ 0%,100%{transform:scale(1);} 50%{transform:scale(1.035);} }
+  .kiosk-warn-icon{ font-size:60px; }
+
+  .kiosk-fail-ring{
+    width:min(58vw,220px); height:min(58vw,220px); border-radius:50%; border:3px solid var(--k-fail);
+    display:flex; align-items:center; justify-content:center; margin-bottom:24px;
+    box-shadow:0 0 0 14px var(--k-fail-glow);
+  }
+  .kiosk-fail-icon{ font-size:56px; }
+
+  #kioskScreenInativo.active{
+    background:linear-gradient(180deg, rgba(160,20,10,.97), rgba(90,5,2,.99));
+    animation:kioskInativoPisca 0.9s ease-in-out infinite;
+  }
+  @keyframes kioskInativoPisca{ 0%,100%{background-color:rgba(160,20,10,.97);} 50%{background-color:rgba(90,5,2,.99);} }
+  .kiosk-inativo-ring{
+    width:min(58vw,230px); height:min(58vw,230px); border-radius:50%; border:4px solid #fff;
+    display:flex; align-items:center; justify-content:center; margin-bottom:24px;
+    background:rgba(255,255,255,.08); box-shadow:0 0 0 14px rgba(255,255,255,.18);
+  }
+  .kiosk-inativo-icon{ font-size:64px; }
+  .kiosk-inativo-headline{ color:#fff; }
+  .kiosk-inativo-sub{ color:#ffe0da !important; font-weight:600; }
+  .kiosk-fail-actions{ display:flex; flex-direction:column; gap:10px; margin-top:22px; width:100%; max-width:340px; }
+  .kiosk-fail-grid{
+    display:flex; flex-wrap:wrap; justify-content:center; gap:10px;
+    max-width:min(90vw,480px); margin:12px 0 6px 0; max-height:26vh; overflow-y:auto;
+  }
+  .kiosk-fail-grid .foto-item{
+    display:flex; flex-direction:column; align-items:center; gap:4px; width:64px; cursor:pointer;
+  }
+  .kiosk-fail-grid img, .kiosk-fail-grid .letra{
+    width:56px; height:56px; border-radius:50%; object-fit:cover; border:2px solid rgba(212,175,55,.5);
+  }
+  .kiosk-fail-grid .letra{
+    display:flex; align-items:center; justify-content:center; background:rgba(212,175,55,.15);
+    color:var(--k-gold-soft); font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:22px;
+  }
+  .kiosk-fail-grid .nome-mini{ color:var(--k-paper); font-size:10.5px; text-align:center; line-height:1.15; max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .kiosk-action-btn{
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px;
+    border:none; border-radius:14px; padding:15px 18px; cursor:pointer;
+    background:var(--k-gold-soft); color:var(--k-field-900);
+  }
+  .kiosk-action-btn.secondary{ background:rgba(255,255,255,.1); color:var(--k-paper); }
+  .kiosk-action-btn:disabled{ opacity:.4; }
+
+  .kiosk-success-card{
+    width:min(86vw,420px);
+    background:linear-gradient(180deg, rgba(20,45,32,.9), rgba(10,25,18,.95));
+    border:1px solid rgba(212,175,55,.35); border-radius:22px; padding:28px 24px 24px 24px;
+    display:flex; flex-direction:column; align-items:center;
+    box-shadow:0 0 0 16px var(--k-ok-glow), 0 20px 50px rgba(0,0,0,.4);
+  }
+  .kiosk-avatar-img{ width:132px; height:132px; border-radius:50%; object-fit:cover; border:4px solid var(--k-ok); margin-bottom:16px; }
+  .kiosk-avatar{
+    width:132px; height:132px; border-radius:50%; background:linear-gradient(160deg,#3d5a45,#20362a);
+    border:4px solid var(--k-ok); align-items:center; justify-content:center;
+    font-family:'Barlow Condensed', sans-serif; font-size:52px; font-weight:700; color:var(--k-paper); margin-bottom:16px;
+  }
+  .kiosk-student-name{
+    font-family:'Barlow Condensed', sans-serif; font-weight:800; font-size:clamp(32px,10vw,44px);
+    color:var(--k-paper); text-align:center; letter-spacing:.01em; margin:0;
+  }
+  .kiosk-student-meta{ color:var(--k-gold-soft); font-size:13.5px; font-weight:600; margin:6px 0 16px 0; letter-spacing:.03em; text-align:center; }
+  .kiosk-check-badge{
+    display:flex; align-items:center; gap:8px; text-align:center;
+    background:rgba(76,187,108,.15); border:1px solid var(--k-ok); color:var(--k-ok);
+    padding:8px 16px; border-radius:100px; font-size:12.5px; font-weight:700; letter-spacing:.02em;
+  }
+  .kiosk-already-flag{
+    font-family:'Barlow Condensed', sans-serif; font-weight:800; font-size:clamp(20px,6vw,27px);
+    color:var(--k-gold-soft); text-align:center; margin:0 0 14px 0; line-height:1.2;
+  }
+  .kiosk-inadimplente-badge{
+    margin-top:10px; display:flex; align-items:center; gap:6px;
+    background:rgba(217,85,62,.15); border:1px solid var(--k-fail); color:var(--k-fail);
+    padding:7px 14px; border-radius:100px; font-size:12px; font-weight:700; letter-spacing:.02em;
+  }
+
+  .kiosk-back-btn{
+    position:absolute; z-index:8; bottom:calc(20px + env(safe-area-inset-bottom)); right:20px;
+    width:46px; height:46px; border-radius:50%; border:none;
+    background:rgba(255,255,255,0.12); color:var(--k-paper); font-size:19px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .kiosk-exit-hint{
+    position:absolute; z-index:8; bottom:calc(28px + env(safe-area-inset-bottom)); left:20px;
+    color:rgba(255,255,255,0.4); font-size:11px; max-width:150px;
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="row">
+    <div class="titlewrap">
+      <div>
+        <h1>BSA Professor</h1>
+        <div class="sub" id="statusLine">conectando...</div>
+      </div>
+    </div>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button id="btnAtualizarProf" type="button" title="Atualizar o app (precisa de internet)" style="border:0; background:rgba(255,255,255,0.14); color:#fff; font-weight:700; font-size:13px; padding:8px 12px; border-radius:20px; cursor:pointer;">🔄 Atualizar</button>
+      <div class="badge-count mono" id="countBadge">0</div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <div id="setupBanner" class="setup-banner" style="display:none;">
+    <b>Configuração necessária</b>
+    Preencha o objeto <span class="mono">firebaseConfig</span> no final do código.
+  </div>
+
+  <div class="panel" id="modelPanel">
+    <h2>Preparando reconhecimento facial</h2>
+    <div class="loadmsg"><div class="spinner"></div> <span id="modelStatus">Baixando modelos, aguarde...</span></div>
+  </div>
+
+  <div class="panel" id="bdayBannerPresenca" style="display:none; background:var(--gold-soft); border-color:var(--gold);"></div>
+
+  <div class="panel" id="unitPanel" style="display:none;">
+    <h2>1. Escolha a unidade</h2>
+    <div id="offlineStatus" style="margin:-6px 0 12px 0; font-size:12.5px; font-weight:600; cursor:pointer;"></div>
+    <div class="unit-row">
+      <button class="unit-btn" data-u="Carlos Prates">Carlos Prates<span class="count" id="countCP">0 rostos prontos</span></button>
+      <button class="unit-btn" data-u="Estoril">Estoril<span class="count" id="countES">0 rostos prontos</span></button>
+    </div>
+    <button class="btn btn-primary" id="btnIniciar" disabled>Selecione uma unidade</button>
+    <button class="btn btn-outline-pitch" id="btnKiosk" disabled style="margin-top:10px;">🖥️ Modo Quiosque (porta da quadra)</button>
+    <button class="btn btn-outline-pitch" id="btnManual" disabled style="margin-top:10px;">✋ Reconhecimento manual</button>
+    <div id="modelLoadStatus" style="margin-top:8px; font-size:12.5px; font-weight:600; color:var(--ink-soft);"></div>
+  </div>
+
+  <div class="panel" id="historyPanel" style="display:none;">
+    <h2 id="historyTitulo">Presenças de hoje <span id="historyUnitLabel" style="color:var(--ink-soft); font-weight:500;"></span></h2>
+    <div class="history-datefilter">
+      <input type="date" id="historyDateFilter">
+      <button id="btnHistoryHoje" type="button">Hoje</button>
+    </div>
+    <div id="historyList"></div>
+    <div class="empty" id="historyEmpty">Nenhuma presença registrada nesse dia.</div>
+  </div>
+
+  <div class="panel" id="backupLocalPanel" style="display:none;">
+    <h2>🔒 Backup local de segurança</h2>
+    <div class="hint" style="margin-bottom:10px;">Cópia guardada neste aparelho de presenças que ainda não foram confirmadas pelo servidor (ou que falharam). Normalmente fica vazio — se tiver algo aqui, mande pro suporte.</div>
+    <div id="backupLocalStatus" class="empty">Nenhum registro pendente de confirmação.</div>
+    <button class="btn btn-outline-pitch" id="btnCopiarBackupLocal" type="button" style="display:none; margin-top:10px;">📋 Copiar dados do backup local</button>
+  </div>
+
+  <div class="panel" id="faltantesPanel" style="display:none;">
+    <h2>📋 Chamada de hoje <span id="faltantesUnitLabel" style="color:var(--ink-soft); font-weight:500;"></span></h2>
+    <div class="hint" style="margin-bottom:10px;">Alunos com treino fixo hoje. Toque em <b>Presente</b> pra marcar sem câmera, ou no nome pra ver a ficha.</div>
+    <div id="chamadaResumo" style="font-weight:700; font-size:13px; margin-bottom:8px;"></div>
+    <div id="faltantesList"></div>
+    <div class="empty" id="faltantesEmpty">Selecione a unidade para ver os faltantes.</div>
+  </div>
+
+  <div class="panel" id="repoPanel" style="display:none;">
+    <h2>Reposições agendadas</h2>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;">
+      <button class="btn btn-primary" id="btnNovaRepo" type="button">+ Nova reposição</button>
+      <button class="btn btn-outline-pitch" id="btnRelatorioRepo" type="button">📄 Relatório PDF</button>
+    </div>
+    <div id="repoList"></div>
+    <div class="empty" id="repoEmpty">Nenhuma reposição pendente.</div>
+  </div>
+
+</main>
+
+<div class="modal-overlay-center" id="unidadeFechadaOverlay">
+  <div class="alert-sheet">
+    <div class="alert-icon">⛔</div>
+    <h2 id="unidadeFechadaTitulo">Unidade não funciona hoje</h2>
+    <p id="unidadeFechadaTexto"></p>
+    <button class="btn btn-primary" id="btnFecharUnidadeFechada" type="button">Entendi</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="repoModal">
+  <div class="modal-sheet">
+    <div class="modal-close-row"><button class="modal-close-btn" id="btnFecharRepoModal">✕</button></div>
+    <h2 id="repoModalTitulo">Agendar reposição</h2>
+    <div class="field">
+      <label>Aluno</label>
+      <input type="text" id="repoBuscaAluno" placeholder="Digite o nome do aluno...">
+      <div id="repoAlunoLista" style="margin-top:6px; max-height:220px; overflow-y:auto;"></div>
+      <div id="repoAlunoSelecionadoChip" style="display:none; margin-top:8px; padding:8px 12px; background:var(--pitch-soft); border-radius:10px; font-size:13px; font-weight:600;"></div>
+    </div>
+    <div class="field">
+      <label>Unidade da falta</label>
+      <select id="repoUnidadeFalta">
+        <option value="Carlos Prates">Carlos Prates</option>
+        <option value="Estoril">Estoril</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Data da falta</label>
+      <input type="date" id="repoDataFalta">
+    </div>
+    <div class="field">
+      <label>Unidade da reposição</label>
+      <select id="repoUnidadeReposicao">
+        <option value="Carlos Prates">Carlos Prates</option>
+        <option value="Estoril">Estoril</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Data agendada da reposição</label>
+      <input type="date" id="repoDataReposicao">
+    </div>
+    <button class="btn btn-primary" id="btnSalvarRepo" type="button">Agendar reposição</button>
+    <button class="btn" id="btnExcluirRepo" type="button" style="margin-top:8px; display:none; background:var(--coral-soft); color:#B23A20;">Excluir reposição</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="relatorioModal">
+  <div class="modal-sheet">
+    <div class="modal-close-row"><button class="modal-close-btn" id="btnFecharRelatorioModal">✕</button></div>
+    <h2>Relatório de reposições</h2>
+    <div class="field">
+      <label>Aluno</label>
+      <input type="text" id="relBuscaAluno" placeholder="Digite o nome do aluno...">
+      <div id="relAlunoLista" style="margin-top:6px; max-height:280px; overflow-y:auto;"></div>
+    </div>
+    <div class="empty" id="relSemResultado" style="display:none;">Nenhum aluno encontrado.</div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="manualModal">
+  <div class="modal-sheet">
+    <div class="modal-close-row"><button class="modal-close-btn" id="btnFecharManualModal">✕</button></div>
+    <h2>Reconhecimento manual</h2>
+    <div class="field" id="manualDataField">
+      <label>Dia da chamada</label>
+      <div class="manual-dias" id="manualDias"></div>
+      <input type="date" id="manualData" style="display:none; margin-top:10px;">
+      <div class="manual-retro-aviso" id="manualRetroAviso" style="display:none;"></div>
+    </div>
+    <div class="field">
+      <label>Buscar aluno da unidade <span id="manualUnidadeLabel"></span></label>
+      <input type="text" id="manualBusca" placeholder="Digite o nome do aluno...">
+    </div>
+    <div id="manualLista" style="max-height:55vh; overflow-y:auto;"></div>
+  </div>
+</div>
+
+<div class="camera-overlay" id="cameraOverlay">
+  <div class="camera-stage">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="overlayCanvas"></canvas>
+    <canvas id="procCanvas" style="display:none;"></canvas>
+    <div class="camera-topbar">
+      <div class="unit-label" id="camUnitLabel">Unidade<small>aponte a câmera para o rosto do aluno</small></div>
+      <div style="display:flex; gap:8px;">
+        <button class="camera-close" id="btnFlipCameraPresenca" title="Trocar câmera">🔄</button>
+        <button class="camera-close" id="btnManualNaCamera" title="Reconhecimento manual">✋</button>
+        <button class="camera-close" id="btnFecharCamera">✕</button>
+      </div>
+    </div>
+    <div class="today-count-chip" id="todayCountChip">0 presenças hoje</div>
+    <div class="scan-hint" id="scanHint">Procurando rosto...</div>
+    <div class="recognition-card" id="recognitionCard">
+      <img id="recImg" src="">
+      <div style="flex:1;">
+        <div class="name" id="recName">—</div>
+        <div class="status" id="recStatus">presença registrada</div>
+        <div class="schedule" id="recSchedule"></div>
+      </div>
+      <button id="btnRecErrado" title="Reconheceu a pessoa errada">❌</button>
+    </div>
+    <div class="alerta-inativo-overlay" id="alertaInativoOverlay">
+      <div class="alerta-inativo-icone">🚫</div>
+      <div class="alerta-inativo-titulo">ALUNO INATIVO</div>
+      <div class="alerta-inativo-nome" id="alertaInativoNome">—</div>
+      <div class="alerta-inativo-sub">Presença NÃO foi registrada</div>
+      <button class="alerta-inativo-fechar" id="btnFecharAlertaInativo">Entendi</button>
+    </div>
+  </div>
+</div>
+
+<div class="kiosk-overlay" id="kioskOverlay">
+  <video id="kioskVideo" class="mirror" autoplay playsinline muted></video>
+  <canvas id="kioskProcCanvas" style="display:none;"></canvas>
+  <div class="kiosk-scrim"></div>
+
+  <div class="kiosk-topbar">
+    <div class="kiosk-brand"><span class="kiosk-dot"></span>BSA PRESENÇA</div>
+    <div class="kiosk-unit-pill" id="kioskUnitPill">—</div>
+    <div class="kiosk-clock" id="kioskClock">--:--</div>
+  </div>
+
+  <div class="kiosk-screen active" id="kioskScreenStandby">
+    <div class="kiosk-scan-frame">
+      <div class="corner c1"></div><div class="corner c2"></div><div class="corner c3"></div><div class="corner c4"></div>
+      <div class="kiosk-sweep"></div>
+    </div>
+    <h1 class="kiosk-headline" id="kioskStandbyHeadline">Aproxime seu rosto</h1>
+    <p class="kiosk-subline">Sua presença será registrada automaticamente</p>
+  </div>
+
+  <div class="kiosk-screen" id="kioskScreenWarn">
+    <div class="kiosk-warn-ring"><span class="kiosk-warn-icon">👋</span></div>
+    <h1 class="kiosk-headline kiosk-warn-headline">Chegue mais perto</h1>
+    <p class="kiosk-subline">Fique de frente pra câmera, bem no centro</p>
+  </div>
+
+  <div class="kiosk-screen" id="kioskScreenFail">
+    <div class="kiosk-fail-ring"><span class="kiosk-fail-icon">🙋</span></div>
+    <h1 class="kiosk-headline kiosk-fail-headline">Não consegui identificar</h1>
+    <p class="kiosk-subline">Sua presença ainda NÃO foi registrada</p>
+    <p class="kiosk-subline" id="kioskFailGridLabel" style="display:none; margin-top:4px;">👇 Ache a sua foto</p>
+    <div class="kiosk-fail-grid" id="kioskFailGrid"></div>
+    <div class="kiosk-fail-actions">
+      <button class="kiosk-action-btn" id="btnKioskManual">👋 Chamar professor · buscar manualmente</button>
+      <button class="kiosk-action-btn secondary" id="btnKioskVoz">🎤 Buscar falando o nome</button>
+    </div>
+  </div>
+
+  <div class="kiosk-screen" id="kioskScreenInativo">
+    <div class="kiosk-inativo-ring"><span class="kiosk-inativo-icon">🚫</span></div>
+    <h1 class="kiosk-headline kiosk-inativo-headline">ALUNO INATIVO</h1>
+    <p class="kiosk-subline kiosk-inativo-sub" id="kioskInativoNome">—</p>
+    <p class="kiosk-subline kiosk-inativo-sub">Presença NÃO foi registrada — fale com a coordenação</p>
+  </div>
+
+  <div class="kiosk-screen" id="kioskScreenSuccess">
+    <div class="kiosk-success-card">
+      <div class="kiosk-already-flag" id="kioskAlreadyFlag" style="display:none;">✅ Você já foi registrado hoje</div>
+      <img class="kiosk-avatar-img" id="kioskSuccessFoto" style="display:none;">
+      <div class="kiosk-avatar" id="kioskSuccessAvatarLetra" style="display:none;"></div>
+      <h1 class="kiosk-student-name" id="kioskSuccessNome">—</h1>
+      <p class="kiosk-student-meta" id="kioskSuccessMeta">Presença às --:--</p>
+      <div class="kiosk-check-badge" id="kioskSuccessBadge">✓ Presença registrada</div>
+    </div>
+  </div>
+
+  <div class="kiosk-exit-hint">2 toques na tela pra sair do Modo Quiosque</div>
+  <button class="kiosk-back-btn" id="btnKioskSair" title="Sair do Modo Quiosque">✕</button>
+  <button class="kiosk-back-btn" id="btnKioskTrocarCamera" title="Trocar câmera" style="right:76px;">🔄</button>
+</div>
+
+<audio id="somPalmas" src="sounds/palmas-simples.wav" preload="auto"></audio>
+<audio id="somTrombeta" src="sounds/fail-trombeta.wav" preload="auto"></audio>
+
+<div class="toast" id="toast"></div>
+
+<div id="pinOverlay" style="position:fixed; inset:0; z-index:99999; background:#0f2a1c; display:flex; align-items:center; justify-content:center; padding:24px;">
+  <div style="width:100%; max-width:320px; text-align:center; color:#fff; font-family:Inter,system-ui,sans-serif;">
+    <div style="font-size:44px;">⚽</div>
+    <div style="font-family:'Barlow Condensed',sans-serif; font-weight:800; font-size:30px; letter-spacing:.5px; margin:6px 0 2px;">BSA PROFESSOR</div>
+    <div style="opacity:.7; font-size:14px; margin-bottom:22px;">Digite o PIN do professor</div>
+    <input id="pinInput" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" style="width:100%; font-size:28px; text-align:center; letter-spacing:10px; padding:14px; border-radius:14px; border:2px solid rgba(255,255,255,.25); background:rgba(255,255,255,.08); color:#fff; outline:none;">
+    <div id="pinErro" style="color:#ff8a70; font-weight:700; font-size:13px; min-height:20px; margin-top:10px;"></div>
+    <button id="pinBtn" type="button" style="width:100%; margin-top:6px; padding:15px; border:0; border-radius:14px; background:#D4AF37; color:#0f2a1c; font-weight:800; font-size:16px; cursor:pointer;">Entrar</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="fichaModal">
+  <div class="modal-sheet">
+    <div class="modal-close-row"><button class="modal-close-btn" id="btnFecharFicha">✕</button></div>
+    <div id="fichaConteudo"></div>
+  </div>
+</div>
+<div id="pendingBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:#c0392b;color:#fff;font-weight:bold;text-align:center;padding:10px 14px;font-size:15px;box-shadow:0 2px 8px rgba(0,0,0,.3);"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+const MODEL_URL = "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js/weights/";
+const DISTANCE_THRESHOLD = 0.45; // mais baixo = mais exigente (menos chance de confundir alunos)
+const DISTANCIA_DUVIDOSA = 0.40; // reconhecimentos entre esse valor e o threshold são "no limite" — ficam marcados pra revisão
+
+/* aluno pode ter 1 descritor (cadastro antigo) ou vários (3 fotos) — sempre devolve lista pronta pro FaceMatcher */
+function descritoresDoAluno(a){
+  // Firestore não aceita "lista dentro de lista" — cada foto extra vem guardada como {v:[...]}
+  if(Array.isArray(a.faceDescriptors) && a.faceDescriptors.length){
+    return a.faceDescriptors.map(item => new Float32Array((item && Array.isArray(item.v)) ? item.v : item));
+  }
+  return [new Float32Array(a.faceDescriptor)];
+}
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDmM2m_QnEeRflAKCyb11TzOrZM7iVgLCA",
+  authDomain: "bsa-app-493c3.firebaseapp.com",
+  projectId: "bsa-app-493c3",
+  storageBucket: "bsa-app-493c3.firebasestorage.app",
+  messagingSenderId: "455452879388",
+  appId: "1:455452879388:web:7135d93c116b2fe7cfcdd9"
+};
+
+let db, auth;
+let alunosCache = [];
+let todosAlunosCache = [];
+let reposicoesAgendadas = [];
+let unidadeAtual = null;
+let faceMatcher = null;
+let modelosProntos = false; // true só depois que os 3 modelos de reconhecimento facial baixarem com sucesso
+let streamAtivo = null;
+let loopAtivo = false;
+let ultimoReconhecidoId = null;
+let ultimoReconhecidoTs = 0;
+let audioCtx = null;
+let audioDesbloqueado = false;
+
+/* ---------- Confirmação real de gravação + backup local de segurança ----------
+   Motivo: o Firestore só resolve a promise do .set() quando o SERVIDOR confirma —
+   até lá, o registro pode estar só na memória da sessão. Antes, isso não era
+   acompanhado em nenhum lugar: a tela mostrava "presença registrada ✓" na hora
+   e ninguém saberia se aquilo realmente chegou a sincronizar ou se sumiu. Agora
+   cada registro fica "pendente" até confirmar de verdade, e se demorar demais
+   aparece um aviso vermelho fixo na tela. Além disso, toda tentativa de presença
+   é salva também numa cópia local (localStorage), independente do Firestore —
+   se algo se perder mesmo assim, dá pra recuperar esses dados manualmente. */
+let presencasPendentes = new Map(); // docId -> { nome, hora, avisoTimeout }
+const TEMPO_AVISO_PENDENCIA_MS = 12000; // se não confirmar em 12s, avisa na tela
+
+function atualizarPainelBackupLocal(){
+  const statusEl = document.getElementById('backupLocalStatus');
+  const btn = document.getElementById('btnCopiarBackupLocal');
+  if(!statusEl || !btn) return;
+  const lista = exportarBackupLocal();
+  if(lista.length === 0){
+    statusEl.textContent = 'Nenhum registro pendente de confirmação.';
+    statusEl.style.display = 'block';
+    btn.style.display = 'none';
+  } else {
+    statusEl.textContent = '⚠️ ' + lista.length + ' registro(s) aqui — ainda não confirmados pelo servidor.';
+    statusEl.style.display = 'block';
+    btn.style.display = 'inline-block';
+  }
+}
+
+document.getElementById('btnCopiarBackupLocal').addEventListener('click', async ()=>{
+  const lista = exportarBackupLocal();
+  const texto = JSON.stringify(lista, null, 2);
+  try{
+    await navigator.clipboard.writeText(texto);
+    toast('📋 Copiado! Cole numa mensagem pro suporte.');
+  }catch(e){
+    toast('Não deu pra copiar automático — veja o console.');
+    console.log(texto);
+  }
+});
+
+function atualizarBannerPendencias(){
+  const banner = document.getElementById('pendingBanner');
+  if(!banner) return;
+  const pendentesComAviso = [...presencasPendentes.values()].filter(p=> p.avisado);
+  if(pendentesComAviso.length === 0){
+    banner.style.display = 'none';
+    return;
+  }
+  const nomes = pendentesComAviso.map(p=> p.nome).join(', ');
+  banner.textContent = '⚠️ ' + pendentesComAviso.length + ' presença(s) não confirmada(s) — NÃO FECHE O APP: ' + nomes;
+  banner.style.display = 'block';
+  atualizarPainelBackupLocal();
+}
+
+function registrarPendencia(docId, nome){
+  const avisoTimeout = setTimeout(()=>{
+    const p = presencasPendentes.get(docId);
+    if(p){ p.avisado = true; atualizarBannerPendencias(); }
+  }, TEMPO_AVISO_PENDENCIA_MS);
+  presencasPendentes.set(docId, { nome, hora: new Date().toISOString(), avisado: false, avisoTimeout });
+}
+
+function confirmarPendencia(docId){
+  const p = presencasPendentes.get(docId);
+  if(p){ clearTimeout(p.avisoTimeout); }
+  presencasPendentes.delete(docId);
+  atualizarBannerPendencias();
+  // some do backup local também, já que confirmou de verdade no servidor
+  removerDoBackupLocal(docId);
+}
+
+const CHAVE_BACKUP_LOCAL = 'bsaPresencaBackupLocal';
+const MAX_BACKUP_LOCAL = 300;
+
+function salvarBackupLocal(docId, dados){
+  try{
+    const lista = JSON.parse(localStorage.getItem(CHAVE_BACKUP_LOCAL) || '[]');
+    lista.push({ docId, salvoEm: new Date().toISOString(), ...dados });
+    while(lista.length > MAX_BACKUP_LOCAL) lista.shift();
+    localStorage.setItem(CHAVE_BACKUP_LOCAL, JSON.stringify(lista));
+  }catch(e){ console.error('Falha ao salvar backup local:', e); }
+}
+
+function removerDoBackupLocal(docId){
+  try{
+    const lista = JSON.parse(localStorage.getItem(CHAVE_BACKUP_LOCAL) || '[]');
+    const filtrada = lista.filter(item=> item.docId !== docId);
+    localStorage.setItem(CHAVE_BACKUP_LOCAL, JSON.stringify(filtrada));
+  }catch(e){}
+}
+
+function exportarBackupLocal(){
+  try{
+    const lista = JSON.parse(localStorage.getItem(CHAVE_BACKUP_LOCAL) || '[]');
+    return lista;
+  }catch(e){ return []; }
+}
+window.exportarBackupLocalBSA = exportarBackupLocal; // acessível pelo console em caso de suporte remoto
+
+/* Roda uma vez ao abrir o app: confere no servidor se cada registro que ficou marcado como
+   "pendente" (de hoje ou de dias anteriores — ex: recarregou a página antes de confirmar)
+   já chegou lá de verdade. Se já chegou, limpa do backup local — evita ficar mostrando aviso
+   de "pendente" pra sempre por causa só de um reload no meio do caminho. */
+async function reconciliarBackupLocalComServidor(){
+  const lista = exportarBackupLocal();
+  if(lista.length === 0) return;
+  for(const item of lista){
+    try{
+      const snap = await comTimeout(db.collection('presencas').doc(item.docId).get(), 5000);
+      if(snap.exists) removerDoBackupLocal(item.docId);
+    }catch(e){ /* sem internet ou deu timeout — deixa como está, tenta de novo na próxima abertura */ }
+  }
+  atualizarPainelBackupLocal();
+}
+
+/* iOS/Safari só libera áudio depois de um toque real do usuário — destrava tudo no primeiro toque na tela */
+function desbloquearAudioGlobal(){
+  if(audioDesbloqueado) return;
+  audioDesbloqueado = true;
+  religarSaidaDeAudio();
+}
+document.addEventListener('pointerdown', desbloquearAudioGlobal, { once:true });
+
+/* religa a saída de som — usar o microfone (busca por voz) às vezes derruba a sessão de áudio de saída no iOS,
+   então chamamos isso de novo depois de qualquer uso do microfone ou troca de aba/tela */
+function religarSaidaDeAudio(){
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+  }catch(e){}
+  ['somPalmas','somTrombeta'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    try{
+      el.muted = true;
+      const p = el.play();
+      if(p) p.then(()=>{ el.pause(); el.currentTime = 0; el.muted = false; }).catch(()=>{ el.muted = false; });
+    }catch(e){}
+  });
+}
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'visible' && audioDesbloqueado) religarSaidaDeAudio();
+});
+let wakeLock = null;
+
+async function pedirWakeLock(){
+  try{
+    if('wakeLock' in navigator){
+      wakeLock = await navigator.wakeLock.request('screen');
+    }
+  }catch(e){ /* alguns navegadores não suportam — sem problema, só a tela pode apagar sozinha */ }
+}
+
+document.addEventListener('visibilitychange', async ()=>{
+  if(wakeLock !== null && document.visibilityState === 'visible' && streamAtivo){
+    await pedirWakeLock();
+  }
+});
+
+/* Abre em aba nova de verdade — window.open() programático às vezes navega na mesma aba no Safari mobile,
+   um <a target="_blank"> real é bem mais confiável */
+function abrirEmNovaAba(url){
+  const m = /abrirAluno=([^&]+)/.exec(url || '');
+  if(m){ abrirFichaAluno(decodeURIComponent(m[1])); return; }
+  return; // BSA Professor: não abre nenhum outro módulo
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+/* Corre uma promise contra um limite de tempo — evita que uma leitura do Firestore
+   fique pendurada indefinidamente em wifi fraco/instável (sem internet de verdade, mas
+   sem o app "perceber" isso a tempo) */
+function comTimeout(promise, ms){
+  return Promise.race([
+    promise,
+    new Promise((_, reject)=> setTimeout(()=> reject(new Error('tempo esgotado')), ms))
+  ]);
+}
+
+function toast(msg, clickUrl){
+  // BUG REAL ENCONTRADO: essa função usava a variável "t" pra pegar o elemento do toast na
+  // tela, mas "t" nunca tinha sido declarada em lugar nenhum do arquivo — então TODA chamada
+  // de toast() (sucesso, erro, qualquer aviso) quebrava por dentro (ReferenceError) antes de
+  // conseguir mostrar qualquer coisa. Por isso nada nunca aparecia, mesmo com internet ligada.
+  // Corrigido: busca o elemento direto pelo id, sem depender de variável externa nenhuma.
+  const t = document.getElementById('toast');
+  if(!t) return;
+  t.textContent = msg;
+  t.classList.add('show');
+  if(clickUrl){
+    t.style.cursor = 'pointer';
+    t.onclick = ()=> abrirEmNovaAba(clickUrl);
+  } else {
+    t.style.cursor = 'default';
+    t.onclick = null;
+  }
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+
+function bip(){
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.18);
+    osc.stop(audioCtx.currentTime + 0.2);
+  }catch(e){}
+}
+
+/* ---------- Sons do Modo Quiosque (reaproveitando os áudios reais do BSA Alerta, com plano B sintetizado se o arquivo falhar) ---------- */
+function tomFallback(freqs, tipo){
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    freqs.forEach((freq,i)=>{
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.type = tipo || 'sine';
+      osc.frequency.value = freq;
+      const start = audioCtx.currentTime + i*0.15;
+      gain.gain.setValueAtTime(0.16, start);
+      osc.start(start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.2);
+      osc.stop(start + 0.22);
+    });
+  }catch(e){}
+}
+function somSucessoKiosk(){
+  tocarSomKiosk('somPalmas', [660,990], 'sine');
+}
+function somFalhaKiosk(){
+  tocarSomKiosk('somTrombeta', [330,220], 'sawtooth');
+}
+function tocarSomKiosk(elId, freqsFallback, tipoFallback){
+  try{
+    const a = document.getElementById(elId);
+    if(!a.paused){ a.pause(); }
+    a.currentTime = 0;
+    const p = a.play();
+    if(p) p.catch(()=>{ religarSaidaDeAudio(); tomFallback(freqsFallback, tipoFallback); });
+  }catch(e){ tomFallback(freqsFallback, tipoFallback); }
+}
+function somAvisoKiosk(){
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.type = 'triangle';
+    osc.frequency.value = 520;
+    gain.gain.setValueAtTime(0.16, audioCtx.currentTime);
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+    osc.stop(audioCtx.currentTime + 0.36);
+  }catch(e){}
+}
+
+/* Registra o Service Worker do ecossistema BSA — deixa o app funcionando sem internet
+   depois da primeira vez que for aberto com internet (mesmo se abrir direto por este arquivo,
+   sem passar pelo Hub) */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  });
+}
+
+function initFirebase(){
+  if(firebaseConfig.apiKey === "COLE_AQUI"){
+    document.getElementById('setupBanner').style.display = 'block';
+    document.getElementById('statusLine').textContent = 'configuração pendente';
+    return;
+  }
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  auth = firebase.auth();
+
+  // Ativa o modo offline do banco: guarda os alunos e as presenças no próprio aparelho
+  // e sincroniza sozinho quando a internet voltar. Sem isso, sem internet = tela em branco.
+  db.enablePersistence({ synchronizeTabs: true }).catch(function(err){
+    console.warn('Persistência offline não ativada:', err.code);
+    // 'failed-precondition' = já tem outra aba aberta; 'unimplemented' = navegador não suporta.
+    // Em ambos os casos o app continua funcionando normalmente quando ONLINE.
+  });
+
+  // Se ficar mais de 6s sem resposta de login (típico de estar totalmente offline
+  // e nunca ter aberto este app antes com internet), avisa em vez de ficar girando pra sempre.
+  const timeoutOffline = setTimeout(()=>{
+    if(document.getElementById('statusLine').textContent === 'conectando...'){
+      document.getElementById('statusLine').textContent = 'sem internet — abra este app com internet ao menos 1 vez antes de usar offline';
+    }
+  }, 6000);
+
+  auth.signInAnonymously().catch(err=>{
+    document.getElementById('statusLine').textContent = 'erro de login: ' + err.message;
+  });
+  auth.onAuthStateChanged(user=>{
+    if(user){
+      clearTimeout(timeoutOffline);
+      document.getElementById('statusLine').textContent = navigator.onLine ? 'conectado' : 'offline (usando dados salvos no aparelho)';
+      // Mostra a escolha de unidade (e libera o Reconhecimento manual) na hora — não espera
+      // o reconhecimento facial baixar/carregar, pra manual funcionar mesmo com internet fraca/instável.
+      document.getElementById('modelPanel').style.display = 'none';
+      document.getElementById('unitPanel').style.display = 'block';
+      retomarUltimaUnidade();
+      aquecerCacheDasDuasUnidades();
+      reconciliarBackupLocalComServidor();
+      listenPresencasHojeGlobal();
+      listenPresencasSemanaGlobal();
+      carregarModelosEAlunos();
+      carregarTodosAlunos();
+      listenReposicoes();
+    }
+  });
+}
+
+window.addEventListener('online', ()=>{ if(auth && auth.currentUser) document.getElementById('statusLine').textContent = 'conectado'; });
+window.addEventListener('offline', ()=>{ if(auth && auth.currentUser) document.getElementById('statusLine').textContent = 'offline (usando dados salvos no aparelho)'; });
+
+function statusModelo(msg){
+  const el = document.getElementById('modelLoadStatus');
+  if(el) el.textContent = msg;
+}
+
+/* Libera os botões que dependem da câmera (Iniciar câmera e Modo Quiosque) assim que os modelos
+   ficarem prontos — se o professor já tinha escolhido a unidade, atualiza o botão na hora. */
+function habilitarBotoesDeCamera(){
+  if(!unidadeAtual) return;
+  const btnIni = document.getElementById('btnIniciar');
+  const btnKiosk = document.getElementById('btnKiosk');
+  if(btnIni){ btnIni.disabled = false; btnIni.textContent = 'Iniciar câmera — ' + unidadeAtual; }
+  if(btnKiosk){ btnKiosk.disabled = false; }
+}
+
+/* Reconhecimento manual não depende disto — só a câmera (Iniciar câmera / Modo Quiosque) precisa
+   dos modelos de reconhecimento facial baixados. Rodando em segundo plano, sem travar a tela. */
+async function carregarModelosEAlunos(){
+  try{
+    statusModelo('Câmera: baixando modelos (detector)...');
+    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+    statusModelo('Câmera: baixando modelos (landmarks)...');
+    await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+    statusModelo('Câmera: baixando modelos (reconhecimento)...');
+    await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+
+    modelosProntos = true;
+    statusModelo('');
+    carregarAlunos();
+    habilitarBotoesDeCamera();
+    // força o download dos sons explicitamente — o iOS às vezes não baixa <audio preload> sozinho pra economizar dados
+    fetch('sounds/palmas-simples.wav').catch(()=>{});
+    fetch('sounds/fail-trombeta.wav').catch(()=>{});
+    setTimeout(verificarProntidaoOffline, 2500); // dá um tempo pro cache terminar de salvar em segundo plano
+  }catch(err){
+    statusModelo('⚠️ Câmera indisponível agora (' + err.message + ') — use o Reconhecimento manual normalmente');
+  }
+}
+
+/* Confere de verdade o que já ficou salvo no aparelho (não é só "achismo") */
+async function verificarProntidaoOffline(forcarSons){
+  const el = document.getElementById('offlineStatus');
+  if(!el) return;
+  if(forcarSons){
+    fetch('sounds/palmas-simples.wav').catch(()=>{});
+    fetch('sounds/fail-trombeta.wav').catch(()=>{});
+    await new Promise(r=>setTimeout(r, 800));
+  }
+  if(!('caches' in window) || !('serviceWorker' in navigator)){
+    el.textContent = '⚠️ Este navegador não suporta uso offline';
+    el.style.color = '#c94b34';
+    return;
+  }
+  try{
+    const controlado = !!navigator.serviceWorker.controller;
+    if(!controlado){
+      el.textContent = '⚠️ App ainda não está sob o sistema de cache — feche o Safari inteiro (não só a aba) e abra de novo';
+      el.style.color = '#c94b34';
+      return;
+    }
+    const nomes = await caches.keys();
+    let todasChaves = [];
+    for(const nome of nomes){
+      const cache = await caches.open(nome);
+      const reqs = await cache.keys();
+      todasChaves = todasChaves.concat(reqs.map(r=>r.url));
+    }
+    const qtdModelos = todasChaves.filter(u=> u.includes('tiny_face_detector') || u.includes('face_recognition') || u.includes('face_landmark')).length;
+    const temSons = todasChaves.some(u=> u.includes('palmas-simples') || u.includes('fail-trombeta'));
+    const temFirebase = todasChaves.some(u=> u.includes('firebase'));
+    if(qtdModelos >= 7 && temSons && temFirebase){
+      el.textContent = '✅ Pronto para uso offline (' + qtdModelos + ' arquivos de modelo salvos) — toque pra verificar de novo';
+      el.style.color = '#2e7d32';
+    } else {
+      const faltando = [];
+      if(qtdModelos < 7) faltando.push('modelos (' + qtdModelos + '/7 salvos)');
+      if(!temSons) faltando.push('sons');
+      if(!temFirebase) faltando.push('banco de dados');
+      el.textContent = '⚠️ Faltando: ' + faltando.join(', ') + ' — feche e abra de novo';
+      el.style.color = '#c94b34';
+    }
+  }catch(e){
+    el.textContent = '⚠️ Erro ao verificar: ' + e.message;
+    el.style.color = '#c94b34';
+  }
+}
+document.getElementById('offlineStatus').addEventListener('click', ()=> verificarProntidaoOffline(true));
+
+function carregarAlunos(){
+  db.collection('alunos').where('faceDescriptor', '!=', null).onSnapshot(snap=>{
+    alunosCache = [];
+    snap.forEach(doc=>{
+      const d = doc.data();
+      if(d.faceDescriptor && Array.isArray(d.faceDescriptor)){
+        alunosCache.push({ id: doc.id, nome: d.nome || '(sem nome)', unidade: d.unidade || '', foto: d.foto || null, faceDescriptor: d.faceDescriptor, faceDescriptors: d.faceDescriptors || null, diasTreino: d.diasTreino || [], horarioTreino: d.horarioTreino || '', statusGeral: d.statusGeral || 'ativo' });
+      }
+    });
+    document.getElementById('countBadge').textContent = alunosCache.length;
+    const cp = alunosCache.filter(a=>a.unidade === 'Carlos Prates').length;
+    const es = alunosCache.filter(a=>a.unidade === 'Estoril').length;
+    document.getElementById('countCP').textContent = cp + ' rosto(s) prontos';    document.getElementById('countES').textContent = es + ' rosto(s) prontos';
+  }, err=>{
+    document.getElementById('statusLine').textContent = 'erro ao ler alunos: ' + err.message;
+  });
+}
+
+/* ---------- Reposições ---------- */
+function carregarTodosAlunos(){
+  db.collection('alunos').onSnapshot(snap=>{
+    todosAlunosCache = [];
+    snap.forEach(doc=>{
+      const d = doc.data();
+      if(d.statusGeral !== 'inativo'){
+        todosAlunosCache.push({
+          id: doc.id,
+          nome: d.nome || '(sem nome)',
+          unidade: d.unidade || '',
+          foto: d.foto || null,
+          diasTreino: d.diasTreino || [],
+          horarioTreino: d.horarioTreino || '',
+          statusGeral: d.statusGeral || 'ativo',
+          observacoes: d.observacoes || '',
+          dataNascimento: d.dataNascimento || ''
+        });
+      }
+    });
+    renderFaltantes();
+    renderAniversariantesSemanaPresenca();
+  }, err=>{ console.error(err); });
+  carregarMensalidades();
+}
+
+/* ---------- Inadimplência (pra avisar na hora de bater a presença) ---------- */
+let mensalidadesCache = [];
+function carregarMensalidades(){ /* BSA Professor: sem acesso ao financeiro */ }
+function alunoEstaInadimplente(alunoId){
+  return false; // BSA Professor: nunca mostra informação financeira
+  const hoje = dataHojeInputValue();
+  return mensalidadesCache.some(m=>
+    m.alunoId === alunoId &&
+    m.statusPagamento !== 'pago' &&
+    m.statusPagamento !== 'isento' &&
+    m.dataVencimento < hoje
+  );
+}
+
+function dataHojeInputValue(){
+  return dataHojeISO();
+}
+
+let repoAlunoSelecionado = null;
+let repoEditandoId = null;
+
+function abrirRepoModal(repoParaEditar){
+  document.getElementById('repoBuscaAluno').value = '';
+  document.getElementById('repoAlunoLista').innerHTML = '';
+  document.getElementById('repoAlunoSelecionadoChip').style.display = 'none';
+  repoAlunoSelecionado = null;
+  repoEditandoId = null;
+
+  if(repoParaEditar){
+    repoEditandoId = repoParaEditar._docId;
+    repoAlunoSelecionado = {
+      id: repoParaEditar.alunoId,
+      nome: repoParaEditar.nome,
+      unidade: repoParaEditar.unidadeOrigem
+    };
+    document.getElementById('repoBuscaAluno').value = repoParaEditar.nome;
+    const chip = document.getElementById('repoAlunoSelecionadoChip');
+    chip.style.display = 'block';
+    chip.textContent = '✓ ' + repoParaEditar.nome + ' (troque a busca acima pra selecionar outro aluno)';
+    document.getElementById('repoUnidadeFalta').value = repoParaEditar.unidadeOrigem || 'Carlos Prates';
+    document.getElementById('repoDataFalta').value = repoParaEditar.dataFalta || dataHojeInputValue();
+    document.getElementById('repoUnidadeReposicao').value = repoParaEditar.unidadeReposicao || 'Carlos Prates';
+    document.getElementById('repoDataReposicao').value = repoParaEditar.dataReposicao || dataHojeInputValue();
+    document.getElementById('repoModalTitulo').textContent = 'Editar reposição';
+    document.getElementById('btnSalvarRepo').textContent = 'Salvar alterações';
+    document.getElementById('btnExcluirRepo').style.display = 'block';
+  }else{
+    document.getElementById('repoDataFalta').value = dataHojeInputValue();
+    document.getElementById('repoDataReposicao').value = dataHojeInputValue();
+    document.getElementById('repoModalTitulo').textContent = 'Agendar reposição';
+    document.getElementById('btnSalvarRepo').textContent = 'Agendar reposição';
+    document.getElementById('btnExcluirRepo').style.display = 'none';
+  }
+
+  document.getElementById('repoModal').classList.add('active');
+}
+
+function abrirRepoModalEdicao(docId){
+  const repo = reposicoesAgendadas.find(r=> r._docId === docId);
+  if(!repo){ toast('Reposição não encontrada'); return; }
+  abrirRepoModal(repo);
+}
+
+function fecharRepoModal(){
+  document.getElementById('repoModal').classList.remove('active');
+}
+document.getElementById('btnNovaRepo').addEventListener('click', ()=> abrirRepoModal());
+document.getElementById('btnFecharRepoModal').addEventListener('click', fecharRepoModal);
+document.getElementById('repoModal').addEventListener('click', e=>{
+  if(e.target.id === 'repoModal') fecharRepoModal();
+});
+
+document.getElementById('repoBuscaAluno').addEventListener('input', e=>{
+  const termo = e.target.value.trim().toLowerCase();
+  const lista = document.getElementById('repoAlunoLista');
+  if(termo.length < 2){ lista.innerHTML = ''; return; }
+  const encontrados = todosAlunosCache.filter(a=> a.nome.toLowerCase().includes(termo)).slice(0,20);
+  if(encontrados.length === 0){
+    lista.innerHTML = '<div class="empty" style="padding:10px 0;">Nenhum aluno encontrado.</div>';
+    return;
+  }
+  lista.innerHTML = encontrados.map(a=>
+    `<div class="presenca-item" style="cursor:pointer; padding:9px 10px;" data-id="${a.id}">
+      <div class="info"><div class="name">${a.nome}</div><div class="time">${a.unidade}</div></div>
+    </div>`
+  ).join('');
+  lista.querySelectorAll('.presenca-item').forEach(item=>{
+    item.addEventListener('click', ()=>{
+      const id = item.dataset.id;
+      repoAlunoSelecionado = todosAlunosCache.find(a=>a.id === id) || null;
+      if(repoAlunoSelecionado){
+        document.getElementById('repoUnidadeFalta').value = repoAlunoSelecionado.unidade;
+        document.getElementById('repoUnidadeReposicao').value = repoAlunoSelecionado.unidade;
+        document.getElementById('repoBuscaAluno').value = repoAlunoSelecionado.nome;
+        const chip = document.getElementById('repoAlunoSelecionadoChip');
+        chip.style.display = 'block';
+        chip.textContent = '✓ ' + repoAlunoSelecionado.nome + ' (' + repoAlunoSelecionado.unidade + ')';
+      }
+      lista.innerHTML = '';
+    });
+  });
+});
+
+document.getElementById('btnSalvarRepo').addEventListener('click', async ()=>{
+  if(!repoAlunoSelecionado){ toast('Selecione um aluno na lista'); return; }
+  const dataFalta = document.getElementById('repoDataFalta').value;
+  const dataReposicao = document.getElementById('repoDataReposicao').value;
+  if(!dataFalta || !dataReposicao){ toast('Preencha as duas datas'); return; }
+  const dados = {
+    alunoId: repoAlunoSelecionado.id,
+    nome: repoAlunoSelecionado.nome,
+    unidadeOrigem: document.getElementById('repoUnidadeFalta').value,
+    dataFalta: dataFalta,
+    unidadeReposicao: document.getElementById('repoUnidadeReposicao').value,
+    dataReposicao: dataReposicao
+  };
+  try{
+    if(repoEditandoId){
+      await db.collection('reposicoes').doc(repoEditandoId).update(dados);
+      toast('Reposição atualizada');
+    }else{
+      await db.collection('reposicoes').add({
+        ...dados,
+        status: 'agendada',
+        criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      toast('Reposição agendada para ' + repoAlunoSelecionado.nome);
+    }
+    fecharRepoModal();
+  }catch(err){
+    toast('Erro ao salvar: ' + err.message);
+  }
+});
+
+document.getElementById('btnExcluirRepo').addEventListener('click', async ()=>{
+  if(!repoEditandoId) return;
+  if(!confirm('Excluir esta reposição permanentemente?')) return;
+  try{
+    await db.collection('reposicoes').doc(repoEditandoId).delete();
+    toast('Reposição excluída');
+    fecharRepoModal();
+  }catch(err){
+    toast('Erro ao excluir: ' + err.message);
+  }
+});
+
+/* ---------- Relatório PDF de reposições (por aluno) ---------- */
+function abrirRelatorioModal(){
+  document.getElementById('relBuscaAluno').value = '';
+  document.getElementById('relAlunoLista').innerHTML = '';
+  document.getElementById('relSemResultado').style.display = 'none';
+  document.getElementById('relatorioModal').classList.add('active');
+  setTimeout(()=> document.getElementById('relBuscaAluno').focus(), 200);
+}
+function fecharRelatorioModal(){
+  document.getElementById('relatorioModal').classList.remove('active');
+}
+document.getElementById('btnRelatorioRepo').addEventListener('click', abrirRelatorioModal);
+document.getElementById('btnFecharRelatorioModal').addEventListener('click', fecharRelatorioModal);
+document.getElementById('relatorioModal').addEventListener('click', e=>{
+  if(e.target.id === 'relatorioModal') fecharRelatorioModal();
+});
+
+document.getElementById('relBuscaAluno').addEventListener('input', e=>{
+  const termo = e.target.value.trim().toLowerCase();
+  const lista = document.getElementById('relAlunoLista');
+  const semResultado = document.getElementById('relSemResultado');
+  if(termo.length < 2){ lista.innerHTML = ''; semResultado.style.display = 'none'; return; }
+  const encontrados = todosAlunosCache.filter(a=> a.nome.toLowerCase().includes(termo)).slice(0,20);
+  semResultado.style.display = encontrados.length === 0 ? 'block' : 'none';
+  lista.innerHTML = encontrados.map(a=>
+    `<div class="presenca-item" style="cursor:pointer; padding:9px 10px;" data-id="${a.id}">
+      <div class="info"><div class="name">${a.nome}</div><div class="time">${a.unidade}</div></div>
+    </div>`
+  ).join('');
+  lista.querySelectorAll('.presenca-item').forEach(item=>{
+    item.addEventListener('click', ()=>{
+      const aluno = todosAlunosCache.find(a=>a.id === item.dataset.id);
+      if(aluno) gerarRelatorioReposicoesPDF(aluno);
+    });
+  });
+});
+
+function relFormatarDataBR(iso){
+  return iso ? iso.split('-').reverse().join('/') : '-';
+}
+
+async function gerarRelatorioReposicoesPDF(aluno){
+  fecharRelatorioModal();
+  toast('Gerando PDF de ' + aluno.nome + '...');
+  try{
+    const snap = await db.collection('reposicoes').where('alunoId','==',aluno.id).get();
+    if(snap.empty){
+      toast('Nenhuma reposição encontrada para ' + aluno.nome);
+      return;
+    }
+    const registros = snap.docs.map(d=>d.data());
+    registros.sort((a,b)=> (a.dataFalta||'').localeCompare(b.dataFalta||''));
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:'mm', format:'a4' });
+    const verde = [15,92,61];
+    const verdeSuave = [228,239,232];
+    const tinta = [20,43,32];
+    const tintaSuave = [92,114,104];
+
+    doc.setFillColor(...verde);
+    doc.rect(0,0,210,28,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(16);
+    doc.text('Brazilian Skills Academy', 14, 13);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(11);
+    doc.text('Relatório de Reposições', 14, 21);
+
+    doc.setTextColor(...tinta);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(13);
+    doc.text('Aluno: ' + aluno.nome, 14, 40);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(10);
+    doc.setTextColor(...tintaSuave);
+    const hoje = new Date();
+    const hojeFmt = String(hoje.getDate()).padStart(2,'0') + '/' + String(hoje.getMonth()+1).padStart(2,'0') + '/' + hoje.getFullYear();
+    doc.text('Unidade: ' + (aluno.unidade || '-') + '   ·   Emitido em ' + hojeFmt, 14, 46);
+
+    let y = 60;
+    doc.setFillColor(...verdeSuave);
+    doc.rect(14, y-6, 182, 9, 'F');
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(10);
+    doc.setTextColor(...verde);
+    doc.text('Data da falta', 18, y);
+    doc.text('Data da reposição', 90, y);
+    doc.text('Situação', 160, y);
+    y += 11;
+
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(10);
+    registros.forEach(r=>{
+      if(y > 275){
+        doc.addPage();
+        y = 20;
+      }
+      doc.setTextColor(...tinta);
+      doc.text(relFormatarDataBR(r.dataFalta), 18, y);
+      doc.text(relFormatarDataBR(r.dataReposicao), 90, y);
+      doc.setTextColor(r.status === 'usada' ? verde[0] : 184, r.status === 'usada' ? verde[1] : 90, r.status === 'usada' ? verde[2] : 43);
+      doc.text(r.status === 'usada' ? 'Realizada' : 'Agendada', 160, y);
+      doc.setDrawColor(...verdeSuave);
+      doc.line(14, y+4, 196, y+4);
+      y += 11;
+    });
+
+    const nomeArquivo = 'Reposicoes-' + aluno.nome.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9]+/g,'-') + '.pdf';
+    doc.save(nomeArquivo);
+    toast('PDF gerado ✓');
+  }catch(err){
+    toast('Erro ao gerar PDF: ' + err.message);
+  }
+}
+
+function listenReposicoes(){
+  db.collection('reposicoes').where('status', '==', 'agendada').onSnapshot(snap=>{
+    reposicoesAgendadas = snap.docs.map(d=>({...d.data(), _docId:d.id}));
+    reposicoesAgendadas.sort((a,b)=> (a.dataReposicao||'').localeCompare(b.dataReposicao||''));
+    renderRepoList();
+  }, err=>{ console.error(err); });
+}
+
+function renderRepoList(){
+  const cont = document.getElementById('repoList');
+  const vazio = document.getElementById('repoEmpty');
+  if(reposicoesAgendadas.length === 0){
+    cont.innerHTML = '';
+    vazio.style.display = 'block';
+    return;
+  }
+  vazio.style.display = 'none';
+  cont.innerHTML = reposicoesAgendadas.map(r=>{
+    const dataFmt = (r.dataReposicao||'').split('-').reverse().join('/');
+    return `
+      <div class="repo-row">
+        <div class="info">
+          <div class="n">${r.nome}</div>
+          <div class="m">faltou em ${r.unidadeOrigem} (${(r.dataFalta||'').split('-').reverse().join('/')}) · repõe em ${r.unidadeReposicao} dia ${dataFmt}</div>
+        </div>
+        <span class="badge-repo">agendada</span>
+        <button class="btn-cancel" onclick="abrirRepoModalEdicao('${r._docId}')" style="background:var(--pitch-soft); color:var(--pitch);">editar</button>
+        <button class="btn-cancel" onclick="cancelarRepo('${r._docId}')">cancelar</button>
+      </div>`;
+  }).join('');
+}
+
+async function cancelarRepo(docId){
+  if(!confirm('Cancelar esta reposição agendada?')) return;
+  await db.collection('reposicoes').doc(docId).update({status: 'cancelada'});
+  toast('Reposição cancelada');
+}
+
+/* Roda a consulta de "presenças de hoje" das duas unidades pelo menos uma vez, mesmo que só uma
+   esteja selecionada na tela — isso "aquece" o cache local das duas, evitando que uma unidade
+   fique sem histórico visível se a internet cair antes de você abrir ela manualmente */
+function aquecerCacheDasDuasUnidades(){
+  const hoje = dataHojeISO();
+  ['Carlos Prates', 'Estoril'].forEach(u=>{
+    db.collection('presencas').where('unidadeCheckin','==',u).where('data','==',hoje).get().catch(()=>{});
+    db.collection('reposicoes').where('status','==','agendada').where('unidadeReposicao','==',u).where('dataReposicao','==',hoje).get().catch(()=>{});
+  });
+}
+
+document.querySelectorAll('.unit-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const unidadeClicada = btn.dataset.u;
+    if(!unidadeFuncionaHoje(unidadeClicada)){
+      mostrarAvisoUnidadeFechada(unidadeClicada);
+      return;
+    }
+    document.querySelectorAll('.unit-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    unidadeAtual = unidadeClicada;
+    try{ localStorage.setItem('bsaPresencaUltimaUnidade', unidadeAtual); }catch(e){}
+    // Reconhecimento manual não depende dos modelos de câmera — libera na hora.
+    document.getElementById('btnManual').disabled = false;
+    if(modelosProntos){
+      document.getElementById('btnIniciar').disabled = false;
+      document.getElementById('btnIniciar').textContent = 'Iniciar câmera — ' + unidadeAtual;
+      document.getElementById('btnKiosk').disabled = false;
+    } else {
+      document.getElementById('btnIniciar').disabled = true;
+      document.getElementById('btnIniciar').textContent = 'Carregando câmera... (use o Manual enquanto isso)';
+      document.getElementById('btnKiosk').disabled = true;
+    }
+    document.getElementById('historyPanel').style.display = 'block';
+    document.getElementById('historyUnitLabel').textContent = '· ' + unidadeAtual;
+    document.getElementById('faltantesPanel').style.display = 'block';
+    document.getElementById('backupLocalPanel').style.display = 'block';
+    atualizarPainelBackupLocal();
+    listenHistoricoHoje();
+    renderFaltantes();
+  });
+});
+
+/* Se já tinha uma unidade escolhida antes (ex: voltou de outra tela e o app recarregou), retoma sozinho */
+function retomarUltimaUnidade(){
+  try{
+    const salva = localStorage.getItem('bsaPresencaUltimaUnidade');
+    if(salva){
+      const btn = document.querySelector('.unit-btn[data-u="' + salva + '"]');
+      if(btn) btn.click();
+    }
+  }catch(e){}
+}
+
+function dataHojeISO(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+const DIA_LABEL = {dom:'Dom', seg:'Seg', ter:'Ter', qua:'Qua', qui:'Qui', sex:'Sex', sab:'Sáb'};
+const DIAS_SEMANA_ARR = ['dom','seg','ter','qua','qui','sex','sab'];
+function diaSemanaHoje(){
+  return DIAS_SEMANA_ARR[new Date().getDay()];
+}
+// Dia da semana de uma data ISO qualquer (usado pra checar presença retroativa contra o dia
+// da semana real daquela data, não o de hoje) — evita bug de comparar dia errado.
+function diaSemanaDeISO(dataISO){
+  const [y,m,d] = dataISO.split('-').map(Number);
+  return DIAS_SEMANA_ARR[new Date(y, m-1, d).getDay()];
+}
+function estaForaDoHorario(aluno, dataISO){
+  if(!aluno.diasTreino || aluno.diasTreino.length === 0) return false; // sem horário cadastrado, não alertamos
+  const dia = dataISO ? diaSemanaDeISO(dataISO) : diaSemanaHoje();
+  return !aluno.diasTreino.includes(dia);
+}
+
+/* ---------- Controle de limite semanal (aluno vindo mais vezes que o combinado) ---------- */
+function isoDeData(d){
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function inicioFimSemanaISO(){
+  // Semana de segunda a domingo — assim um aluno de sábado que também vem no domingo
+  // seguinte cai na mesma semana (e não em duas semanas diferentes).
+  const hoje = new Date();
+  const diaSemana = hoje.getDay(); // 0=domingo ... 6=sábado
+  const deslocamentoSegunda = diaSemana === 0 ? 6 : diaSemana - 1;
+  const segunda = new Date(hoje);
+  segunda.setDate(hoje.getDate() - deslocamentoSegunda);
+  const domingo = new Date(segunda);
+  domingo.setDate(segunda.getDate() + 6);
+  return { inicio: isoDeData(segunda), fim: isoDeData(domingo) };
+}
+let presencasSemanaMap = new Map(); // alunoId -> quantidade de presenças normais (não-reposição) já feitas essa semana
+let unsubPresencasSemanaGlobal = null;
+function listenPresencasSemanaGlobal(){
+  if(unsubPresencasSemanaGlobal) unsubPresencasSemanaGlobal();
+  const { inicio, fim } = inicioFimSemanaISO();
+  unsubPresencasSemanaGlobal = db.collection('presencas')
+    .where('data', '>=', inicio)
+    .where('data', '<=', fim)
+    .onSnapshot(snap=>{
+      const mapa = new Map();
+      snap.forEach(doc=>{
+        const p = doc.data();
+        // reposição não conta pro limite — já é uma visita extra autorizada
+        if(p.tipoRegistro === 'reposicao') return;
+        mapa.set(p.alunoId, (mapa.get(p.alunoId) || 0) + 1);
+      });
+      presencasSemanaMap = mapa;
+    }, err=>{ console.error(err); });
+}
+
+/* Dias em que cada unidade de fato tem aula. Usado pra bloquear a seleção da unidade
+   (e portanto qualquer registro de presença nela) em dias que ela não funciona de jeito
+   nenhum — evita marcar presença de todo mundo na unidade errada por engano. */
+const UNIDADE_DIAS_FUNCIONAMENTO = {
+  'Carlos Prates': ['ter','qui','sex'],
+  'Estoril': ['sab','dom']
+};
+function unidadeFuncionaHoje(unidade){
+  const dias = UNIDADE_DIAS_FUNCIONAMENTO[unidade];
+  if(!dias) return true; // unidade desconhecida (não deveria acontecer) — não bloqueia
+  return dias.includes(diaSemanaHoje());
+}
+function mostrarAvisoUnidadeFechada(unidade){
+  const dias = (UNIDADE_DIAS_FUNCIONAMENTO[unidade] || []).map(d => DIA_LABEL[d] || d).join(' e ');
+  document.getElementById('unidadeFechadaTitulo').textContent = unidade + ' não funciona hoje';
+  document.getElementById('unidadeFechadaTexto').textContent =
+    'Hoje é ' + (DIA_LABEL[diaSemanaHoje()] || diaSemanaHoje()) + '. O ' + unidade + ' só tem aula ' + dias + '. Não é possível selecionar essa unidade nem registrar presença nela hoje.';
+  document.getElementById('unidadeFechadaOverlay').classList.add('active');
+}
+document.getElementById('btnFecharUnidadeFechada').addEventListener('click', ()=>{
+  document.getElementById('unidadeFechadaOverlay').classList.remove('active');
+});
+function formatarHorarioAluno(aluno){
+  if(!aluno.diasTreino || aluno.diasTreino.length === 0) return '';
+  const dias = aluno.diasTreino.map(d => DIA_LABEL[d] || d).join(', ');
+  return 'Turma: ' + dias + (aluno.horarioTreino ? ' · ' + aluno.horarioTreino : '');
+}
+
+let presentesHojeIds = new Set();
+let presencasHojeMap = new Map(); // alunoId -> dados da presença de hoje (mantido em memória via onSnapshot, sem depender de leituras avulsas do Firestore)
+let unsubHistorico = null;
+let unsubPresencasHojeGlobal = null;
+let dataHistoricoAtual = dataHojeISO();
+
+/* Roda em paralelo, independente da unidade selecionada na tela — junta as presenças de HOJE
+   das duas unidades, pra "faltantes" saber que um aluno do Carlos Prates que fez reposição
+   no Estoril não deve ser cobrado como ausente no Carlos Prates */
+function listenPresencasHojeGlobal(){
+  const hoje = dataHojeISO();
+  if(unsubPresencasHojeGlobal) unsubPresencasHojeGlobal();
+  // includeMetadataChanges: true — pra saber diferenciar "já está na tela" (metadata.hasPendingWrites
+  // = true, ainda só local) de "confirmado de verdade pelo servidor" (hasPendingWrites = false).
+  // Isso reconcilia o backup local/aviso de pendência mesmo se a página recarregar no meio do
+  // caminho (o .then() do ref.set() original se perderia num reload, mas esse listener continua
+  // rodando e detecta a confirmação de qualquer jeito).
+  unsubPresencasHojeGlobal = db.collection('presencas')
+    .where('data', '==', hoje)
+    .onSnapshot({ includeMetadataChanges: true }, snap=>{
+      presentesHojeIds = new Set(snap.docs.map(d=> d.data().alunoId));
+      presencasHojeMap = new Map(snap.docs.map(d=> [d.data().alunoId, d.data()]));
+      if(!snap.metadata.hasPendingWrites){
+        snap.docs.forEach(d=> confirmarPendencia(d.id));
+      }
+      renderFaltantes();
+    }, err=>{ console.error(err); });
+}
+
+function listenHistoricoHoje(){
+  dataHistoricoAtual = dataHojeISO();
+  document.getElementById('historyDateFilter').value = dataHistoricoAtual;
+  listenHistorico(dataHistoricoAtual);
+}
+
+function listenHistorico(dataISO){
+  if(!unidadeAtual) return;
+  dataHistoricoAtual = dataISO;
+  if(unsubHistorico) unsubHistorico();
+  const ehHoje = dataISO === dataHojeISO();
+  document.getElementById('historyTitulo').innerHTML = (ehHoje ? 'Presenças de hoje' : 'Presenças de ' + dataISO.split('-').reverse().join('/')) + ' <span id="historyUnitLabel" style="color:var(--ink-soft); font-weight:500;">· ' + unidadeAtual + '</span>';
+  // Filtra por ONDE o aluno bateu presença (unidadeCheckin), não pela unidade de matrícula dele —
+  // assim uma reposição no Estoril aparece na lista do Estoril, mesmo que o aluno seja do Carlos Prates
+  unsubHistorico = db.collection('presencas')
+    .where('unidadeCheckin', '==', unidadeAtual)
+    .where('data', '==', dataISO)
+    .onSnapshot(snap=>{
+      const itens = [];
+      snap.forEach(doc=> itens.push({ _docId: doc.id, ...doc.data() }));
+      itens.sort((a,b)=> (b.horaTimestamp||0) - (a.horaTimestamp||0));
+      renderHistorico(itens);
+    }, err=>{
+      console.error(err);
+    });
+}
+
+document.getElementById('historyDateFilter').addEventListener('change', e=>{
+  if(e.target.value) listenHistorico(e.target.value);
+});
+document.getElementById('btnHistoryHoje').addEventListener('click', ()=> listenHistoricoHoje());
+
+async function excluirPresenca(docId, nome){
+  if(!confirm('Remover a presença de ' + nome + '?')) return;
+  try{
+    await db.collection('presencas').doc(docId).delete();
+    toast('Presença de ' + nome + ' removida');
+  }catch(err){
+    console.error(err);
+    toast('Erro ao remover. Tente de novo.');
+  }
+}
+
+function gerarLinkWhatsApp(numero, mensagem){
+  let n = (numero||'').toString().replace(/\D/g,'');
+  if(n && !n.startsWith('55')) n = '55' + n;
+  return 'https://wa.me/' + n + '?text=' + encodeURIComponent(mensagem);
+}
+
+/* Aniversariantes da semana — banner na tela inicial (unitPanel), antes de escolher a unidade */
+function mesDiaFromISO(iso){
+  if(!iso) return null;
+  const partes = iso.split('-');
+  return {mes: parseInt(partes[1],10), dia: parseInt(partes[2],10)};
+}
+function diasAteProximoAniversario(iso){
+  const md = mesDiaFromISO(iso);
+  if(!md) return 9999;
+  const hoje = new Date();
+  hoje.setHours(0,0,0,0);
+  let prox = new Date(hoje.getFullYear(), md.mes-1, md.dia);
+  if(prox < hoje) prox = new Date(hoje.getFullYear()+1, md.mes-1, md.dia);
+  return Math.round((prox - hoje) / 86400000);
+}
+function mensagemParabensPresenca(nome){
+  const primeiroNome = (nome||'').trim().split(' ')[0];
+  return `🎉 Parabéns, ${primeiroNome}! A equipe BSA (Brazilian Skills Academy) deseja um feliz aniversário! Que este novo ano venha cheio de gols, amizade e muita evolução dentro e fora de campo. Um abraço da nossa comissão técnica! 🎽⚽🎂`;
+}
+function renderAniversariantesSemanaPresenca(){
+  const banner = document.getElementById('bdayBannerPresenca');
+  if(!banner) return;
+  const lista = todosAlunosCache
+    .filter(a => a.dataNascimento)
+    .map(a => ({...a, _dias: diasAteProximoAniversario(a.dataNascimento)}))
+    .filter(a => a._dias <= 7)
+    .sort((a,b) => a._dias - b._dias);
+  if(lista.length === 0){ banner.style.display = 'none'; return; }
+  banner.style.display = 'block';
+  banner.innerHTML = '<div style="font-weight:700; margin-bottom:8px; color:var(--pitch-dark);">🎂 Aniversariantes da semana</div>' + lista.map(a=>{
+    const label = a._dias === 0 ? 'HOJE' : (a._dias === 1 ? 'amanhã' : 'em ' + a._dias + ' dias');
+    const link = null;
+    return `
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:7px 0; border-top:1px solid var(--gold-soft);">
+        <div style="font-size:14px;"><b>${a.nome}</b> <span style="color:var(--ink-soft);">(${a.unidade} · ${label})</span></div>
+        ${link ? `<a href="${link}" target="_blank" rel="noopener" style="flex:0 0 auto; font-size:12.5px; font-weight:700; color:var(--pitch); background:var(--pitch-soft); padding:6px 10px; border-radius:20px; text-decoration:none;">Parabenizar</a>` : ''}
+      </div>`;
+  }).join('');
+}
+const MENSAGENS_FALTA = [
+  (nome) => `Olá! Aqui é da equipe do BSA (Brazilian Skills Academy) 🎽⚽. Notamos que ${nome} não compareceu ao treino hoje. Está tudo bem com ele(a)? Se puder, nos conta rapidinho o motivo da ausência. E se quiserem remarcar, é só nos chamar por aqui que a gente agenda a reposição com prazer! 💚`,
+  (nome) => `Oi! Tudo bem? Aqui é do BSA ⚽ Sentimos a falta de ${nome} no treino de hoje e ficamos na torcida pra que esteja tudo certo com ele(a). Qualquer coisa, nos avisa o motivo pra gente organizar por aqui 😊 E se quiserem remarcar, é só chamar que a gente agenda a reposição!`,
+  (nome) => `Olá! Equipe BSA aqui 🎽 ${nome} faltou ao treino de hoje. Pode nos confirmar se está tudo bem e qual foi o motivo? Se quiserem, já deixamos a reposição agendada.`,
+  (nome) => `Oi! Aqui é do BSA ⚽ Notamos a ausência de ${nome} no treino de hoje e queremos saber se está tudo bem com a saúde dele(a). Nos conta o que houve, por favor? Estamos à disposição pra remarcar quando quiserem.`,
+  (nome) => `Prezados, aqui é da equipe do Brazilian Skills Academy. Informamos que ${nome} não esteve presente no treino de hoje. Pedimos a gentileza de nos informar o motivo da ausência. Ficamos à disposição para agendar a reposição.`,
+  (nome) => `Olá! Time do BSA por aqui 🎽⚽ Sentimos falta de ${nome} no treino de hoje! Está tudo bem? Nos conta o motivo, e já deixamos o espaço garantido pra próxima aula 💪`
+];
+function mensagemFalta(alunoId, nome){
+  const primeiroNome = (nome||'').trim().split(' ')[0] || nome;
+  const chaveStorage = `bsaUltimaMsgFalta_${alunoId}`;
+  const ultimoIndice = parseInt(localStorage.getItem(chaveStorage), 10);
+  let indicesDisponiveis = MENSAGENS_FALTA.map((_, i) => i);
+  if(!isNaN(ultimoIndice)){
+    indicesDisponiveis = indicesDisponiveis.filter(i => i !== ultimoIndice);
+  }
+  const novoIndice = indicesDisponiveis[Math.floor(Math.random() * indicesDisponiveis.length)];
+  localStorage.setItem(chaveStorage, novoIndice);
+  return MENSAGENS_FALTA[novoIndice](primeiroNome);
+}
+
+function avatarHtml(a, tam){
+  tam = tam || 42;
+  return a.foto
+    ? `<img src="${a.foto}" style="width:${tam}px; height:${tam}px; border-radius:50%; object-fit:cover; border:2px solid var(--gold); flex:0 0 auto;">`
+    : `<div style="width:${tam}px; height:${tam}px; border-radius:50%; background:var(--pitch-soft); color:var(--pitch); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:${Math.round(tam/2.4)}px; flex:0 0 auto;">${(a.nome||'?').slice(0,1)}</div>`;
+}
+function renderFaltantes(){
+  const cont = document.getElementById('faltantesList');
+  const vazio = document.getElementById('faltantesEmpty');
+  const countEl = document.getElementById('faltantesUnitLabel');
+  const resumo = document.getElementById('chamadaResumo');
+  if(!unidadeAtual){
+    cont.innerHTML = ''; resumo.textContent = '';
+    vazio.style.display = 'block';
+    vazio.textContent = 'Selecione a unidade para ver a chamada.';
+    return;
+  }
+  countEl.textContent = '· ' + unidadeAtual;
+  const hoje = diaSemanaHoje();
+  const esperados = todosAlunosCache.filter(a => a.unidade === unidadeAtual && a.diasTreino && a.diasTreino.includes(hoje));
+  if(esperados.length === 0){
+    cont.innerHTML = ''; resumo.textContent = '';
+    vazio.style.display = 'block';
+    vazio.textContent = 'Nenhum aluno tem treino fixo hoje nesta unidade. Use o Reconhecimento manual pra buscar qualquer aluno.';
+    return;
+  }
+  vazio.style.display = 'none';
+  const presentes = esperados.filter(a => presentesHojeIds.has(a.id)).length;
+  resumo.innerHTML = `✅ ${presentes} presente(s) · ⏳ ${esperados.length - presentes} faltando · ${esperados.length} esperados`;
+  const ordenados = esperados.slice().sort((a,b)=>{
+    const pa = presentesHojeIds.has(a.id) ? 1 : 0, pb = presentesHojeIds.has(b.id) ? 1 : 0;
+    if(pa !== pb) return pa - pb;
+    return (a.horarioTreino||'').localeCompare(b.horarioTreino||'') || a.nome.localeCompare(b.nome);
+  });
+  cont.innerHTML = ordenados.map(a=>{
+    const ok = presentesHojeIds.has(a.id);
+    return `
+      <div class="falt-row" style="gap:12px; ${ok ? 'opacity:.6;' : ''}">
+        <div style="display:flex; align-items:center; gap:12px; flex:1; min-width:0; cursor:pointer;" data-ficha="${a.id}">
+          ${avatarHtml(a, 46)}
+          <div class="info">
+            <div class="n">${a.nome}</div>
+            <div class="m">${a.horarioTreino ? 'treino ' + a.horarioTreino : 'sem horário definido'}</div>
+          </div>
+        </div>
+        ${ok ? '<span style="flex:0 0 auto; font-weight:700; font-size:13px; color:var(--pitch);">✅ Presente</span>'
+             : `<button type="button" data-presente="${a.id}" style="flex:0 0 auto; border:0; border-radius:20px; padding:9px 14px; background:var(--pitch); color:#fff; font-weight:700; font-size:13px; cursor:pointer;">Presente</button>`}
+      </div>`;
+  }).join('');
+  cont.querySelectorAll('[data-ficha]').forEach(el=> el.addEventListener('click', ()=> abrirFichaAluno(el.dataset.ficha)));
+  cont.querySelectorAll('[data-presente]').forEach(btn=> btn.addEventListener('click', async ()=>{
+    const aluno = todosAlunosCache.find(x=> x.id === btn.dataset.presente);
+    if(!aluno) return;
+    btn.disabled = true; btn.textContent = '...';
+    try{
+      const r = await marcarPresenca(aluno, null, 'manual');
+      toast(aluno.nome + ' — ' + r.mensagem);
+      if(r.tocarBip) bip();
+    }catch(err){
+      toast('Erro ao registrar: ' + (err && err.message ? err.message : err));
+      btn.disabled = false; btn.textContent = 'Presente';
+    }
+  }));
+}
+
+/* ---------- Ficha do aluno (só leitura — substitui o link pro cadastro) ---------- */
+function idadeDe(iso){
+  if(!iso) return null;
+  const n = new Date(iso + 'T12:00:00'); if(isNaN(n)) return null;
+  const h = new Date(); let i = h.getFullYear() - n.getFullYear();
+  if(h.getMonth() < n.getMonth() || (h.getMonth() === n.getMonth() && h.getDate() < n.getDate())) i--;
+  return i;
+}
+function escHtml(t){ return String(t||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function abrirFichaAluno(id){
+  const a = todosAlunosCache.find(x=> x.id === id) || alunosCache.find(x=> x.id === id);
+  if(!a){ toast('Aluno não encontrado na lista'); return; }
+  const idade = idadeDe(a.dataNascimento);
+  const nasc = a.dataNascimento ? a.dataNascimento.split('-').reverse().join('/') : '';
+  const presenteHoje = presentesHojeIds.has(a.id);
+  const linha = (rot, val)=> val ? `<div style="display:flex; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid var(--line); font-size:14px;"><span style="color:var(--ink-soft);">${rot}</span><b style="text-align:right;">${val}</b></div>` : '';
+  document.getElementById('fichaConteudo').innerHTML = `
+    <div style="display:flex; flex-direction:column; align-items:center; text-align:center; margin-bottom:14px;">
+      ${a.foto ? `<img src="${a.foto}" style="width:150px; height:150px; border-radius:50%; object-fit:cover; border:3px solid var(--gold);">` : avatarHtml(a, 150)}
+      <h2 style="margin:12px 0 4px;">${escHtml(a.nome)}</h2>
+      <div style="font-weight:700; color:${presenteHoje ? 'var(--pitch)' : 'var(--ink-soft)'};">${presenteHoje ? '✅ Presente hoje' : '⏳ Ainda sem presença hoje'}</div>
+    </div>
+    ${linha('Idade', idade !== null ? idade + ' anos' : '')}
+    ${linha('Nascimento', nasc)}
+    ${linha('Unidade', escHtml(a.unidade))}
+    ${linha('Dias de treino', (a.diasTreino||[]).join(', '))}
+    ${linha('Horário', escHtml(a.horarioTreino))}
+    ${a.observacoes ? `<div style="margin-top:14px; padding:12px; border-radius:12px; background:var(--gold-soft); font-size:14px;"><b>📝 Observações</b><br>${escHtml(a.observacoes).replace(/\n/g,'<br>')}</div>` : ''}
+    ${presenteHoje ? '' : `<button class="btn btn-primary" id="fichaBtnPresente" type="button" style="margin-top:16px;">✋ Marcar presente</button>`}
+  `;
+  const b = document.getElementById('fichaBtnPresente');
+  if(b) b.onclick = async ()=>{
+    b.disabled = true;
+    const r = await marcarPresenca(a, null, 'manual');
+    toast(a.nome + ' — ' + r.mensagem);
+    if(r.tocarBip) bip();
+    fecharFicha();
+  };
+  document.getElementById('fichaModal').classList.add('active');
+}
+function fecharFicha(){ document.getElementById('fichaModal').classList.remove('active'); }
+
+function renderHistorico(itens){
+  const cont = document.getElementById('historyList');
+  const vazio = document.getElementById('historyEmpty');
+  document.getElementById('todayCountChip').textContent = itens.length + ' presença(s) hoje';
+  if(itens.length === 0){
+    cont.innerHTML = '';
+    vazio.style.display = 'block';
+    return;
+  }
+  vazio.style.display = 'none';
+  cont.innerHTML = itens.map(p=>{
+    const foto = p.foto ? `<img class="avatar" src="${p.foto}">` : `<div class="avatar" style="display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;color:var(--pitch);">${(p.nome||'?').slice(0,1)}</div>`;
+    const selo = p.tipoRegistro === 'reposicao' ? ' <span class="badge-repo">reposição</span>'
+      : (p.tipoRegistro === 'fora_horario' ? ' <span class="badge-alerta">fora do horário</span>' : '');
+    const seloManual = p.origemRegistro === 'manual' ? ' <span class="badge-repo">manual</span>' : '';
+    const seloDuvidoso = p.duvidoso ? ' <span class="badge-alerta" style="background:rgba(255,200,51,.16); color:#8a6d1f;" title="Reconhecimento no limite — vale conferir">🔎 conferir</span>' : '';
+    const seloUnidade = p.unidadeDivergente ? ` <span class="badge-repo" style="background:rgba(212,175,55,.18); color:#8a6d1f;">📍 aluno do ${p.unidade}</span>` : '';
+    const seloInadimplente = alunoEstaInadimplente(p.alunoId) ? ' <span class="badge-alerta" style="background:rgba(217,85,62,.15); color:#c94b34;">💸 atrasado</span>' : '';
+    const seloExcedeu = p.excedeuSemana ? ' <span class="badge-alerta" style="background:rgba(255,90,54,.18); color:#B23A20;" title="Veio mais vezes essa semana do que o combinado — avisar responsável">⚠️ excedeu semana</span>' : '';
+    return `<div class="presenca-item" style="cursor:pointer;" onclick="abrirEmNovaAba('bsa-cadastro.html?abrirAluno=${p.alunoId}')">${foto}<div class="info"><div class="name">${p.nome}${selo}${seloManual}${seloDuvidoso}${seloUnidade}${seloInadimplente}${seloExcedeu}</div><div class="time">${p.hora}</div></div><button class="btn-excluir" data-docid="${p._docId}" data-nome="${(p.nome||'').replace(/"/g,'&quot;')}" title="Remover presença" onclick="event.stopPropagation()">🗑️</button></div>`;
+  }).join('');
+  cont.querySelectorAll('.btn-excluir').forEach(btn=>{
+    btn.addEventListener('click', ()=> excluirPresenca(btn.dataset.docid, btn.dataset.nome));
+  });
+}
+
+document.getElementById('btnIniciar').addEventListener('click', iniciarCamera);
+document.getElementById('btnFecharCamera').addEventListener('click', fecharCamera);
+document.getElementById('btnFlipCameraPresenca').addEventListener('click', trocarCameraPresenca);
+
+let presencaFacingMode = 'environment';
+
+async function iniciarCamera(){
+  // Reconhece alunos das duas unidades (permite reposição de aula em unidade diferente da matrícula)
+  const alunosUnidade = alunosCache;
+  if(alunosUnidade.length === 0){
+    toast('Nenhum aluno com rosto processado ainda');
+    return;
+  }
+  const labeled = alunosUnidade.map(a=> new faceapi.LabeledFaceDescriptors(a.id, descritoresDoAluno(a)));
+  faceMatcher = new faceapi.FaceMatcher(labeled, DISTANCE_THRESHOLD);
+
+  document.getElementById('camUnitLabel').innerHTML = unidadeAtual + '<small>aponte a câmera para o rosto do aluno</small>';
+
+  try{
+    streamAtivo = await navigator.mediaDevices.getUserMedia({ video: { facingMode: presencaFacingMode }, audio: false });
+    const video = document.getElementById('video');
+    video.srcObject = streamAtivo;
+    video.play().catch(()=>{}); // iOS às vezes não retoma sozinho ao trocar o stream — força o play
+    document.getElementById('cameraOverlay').classList.add('active');
+    pedirWakeLock();
+    video.onloadedmetadata = ()=>{
+      const canvas = document.getElementById('overlayCanvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      loopAtivo = true;
+      loopReconhecimento();
+    };
+  }catch(err){
+    toast('Não foi possível acessar a câmera: ' + err.message);
+  }
+}
+
+async function trocarCameraPresenca(){
+  presencaFacingMode = (presencaFacingMode === 'environment') ? 'user' : 'environment';
+  if(streamAtivo){ streamAtivo.getTracks().forEach(t=>t.stop()); }
+  try{
+    streamAtivo = await navigator.mediaDevices.getUserMedia({ video: { facingMode: presencaFacingMode }, audio: false });
+    const video = document.getElementById('video');
+    video.srcObject = streamAtivo;
+    video.play().catch(()=>{}); // iOS às vezes não retoma sozinho ao trocar o stream — força o play
+    video.classList.toggle('mirror-video', presencaFacingMode === 'user');
+    toast(presencaFacingMode === 'user' ? '📷 Câmera frontal' : '📷 Câmera traseira');
+  }catch(err){
+    toast('Não foi possível trocar de câmera: ' + err.message);
+  }
+}
+
+function fecharCamera(){
+  loopAtivo = false;
+  if(streamAtivo){
+    streamAtivo.getTracks().forEach(t=>t.stop());
+    streamAtivo = null;
+  }
+  if(wakeLock){ wakeLock.release().catch(()=>{}); wakeLock = null; }
+  document.getElementById('cameraOverlay').classList.remove('active');
+  document.getElementById('recognitionCard').classList.remove('show');
+}
+
+/* ---------- Correção automática de balanço de branco (lona azul, etc.) ---------- */
+function corrigirBalancoBranco(ctx, w, h){
+  try{
+    // amostra só a região central (onde o rosto fica, já que a captura/reconhecimento é sempre de perto) —
+    // evita que o fundo (lona azul, chão, arquibancada) domine o cálculo da correção de cor
+    const cw = Math.round(w * 0.55), ch = Math.round(h * 0.55);
+    const cx = Math.round((w - cw) / 2), cy = Math.round((h - ch) / 2);
+    const imgDataCentro = ctx.getImageData(cx, cy, cw, ch);
+    const dCentro = imgDataCentro.data;
+    let rSum=0, gSum=0, bSum=0, n=0;
+    const passo = 16; // amostra 1 a cada 4 pixels (4 canais) pra ficar rápido
+    for(let i=0; i<dCentro.length; i+=passo){
+      rSum += dCentro[i]; gSum += dCentro[i+1]; bSum += dCentro[i+2]; n++;
+    }
+    if(n === 0) return;
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const d = imgData.data;
+    const rAvg = rSum/n, gAvg = gSum/n, bAvg = bSum/n;
+    const grayAvg = (rAvg + gAvg + bAvg) / 3;
+    if(grayAvg < 1) return;
+    const clamp = v => Math.min(2.0, Math.max(0.5, v));
+    const kr = clamp(grayAvg / Math.max(1, rAvg));
+    const kg = clamp(grayAvg / Math.max(1, gAvg));
+    const kb = clamp(grayAvg / Math.max(1, bAvg));
+    if(Math.abs(kr-1) < 0.04 && Math.abs(kg-1) < 0.04 && Math.abs(kb-1) < 0.04) return;
+    for(let i=0; i<d.length; i+=4){
+      d[i]   = Math.min(255, d[i]   * kr);
+      d[i+1] = Math.min(255, d[i+1] * kg);
+      d[i+2] = Math.min(255, d[i+2] * kb);
+    }
+    ctx.putImageData(imgData, 0, 0);
+  }catch(err){
+    console.error('Erro na correção de balanço de branco:', err);
+  }
+}
+
+async function loopReconhecimento(){
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('overlayCanvas');
+  const ctx = canvas.getContext('2d');
+  const procCanvas = document.getElementById('procCanvas');
+  const pctx = procCanvas.getContext('2d');
+  const opcoes = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+
+  while(loopAtivo){
+    try{
+      procCanvas.width = video.videoWidth;
+      procCanvas.height = video.videoHeight;
+      pctx.drawImage(video, 0, 0, procCanvas.width, procCanvas.height);
+      corrigirBalancoBranco(pctx, procCanvas.width, procCanvas.height);
+
+      const deteccoes = await faceapi.detectAllFaces(procCanvas, opcoes).withFaceLandmarks().withFaceDescriptors();
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+
+      if(deteccoes.length === 0){
+        document.getElementById('scanHint').style.display = 'block';
+        document.getElementById('scanHint').textContent = 'Procurando rosto...';
+      } else {
+        document.getElementById('scanHint').style.display = 'none';
+      }
+
+      for(const det of deteccoes){
+        const match = faceMatcher.findBestMatch(det.descriptor);
+        const box = det.detection.box;
+        // rosto pequeno no quadro = descritor de qualidade pior — pede pra aproximar em vez de arriscar confundir
+        if(box.width < procCanvas.width * 0.20){
+          document.getElementById('scanHint').style.display = 'block';
+          document.getElementById('scanHint').textContent = '👉 peça pro aluno se aproximar mais';
+          continue;
+        }
+        const reconhecido = match.label !== 'unknown';
+
+        ctx.strokeStyle = reconhecido ? '#FFC800' : 'rgba(255,255,255,0.6)';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+        if(reconhecido){
+          const aluno = alunosCache.find(a=>a.id === match.label);
+          if(aluno) processarReconhecimento(aluno, match.distance);
+        } else {
+          // rosto detectado mas ainda não bateu com ninguém do cadastro — avisa em vez de ficar em silêncio
+          document.getElementById('scanHint').style.display = 'block';
+          document.getElementById('scanHint').textContent = '🔎 rosto não reconhecido...';
+        }
+      }
+    }catch(err){
+      console.error(err);
+    }
+    await new Promise(r=>setTimeout(r, 300));
+  }
+}
+
+async function processarReconhecimento(aluno, distance){
+  const agora = Date.now();
+  // evita chamar de novo o mesmo aluno em menos de 4s (ele fica na frente da câmera)
+  if(aluno.id === ultimoReconhecidoId && (agora - ultimoReconhecidoTs) < 4000) return;
+  ultimoReconhecidoId = aluno.id;
+  ultimoReconhecidoTs = agora;
+
+  mostrarCardReconhecimento(aluno, 'registrando...');
+
+  try{
+    const resultado = await marcarPresenca(aluno, distance);
+    if(resultado.bloqueado){
+      document.getElementById('recognitionCard').classList.remove('show');
+      mostrarAlertaInativo(aluno);
+      return;
+    }
+    mostrarCardReconhecimento(aluno, resultado.mensagem, resultado.docId, resultado.duvidoso);
+    if(resultado.tocarBip) bip();
+  }catch(err){
+    console.error('Erro ao marcar presença:', err);
+    mostrarCardReconhecimento(aluno, '❌ erro ao salvar — tente de novo');
+    toast('Erro ao registrar presença: ' + err.message);
+    ultimoReconhecidoId = null; // libera pra tentar de novo na hora, sem esperar os 4s
+  }
+}
+
+function somAlertaInativo(){
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    [440,330,440,330].forEach((freq,i)=>{
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.type = 'square';
+      osc.frequency.value = freq;
+      const start = audioCtx.currentTime + i*0.22;
+      gain.gain.setValueAtTime(0.18, start);
+      osc.start(start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.2);
+      osc.stop(start + 0.22);
+    });
+  }catch(e){}
+}
+function mostrarAlertaInativo(aluno){
+  document.getElementById('alertaInativoNome').textContent = aluno.nome;
+  document.getElementById('alertaInativoOverlay').classList.add('show');
+  somAlertaInativo();
+  if(navigator.vibrate) navigator.vibrate([120,80,120,80,120]);
+  clearTimeout(window._alertaInativoTimer);
+  window._alertaInativoTimer = setTimeout(()=> document.getElementById('alertaInativoOverlay').classList.remove('show'), 6000);
+}
+document.getElementById('btnFecharAlertaInativo').addEventListener('click', (ev)=>{
+  ev.stopPropagation();
+  clearTimeout(window._alertaInativoTimer);
+  document.getElementById('alertaInativoOverlay').classList.remove('show');
+});
+
+function mostrarCardReconhecimento(aluno, statusTexto, docId, duvidoso){
+  // Mostra a confirmação visual primeiro (garantida), preenche detalhes depois com segurança
+  const card = document.getElementById('recognitionCard');
+  card.classList.add('show');
+  try{
+    document.getElementById('recImg').src = aluno.foto || '';
+    document.getElementById('recName').textContent = aluno.nome;
+    document.getElementById('recStatus').textContent = (duvidoso ? '🔎 ' : '') + statusTexto;
+    document.getElementById('recSchedule').textContent = formatarHorarioAluno(aluno);
+    card.onclick = ()=> abrirEmNovaAba('bsa-cadastro.html?abrirAluno=' + aluno.id);
+    card.style.cursor = 'pointer';
+    const btnX = document.getElementById('btnRecErrado');
+    if(docId){
+      btnX.style.display = 'flex';
+      btnX.onclick = (ev)=>{ ev.stopPropagation(); marcarReconhecimentoErrado(docId, aluno); };
+    } else {
+      btnX.style.display = 'none';
+    }
+  }catch(err){
+    console.error('Erro ao preencher detalhes do card (mas a confirmação já foi mostrada):', err);
+  }
+  clearTimeout(window._cardTimer);
+  window._cardTimer = setTimeout(()=> card.classList.remove('show'), 3200);
+}
+
+/* ---------- corrigir reconhecimento errado direto no card ---------- */
+let pendenciaReconhecimentoAberta = null;
+
+async function marcarReconhecimentoErrado(docId, aluno){
+  document.getElementById('recognitionCard').classList.remove('show');
+  try{
+    await db.collection('presencas').doc(docId).delete();
+  }catch(e){ /* se falhar em apagar, segue mesmo assim pro reconhecimento manual */ }
+  toast('Presença de ' + aluno.nome + ' removida — escolha o aluno certo');
+  // se o professor fechar o reconhecimento manual sem escolher ninguém (ocupado no meio da aula),
+  // fica uma pendência registrada em vez de esquecer o problema
+  pendenciaReconhecimentoAberta = { unidade: unidadeAtual, alunoErradoNome: aluno.nome, hora: new Date().toTimeString().slice(0,5) };
+  abrirManualModal();
+}
+
+async function registrarPendenciaReconhecimentoSeAberta(){
+  if(!pendenciaReconhecimentoAberta) return;
+  const p = pendenciaReconhecimentoAberta;
+  pendenciaReconhecimentoAberta = null;
+  try{
+    await db.collection('pendenciasReconhecimento').add({
+      unidade: p.unidade,
+      alunoErradoNome: p.alunoErradoNome,
+      hora: p.hora,
+      data: dataHojeISO(),
+      resolvido: false,
+      criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }catch(e){ /* se falhar em registrar a pendência, não trava o app — pior caso é só não aparecer no Diretora */ }
+}
+
+async function buscarReposicaoAgendadaHoje(aluno){
+  // Antes isso fazia uma consulta avulsa ao Firestore (.get(), com ou sem "source: cache") na
+  // hora do reconhecimento. 100% offline (modo avião), essa leitura podia nunca resolver nem
+  // dar erro — travando o registro da presença pra sempre (nem sucesso nem "erro ao registrar").
+  // Agora usa só o array "reposicoesAgendadas", que já fica sincronizado em memória em tempo
+  // real (onSnapshot, desde a abertura do app) — leitura local, síncrona, sem risco de travar.
+  const dataISO = dataHojeISO();
+  // Não exige mais que a data agendada bata exatamente com hoje — o aluno pode ter vindo
+  // num dia diferente do que foi programado. Entre todas as reposições pendentes desse aluno
+  // (na unidade do check-in), dá baixa na de data agendada mais próxima da data de hoje,
+  // seja ela passada ou futura, deixando as demais intactas pra uso posterior.
+  const candidatas = reposicoesAgendadas.filter(r=>
+    r.alunoId === aluno.id &&
+    r.unidadeReposicao === unidadeAtual
+  );
+  if(candidatas.length === 0) return null;
+  let melhor = candidatas[0];
+  let menorDif = Math.abs(new Date(candidatas[0].dataReposicao) - new Date(dataISO));
+  for(let i = 1; i < candidatas.length; i++){
+    const dif = Math.abs(new Date(candidatas[i].dataReposicao) - new Date(dataISO));
+    if(dif < menorDif){ menorDif = dif; melhor = candidatas[i]; }
+  }
+  return melhor;
+}
+
+async function marcarPresenca(aluno, distance, origem, dataOverride){
+  origem = origem || 'facial';
+  // Aluno inativo: NUNCA registra presença, nenhum caminho (facial, manual ou quiosque) passa
+  // daqui — quem chamou é responsável por mostrar o aviso grande e vermelho pro professor.
+  if(aluno.statusGeral === 'inativo'){
+    return { bloqueado: true, mensagem: '🚫 ALUNO INATIVO — presença NÃO registrada', tocarBip: false };
+  }
+  const hojeISO = dataHojeISO();
+  const dataISO = dataOverride || hojeISO;
+  const retroativo = dataISO !== hojeISO;
+  const docId = aluno.id + '_' + dataISO;
+  const ref = db.collection('presencas').doc(docId);
+  // Pra hoje: usa "presencasHojeMap" (memória, sincronizado por onSnapshot em tempo real) —
+  // leitura local, síncrona, sem risco de travar offline. Pra uma data retroativa (ação manual,
+  // esporádica, feita raramente), não temos esse mapa em memória — faz uma consulta pontual ao
+  // Firestore com timeout; se não resolver (sem internet), segue sem bloquear e o próprio
+  // set() abaixo usa o mesmo docId, então não gera duplicidade mesmo que já exista.
+  let dadosExistente = null;
+  if(!retroativo){
+    dadosExistente = presencasHojeMap.get(aluno.id);
+  } else {
+    try{
+      const snap = await comTimeout(ref.get(), 4000);
+      if(snap.exists) dadosExistente = snap.data();
+    }catch(err){ /* sem internet/tempo esgotado — segue, o set() não duplica */ }
+  }
+  if(dadosExistente){
+    const dataFmt = dataISO.split('-').reverse().join('/');
+    return { mensagem: dadosExistente.tipoRegistro === 'reposicao' ? ('reposição já registrada em ' + dataFmt) : ('presença já registrada em ' + dataFmt), tocarBip: false };
+  }
+
+  const agora = new Date();
+  const hora = String(agora.getHours()).padStart(2,'0') + ':' + String(agora.getMinutes()).padStart(2,'0');
+
+  // Reposição agendada e limite semanal só fazem sentido em tempo real (data de hoje) — pra
+  // uma presença retroativa não tentamos adivinhar/cruzar isso, só registra a presença mesmo.
+  const reposicao = retroativo ? null : await buscarReposicaoAgendadaHoje(aluno);
+  const foraDoHorario = !reposicao && estaForaDoHorario(aluno, dataISO);
+  const unidadeDivergente = aluno.unidade !== unidadeAtual;
+
+  // Aluno veio mais vezes essa semana do que os dias fixos cadastrados pra ele, e não é
+  // uma reposição (que já é uma visita extra autorizada). Não bloqueia — só avisa, pra
+  // você lembrar de esclarecer com o responsável se foi combinado ou não.
+  const diasFixos = (aluno.diasTreino || []).length;
+  const jaVeioSemana = retroativo ? 0 : (presencasSemanaMap.get(aluno.id) || 0);
+  const excedeuSemana = !retroativo && !reposicao && diasFixos > 0 && (jaVeioSemana + 1) > diasFixos;
+  const avisoSemana = excedeuSemana
+    ? (' · ⚠️ ' + (jaVeioSemana + 1) + 'x essa semana (combinado: ' + diasFixos + 'x) — avisar responsável')
+    : '';
+  const avisoRetro = retroativo ? (' · presença de ' + dataISO.split('-').reverse().join('/')) : '';
+
+  const duvidoso = (origem === 'facial') && (distance !== null && distance !== undefined) && (distance >= DISTANCIA_DUVIDOSA);
+
+  const dadosRegistro = {
+    alunoId: aluno.id,
+    nome: aluno.nome,
+    unidade: aluno.unidade,
+    unidadeCheckin: unidadeAtual,
+    unidadeDivergente: unidadeDivergente,
+    foto: aluno.foto || null,
+    data: dataISO,
+    hora: hora,
+    horaTimestamp: agora.getTime(),
+    confianca: (distance !== null && distance !== undefined) ? Math.round(Math.max(0, (1 - distance/0.6)) * 100) : null,
+    duvidoso: duvidoso,
+    origemRegistro: origem,
+    tipoRegistro: reposicao ? 'reposicao' : (foraDoHorario ? 'fora_horario' : 'normal'),
+    reposicaoId: reposicao ? reposicao._docId : null,
+    excedeuSemana: excedeuSemana,
+    diasTreino: aluno.diasTreino || [],
+    horarioTreino: aluno.horarioTreino || '',
+    retroativo: retroativo,
+    registradoPor: 'professor'
+  };
+
+  // Cópia de segurança local — independente do Firestore. Se o registro se perder antes de
+  // sincronizar (sem confirmação do servidor), fica salvo aqui mesmo assim e dá pra recuperar.
+  salvarBackupLocal(docId, dadosRegistro);
+  // Fica "pendente" até o servidor confirmar de verdade — se demorar demais, avisa na tela.
+  registrarPendencia(docId, aluno.nome);
+
+  // IMPORTANTE: não usa "await" aqui (pra não travar a tela esperando). O Firestore só
+  // resolve a promise de .set() quando o SERVIDOR confirma o recebimento — por isso agora
+  // tratamos o "então" (sucesso real) e o "catch" (falha real) separadamente, em vez de só
+  // considerar "registrado" no instante em que mandamos salvar. Enquanto isso não resolve,
+  // o registro segue como pendente (backup local + aviso na tela se demorar).
+  ref.set(dadosRegistro).then(()=>{
+    confirmarPendencia(docId);
+  }).catch(err=>{
+    console.error('Presença NÃO confirmada pelo servidor (fica pendente/backup local):', err);
+  });
+
+  const avisoUnidade = unidadeDivergente ? (' · aluno da unidade ' + aluno.unidade) : '';
+
+  if(reposicao){
+    // Mesma lógica: não espera confirmação do servidor pra seguir.
+    db.collection('reposicoes').doc(reposicao._docId).update({
+      status: 'usada',
+      usadoEm: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(err=>{
+      console.error('Baixa da reposição ficou na fila local pra sincronizar depois:', err);
+    });
+    return { mensagem: 'reposição registrada ✓ (direito utilizado)' + avisoUnidade + avisoSemana + avisoRetro, tocarBip: true, docId, duvidoso };
+  }
+  if(foraDoHorario){
+    return { mensagem: '⚠️ presença registrada — fora do horário fixo dele' + avisoUnidade + avisoSemana + avisoRetro, tocarBip: true, docId, duvidoso };
+  }
+  if(unidadeDivergente){
+    return { mensagem: '📍 presença registrada — aluno da unidade ' + aluno.unidade + avisoSemana + avisoRetro, tocarBip: true, docId, duvidoso };
+  }
+  return { mensagem: 'presença registrada ✓' + avisoSemana + avisoRetro, tocarBip: true, docId, duvidoso };
+}
+
+/* ---------- Reconhecimento manual ---------- */
+// Chamada retroativa: o dia é escolhido por botões (Hoje, Ontem e os dias anteriores) em vez
+// de depender só do calendário nativo do iPhone, que nem sempre abria dentro desta janela.
+// "Outra data" continua oferecendo o calendário pra dias mais antigos.
+let manualPresentesSet = new Set();   // quem já tem presença no dia escolhido
+let manualBuscaPresentesSeq = 0;
+let manualOutraDataAberta = false;
+const DIA_LABEL_ARR = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+function isoDeDate(d){
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function rotuloDataManual(iso){
+  const [y,m,d] = iso.split('-').map(Number);
+  return DIA_LABEL_ARR[new Date(y, m-1, d).getDay()] + ' ' + String(d).padStart(2,'0') + '/' + String(m).padStart(2,'0');
+}
+function dataManualSelecionada(){
+  const campo = document.getElementById('manualData');
+  const hojeISO = dataHojeISO();
+  const v = (campo && campo.value) ? campo.value : hojeISO;
+  return v > hojeISO ? hojeISO : v; // nunca no futuro
+}
+function renderManualDias(){
+  const sel = dataManualSelecionada();
+  const base = new Date();
+  let html = '';
+  let selEstaNosBotoes = false;
+  for(let i = 0; i < 7; i++){
+    const d = new Date(base.getFullYear(), base.getMonth(), base.getDate() - i);
+    const iso = isoDeDate(d);
+    if(iso === sel) selEstaNosBotoes = true;
+    const titulo = i === 0 ? 'Hoje' : (i === 1 ? 'Ontem' : DIA_LABEL_ARR[d.getDay()]);
+    const sub = String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
+    html += `<button type="button" class="manual-dia${iso === sel ? ' active' : ''}" onclick="definirDataManual('${iso}')">${titulo}<small>${sub}</small></button>`;
+  }
+  const outraAtiva = !selEstaNosBotoes;
+  html += `<button type="button" class="manual-dia${outraAtiva ? ' active' : ''}" onclick="abrirOutraDataManual()">📅 Outra<small>${outraAtiva ? rotuloDataManual(sel) : 'data'}</small></button>`;
+  document.getElementById('manualDias').innerHTML = html;
+  document.getElementById('manualData').style.display = (manualOutraDataAberta || outraAtiva) ? '' : 'none';
+  const aviso = document.getElementById('manualRetroAviso');
+  if(sel !== dataHojeISO()){
+    aviso.textContent = '⚠️ Chamada retroativa de ' + rotuloDataManual(sel) + ' — toque em cada aluno que veio. A lista fica aberta até você fechar.';
+    aviso.style.display = '';
+  } else {
+    aviso.style.display = 'none';
+  }
+}
+function abrirOutraDataManual(){
+  manualOutraDataAberta = true;
+  const campo = document.getElementById('manualData');
+  campo.style.display = '';
+  // Abre o calendário na hora, dentro do próprio toque (onde o navegador permite).
+  try{ if(campo.showPicker) campo.showPicker(); else campo.focus(); }catch(e){ try{ campo.focus(); }catch(_){} }
+}
+function definirDataManual(iso){
+  const hojeISO = dataHojeISO();
+  if(!iso || iso > hojeISO) iso = hojeISO;
+  const campo = document.getElementById('manualData');
+  campo.max = hojeISO;
+  campo.value = iso;
+  renderManualDias();
+  carregarPresentesManual(iso);
+}
+// Descobre quem já tem presença no dia escolhido, pra mostrar "✓ presente" na lista.
+function carregarPresentesManual(iso){
+  const seq = ++manualBuscaPresentesSeq;
+  if(iso === dataHojeISO()){
+    manualPresentesSet = new Set(presentesHojeIds);
+    renderManualLista(document.getElementById('manualBusca').value);
+    return;
+  }
+  manualPresentesSet = new Set();
+  renderManualLista(document.getElementById('manualBusca').value);
+  comTimeout(db.collection('presencas').where('data', '==', iso).get(), 6000).then(snap=>{
+    if(seq !== manualBuscaPresentesSeq) return; // já trocou de dia
+    snap.forEach(doc=>{ const d = doc.data(); if(d && d.alunoId) manualPresentesSet.add(d.alunoId); });
+    renderManualLista(document.getElementById('manualBusca').value);
+  }).catch(()=>{ /* sem internet: segue sem as marcações — gravar de novo não duplica */ });
+}
+function abrirManualModal(){
+  if(!unidadeAtual){ toast('Selecione a unidade primeiro'); return; }
+  document.getElementById('manualUnidadeLabel').textContent = unidadeAtual;
+  document.getElementById('manualBusca').value = '';
+  document.getElementById('manualDataField').style.display = '';
+  manualOutraDataAberta = false;
+  // Se a lista de presenças da tela está filtrada num dia passado, a chamada já abre nesse
+  // dia (é o que a pessoa está olhando). Senão, começa em hoje.
+  const hojeISO = dataHojeISO();
+  const inicial = (typeof dataHistoricoAtual === 'string' && dataHistoricoAtual < hojeISO) ? dataHistoricoAtual : hojeISO;
+  definirDataManual(inicial);
+  document.getElementById('manualModal').classList.add('active');
+  // Sem foco automático na busca: no iPhone isso subia o teclado e atrapalhava escolher o dia.
+}
+function fecharManualModal(){
+  const estavaAberto = document.getElementById('manualModal').classList.contains('active');
+  document.getElementById('manualModal').classList.remove('active');
+  registrarPendenciaReconhecimentoSeAberta();
+  // Depois de uma chamada retroativa, a lista da tela passa a mostrar o dia lançado, pra conferir.
+  try{
+    const campoVisivel = document.getElementById('manualDataField').style.display !== 'none';
+    const sel = dataManualSelecionada();
+    if(estavaAberto && campoVisivel && unidadeAtual && sel !== dataHistoricoAtual && manualLancouRetro){
+      document.getElementById('historyDateFilter').value = sel;
+      listenHistorico(sel);
+    }
+  }catch(e){}
+  manualLancouRetro = false;
+}
+let manualLancouRetro = false;
+function renderManualLista(termo){
+  const lista = document.getElementById('manualLista');
+  const t = (termo||'').trim().toLowerCase();
+  const dataSel = dataManualSelecionada();
+  const ehRetro = dataSel !== dataHojeISO();
+  const diaSel = diaSemanaDeISO(dataSel);
+  const daTurmaDoDia = a => (a.diasTreino || []).includes(diaSel) ? 0 : 1;
+  const encontrados = todosAlunosCache
+    // Sem busca (lista inicial): só alunos da unidade escolhida, sem misturar com a outra.
+    // Com busca (digitou algo): pode achar aluno de qualquer unidade também — útil pra
+    // registrar reposição de um aluno visitante — mostrando a etiqueta da unidade dele.
+    .filter(a => t.length === 0 ? a.unidade === unidadeAtual : a.nome.toLowerCase().includes(t))
+    .sort((a,b)=>{
+      // alunos da unidade atual aparecem primeiro; alunos de outra unidade (reposição) vêm depois
+      const da = a.unidade === unidadeAtual ? 0 : 1;
+      const db_ = b.unidade === unidadeAtual ? 0 : 1;
+      if(da !== db_) return da - db_;
+      // Na chamada retroativa, quem treina naquele dia da semana aparece primeiro.
+      if(ehRetro && daTurmaDoDia(a) !== daTurmaDoDia(b)) return daTurmaDoDia(a) - daTurmaDoDia(b);
+      return a.nome.localeCompare(b.nome);
+    })
+    .slice(0, ehRetro ? 200 : 30);
+  if(encontrados.length === 0){
+    // Mensagem diferente quando o problema é a lista de alunos estar vazia (cache não
+    // carregado) do que quando é só a busca não achar ninguém — ajuda a diagnosticar.
+    lista.innerHTML = todosAlunosCache.length === 0
+      ? '<div class="empty">Lista de alunos ainda não carregou (0 no cache). Abra este app com internet pelo menos uma vez, depois toque em Atualizar no Hub.</div>'
+      : '<div class="empty">Nenhum aluno encontrado.</div>';
+    return;
+  }
+  lista.innerHTML = encontrados.map(a=>{
+    const foto = a.foto ? `<img class="avatar" src="${a.foto}">` : `<div class="avatar" style="display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk';font-weight:700;color:var(--pitch);">${(a.nome||'?').slice(0,1)}</div>`;
+    const tagUnidade = a.unidade !== unidadeAtual ? ` <span class="badge-repo">${a.unidade}</span>` : '';
+    const ja = manualPresentesSet.has(a.id);
+    return `<div class="presenca-item${ja ? ' ja-presente' : ''}" style="cursor:pointer;" onclick="confirmarManual('${a.id}')">${foto}<div class="info"><div class="name">${a.nome}${tagUnidade}</div></div>${ja ? '<span class="manual-ja">✓ presente</span>' : ''}</div>`;
+  }).join('');
+}
+async function confirmarManual(alunoId){
+  // Reescrito pra NUNCA falhar em silêncio: toda saída possível agora mostra algum toast,
+  // mesmo em casos que antes só faziam "return" sem avisar nada (ex: aluno não encontrado).
+  try{
+    const aluno = todosAlunosCache.find(a=>a.id === alunoId);
+    if(!aluno){
+      toast('Não encontrei esse aluno na lista carregada — tente fechar e abrir o Manual de novo');
+      return;
+    }
+    pendenciaReconhecimentoAberta = null; // resolveu escolhendo alguém — não precisa mais da pendência
+    const hojeISO = dataHojeISO();
+    const dataSelecionada = dataManualSelecionada();
+    const ehRetroativo = dataSelecionada !== hojeISO;
+    if(ehRetroativo){
+      // Chamada retroativa: a lista continua aberta, no mesmo dia, pra marcar a turma inteira.
+      if(manualPresentesSet.has(aluno.id)){
+        toast(aluno.nome + ' já está presente em ' + rotuloDataManual(dataSelecionada));
+        return;
+      }
+      const resultadoRetro = await marcarPresenca(aluno, null, 'manual', dataSelecionada);
+      if(!resultadoRetro.bloqueado){
+        manualPresentesSet.add(aluno.id);
+        manualLancouRetro = true;
+      }
+      document.getElementById('manualBusca').value = '';
+      renderManualLista('');
+      toast(resultadoRetro.tocarBip ? ('✓ ' + aluno.nome + ' · ' + rotuloDataManual(dataSelecionada)) : (aluno.nome + ' — ' + resultadoRetro.mensagem));
+      if(resultadoRetro.tocarBip) bip();
+      return;
+    }
+    fecharManualModal();
+    toast('Registrando presença de ' + aluno.nome + (ehRetroativo ? (' em ' + dataSelecionada.split('-').reverse().join('/')) : '') + '...');
+    const resultado = await marcarPresenca(aluno, null, 'manual', dataSelecionada);
+    toast(resultado.mensagem + ' (manual) — toque pra ver a ficha', 'bsa-cadastro.html?abrirAluno=' + aluno.id);
+    if(resultado.tocarBip) bip();
+  }catch(err){
+    toast('Erro ao registrar: ' + (err && err.message ? err.message : err));
+  }
+}
+// Rede de segurança extra: qualquer erro de script ou promise não tratada em qualquer parte
+// do app agora aparece como toast (antes podia falhar em silêncio, sem log visível no iPhone/iPad).
+window.addEventListener('error', function(e){
+  try{ toast('Erro inesperado: ' + (e && e.message ? e.message : 'ver detalhes no código')); }catch(_){}
+});
+window.addEventListener('unhandledrejection', function(e){
+  try{
+    const msg = (e && e.reason && e.reason.message) ? e.reason.message : String(e && e.reason);
+    toast('Erro inesperado (promise): ' + msg);
+  }catch(_){}
+});
+document.getElementById('btnManual').addEventListener('click', abrirManualModal);
+document.getElementById('btnManualNaCamera').addEventListener('click', ()=>{ fecharCamera(); abrirManualModal(); });
+document.getElementById('btnFecharManualModal').addEventListener('click', fecharManualModal);
+document.getElementById('manualModal').addEventListener('click', e=>{ if(e.target.id === 'manualModal') fecharManualModal(); });
+document.getElementById('manualBusca').addEventListener('input', e=> renderManualLista(e.target.value));
+document.getElementById('manualData').addEventListener('change', e=>{ if(e.target.value) definirDataManual(e.target.value); });
+
+/* =================== MODO QUIOSQUE =================== */
+const KIOSK_MIN_FACE_RATIO = 0.20;   // rosto precisa ocupar pelo menos ~20% da largura do quadro
+const KIOSK_FAIL_MS = 6000;          // depois de ~6s tentando sem sucesso, mostra "não identificado"
+const KIOSK_NO_FACE_RESET_MS = 14000; // só desiste de vez da tentativa se ficar bem mais tempo sem detectar nada (tolera rosto sumir da câmera por instantes)
+const KIOSK_COOLDOWN_MS = 45000;     // depois de identificar, ignora o mesmo aluno por 45s
+
+let kioskAtivo = false;
+let kioskUnidade = null;
+let kioskStream = null;
+let kioskLoopAtivo = false;
+let kioskState = 'standby';
+let kioskFaceMatcher = null;
+let kioskAttemptStartTs = null;
+let kioskUltimoId = null;
+let kioskUltimoTs = 0;
+let kioskTapTimes = [];
+let vozRecognition = null;
+let kioskFacingMode = 'user'; // câmera FRONTAL por padrão — o aluno precisa se ver pra se posicionar sozinho
+
+function capitalizeKiosk(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+
+/* janela de tolerância pra considerar um aluno "esperado agora": meia hora antes até 1h depois do horário fixo dele */
+function horarioParaMinutosKiosk(hhmm){
+  if(!hhmm) return null;
+  const m = hhmm.match(/(\d{1,2}):(\d{2})/);
+  if(!m) return null;
+  return parseInt(m[1],10)*60 + parseInt(m[2],10);
+}
+function alunosEsperadosAgora(){
+  if(!kioskUnidade) return [];
+  const hoje = diaSemanaHoje();
+  const agoraMin = new Date().getHours()*60 + new Date().getMinutes();
+  return todosAlunosCache.filter(a=>{
+    if(a.unidade !== kioskUnidade) return false;
+    if(!a.diasTreino || !a.diasTreino.includes(hoje)) return false;
+    const hMin = horarioParaMinutosKiosk(a.horarioTreino);
+    if(hMin === null) return true; // sem horário definido, não filtra por hora — melhor mostrar do que esconder
+    return agoraMin >= (hMin - 30) && agoraMin <= (hMin + 90);
+  });
+}
+function renderKioskFailGrid(){
+  const grid = document.getElementById('kioskFailGrid');
+  const label = document.getElementById('kioskFailGridLabel');
+  const esperados = alunosEsperadosAgora();
+  console.log('[kiosk-fail-grid] unidade=', kioskUnidade, 'total alunos=', todosAlunosCache.length, 'esperados agora=', esperados.length);
+  if(esperados.length === 0){
+    grid.innerHTML = '';
+    label.style.display = 'block';
+    label.textContent = 'Nenhum aluno esperado nesse horário — chame o professor';
+    return;
+  }
+  label.style.display = 'block';
+  label.textContent = '👇 Ache a sua foto';
+  grid.innerHTML = esperados.map(a=>{
+    const img = a.foto
+      ? `<img src="${a.foto}">`
+      : `<div class="letra">${(a.nome||'?').slice(0,1).toUpperCase()}</div>`;
+    return `<div class="foto-item" onclick="confirmarKioskPorFoto('${a.id}')">${img}<div class="nome-mini">${(a.nome||'').split(' ')[0]}</div></div>`;
+  }).join('');
+}
+
+async function confirmarKioskPorFoto(alunoId){
+  const aluno = todosAlunosCache.find(a=>a.id === alunoId);
+  if(!aluno) return;
+  try{
+    const resultado = await marcarPresenca(aluno, null, 'manual');
+    if(resultado.bloqueado){ mostrarKioskInativo(aluno); return; }
+    mostrarKioskSucesso(aluno, resultado);
+  }catch(err){
+    toast('⚠️ Erro ao registrar: ' + err.message);
+  }
+}
+
+function setKioskState(novoEstado){
+  if(kioskState === novoEstado) return;
+  kioskState = novoEstado;
+  document.querySelectorAll('#kioskOverlay .kiosk-screen').forEach(s=>s.classList.remove('active'));
+  const tela = document.getElementById('kioskScreen' + capitalizeKiosk(novoEstado));
+  if(tela) tela.classList.add('active');
+  if(novoEstado === 'warn'){ somAvisoKiosk(); if(navigator.vibrate) navigator.vibrate(60); }
+  if(novoEstado === 'fail'){ somFalhaKiosk(); if(navigator.vibrate) navigator.vibrate([80,60,80]); renderKioskFailGrid(); }
+}
+
+function tickKioskClock(){
+  const el = document.getElementById('kioskClock');
+  function upd(){
+    const d = new Date();
+    el.textContent = String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+  }
+  upd();
+  clearInterval(window._kioskClockTimer);
+  window._kioskClockTimer = setInterval(upd, 15000);
+}
+
+async function iniciarKiosk(){
+  if(!unidadeAtual){ toast('Selecione a unidade primeiro'); return; }
+  // Reconhece alunos das duas unidades (permite reposição de aula em unidade diferente da matrícula)
+  const alunosUnidade = alunosCache;
+  if(alunosUnidade.length === 0){ toast('Nenhum aluno com rosto processado ainda'); return; }
+
+  const labeled = alunosUnidade.map(a=> new faceapi.LabeledFaceDescriptors(a.id, descritoresDoAluno(a)));
+  kioskFaceMatcher = new faceapi.FaceMatcher(labeled, DISTANCE_THRESHOLD);
+  kioskUnidade = unidadeAtual;
+  document.getElementById('kioskUnitPill').textContent = kioskUnidade.toUpperCase();
+
+  try{
+    kioskStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: kioskFacingMode }, audio:false });
+    const video = document.getElementById('kioskVideo');
+    video.srcObject = kioskStream;
+    video.play().catch(()=>{}); // iOS às vezes não retoma sozinho ao trocar o stream — força o play
+    video.classList.toggle('mirror', kioskFacingMode === 'user');
+    document.getElementById('kioskOverlay').classList.add('active');
+    kioskAtivo = true;
+    pedirWakeLock();
+    video.onloadedmetadata = ()=>{
+      const proc = document.getElementById('kioskProcCanvas');
+      proc.width = video.videoWidth;
+      proc.height = video.videoHeight;
+      kioskLoopAtivo = true;
+      kioskState = 'standby'; // força re-render da 1ª tela sem disparar som
+      document.querySelectorAll('#kioskOverlay .kiosk-screen').forEach(s=>s.classList.remove('active'));
+      document.getElementById('kioskScreenStandby').classList.add('active');
+      document.getElementById('kioskStandbyHeadline').textContent = 'Aproxime seu rosto';
+      tickKioskClock();
+      loopKiosk();
+    };
+  }catch(err){
+    toast('Não foi possível acessar a câmera: ' + err.message);
+  }
+}
+
+async function trocarCameraKiosk(){
+  if(!kioskAtivo) return;
+  kioskFacingMode = (kioskFacingMode === 'user') ? 'environment' : 'user';
+  if(kioskStream){ kioskStream.getTracks().forEach(t=>t.stop()); }
+  try{
+    kioskStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode: kioskFacingMode }, audio:false });
+    const video = document.getElementById('kioskVideo');
+    video.srcObject = kioskStream;
+    video.play().catch(()=>{}); // iOS às vezes não retoma sozinho ao trocar o stream — força o play
+    video.classList.toggle('mirror', kioskFacingMode === 'user');
+    video.onloadedmetadata = ()=>{
+      const proc = document.getElementById('kioskProcCanvas');
+      proc.width = video.videoWidth;
+      proc.height = video.videoHeight;
+    };
+    toast(kioskFacingMode === 'user' ? '📷 Câmera frontal (aluno se vê)' : '📷 Câmera traseira (você posiciona)');
+  }catch(err){
+    toast('Não foi possível trocar de câmera: ' + err.message);
+  }
+}
+
+function fecharKiosk(){
+  kioskAtivo = false;
+  kioskLoopAtivo = false;
+  if(kioskStream){ kioskStream.getTracks().forEach(t=>t.stop()); kioskStream = null; }
+  if(wakeLock){ wakeLock.release().catch(()=>{}); wakeLock = null; }
+  if(vozRecognition){ try{ vozRecognition.stop(); }catch(e){} }
+  clearInterval(window._kioskClockTimer);
+  clearTimeout(window._kioskSuccessTimer);
+  document.getElementById('kioskOverlay').classList.remove('active');
+}
+
+async function loopKiosk(){
+  const video = document.getElementById('kioskVideo');
+  const procCanvas = document.getElementById('kioskProcCanvas');
+  const pctx = procCanvas.getContext('2d');
+  const opcoes = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+
+  while(kioskLoopAtivo){
+    try{
+      if(kioskState === 'standby' || kioskState === 'warn'){
+        procCanvas.width = video.videoWidth;
+        procCanvas.height = video.videoHeight;
+        pctx.drawImage(video, 0, 0, procCanvas.width, procCanvas.height);
+        corrigirBalancoBranco(pctx, procCanvas.width, procCanvas.height);
+
+        const deteccoes = await faceapi.detectAllFaces(procCanvas, opcoes).withFaceLandmarks().withFaceDescriptors();
+
+        if(deteccoes.length === 0){
+          if(kioskAttemptStartTs){
+            // tolera o rosto sumir da câmera por alguns segundos sem zerar a tentativa —
+            // só desiste de vez se passar bem do tempo de "não identificado"
+            if((Date.now() - kioskAttemptStartTs) > KIOSK_NO_FACE_RESET_MS){
+              kioskAttemptStartTs = null;
+              setKioskState('standby');
+              document.getElementById('kioskStandbyHeadline').textContent = 'Aproxime seu rosto';
+            }
+          } else {
+            setKioskState('standby');
+            document.getElementById('kioskStandbyHeadline').textContent = 'Aproxime seu rosto';
+          }
+        } else {
+          if(!kioskAttemptStartTs) kioskAttemptStartTs = Date.now();
+
+          let maior = deteccoes[0];
+          for(const dtc of deteccoes){ if(dtc.detection.box.width > maior.detection.box.width) maior = dtc; }
+          const ratio = maior.detection.box.width / procCanvas.width;
+
+          if(ratio < KIOSK_MIN_FACE_RATIO){
+            setKioskState('warn');
+          } else {
+            setKioskState('standby');
+            document.getElementById('kioskStandbyHeadline').textContent = 'Identificando...';
+            const match = kioskFaceMatcher.findBestMatch(maior.descriptor);
+            if(match.label !== 'unknown'){
+              const aluno = alunosCache.find(a=>a.id === match.label);
+              if(aluno) await kioskRegistrarSucesso(aluno, match.distance);
+            } else {
+              // rosto detectado mas ainda não bateu com ninguém — avisa em vez de deixar "Identificando..." parado
+              document.getElementById('kioskStandbyHeadline').textContent = '🔎 rosto não reconhecido...';
+            }
+          }
+        }
+
+        if(kioskAttemptStartTs && (Date.now() - kioskAttemptStartTs) > KIOSK_FAIL_MS){
+          setKioskState('fail');
+        }
+      }
+    }catch(err){
+      console.error(err);
+    }
+    await new Promise(r=>setTimeout(r, 300));
+  }
+}
+
+let kioskUltimoBloqueado = false;
+async function kioskRegistrarSucesso(aluno, distance){
+  const agora = Date.now();
+  if(aluno.id === kioskUltimoId && (agora - kioskUltimoTs) < KIOSK_COOLDOWN_MS){
+    kioskAttemptStartTs = null;
+    if(kioskUltimoBloqueado){
+      // aluno inativo continua na frente da câmera dentro do cooldown — repete o aviso vermelho,
+      // NUNCA a tela de sucesso (nada foi registrado da primeira vez)
+      mostrarKioskInativo(aluno);
+    } else {
+      // já foi cumprimentado há pouco — não bate no banco de novo, mas reforça a tela em vez de ficar mudo
+      mostrarKioskSucesso(aluno, { mensagem: 'presença já registrada hoje', tocarBip: false });
+    }
+    return;
+  }
+  kioskUltimoId = aluno.id;
+  kioskUltimoTs = agora;
+  kioskAttemptStartTs = null;
+  try{
+    const resultado = await marcarPresenca(aluno, distance, 'facial');
+    kioskUltimoBloqueado = !!resultado.bloqueado;
+    if(resultado.bloqueado){
+      mostrarKioskInativo(aluno);
+      return;
+    }
+    mostrarKioskSucesso(aluno, resultado);
+  }catch(err){
+    console.error('Erro ao marcar presença (quiosque):', err);
+    toast('⚠️ Falha ao salvar a presença de ' + aluno.nome + ': ' + err.message);
+    kioskUltimoId = null; // não bloqueia mais esse aluno no cooldown — deixa tentar de novo
+  }
+}
+
+function mostrarKioskInativo(aluno){
+  setKioskState('inativo');
+  somFalhaKiosk();
+  if(navigator.vibrate) navigator.vibrate([120,80,120,80,120]);
+  try{
+    document.getElementById('kioskInativoNome').textContent = aluno.nome;
+  }catch(err){
+    console.error('Erro ao preencher nome na tela de aluno inativo (mas o alerta já foi mostrado):', err);
+  }
+  clearTimeout(window._kioskInativoTimer);
+  window._kioskInativoTimer = setTimeout(()=>{
+    if(kioskAtivo){
+      kioskAttemptStartTs = null;
+      kioskState = 'standby-force';
+      setKioskState('standby');
+      document.getElementById('kioskStandbyHeadline').textContent = 'Aproxime seu rosto';
+    }
+  }, 6000);
+}
+
+function mostrarKioskSucesso(aluno, resultado){
+  // Confirmação principal primeiro (tela muda + som), sempre — antes de qualquer detalhe
+  // cosmético que possa falhar (foto, etc.), pra nunca ficar sem confirmar pro aluno
+  setKioskState('success');
+  if(resultado.tocarBip) somSucessoKiosk();
+  if(navigator.vibrate) navigator.vibrate(40);
+
+  try{
+    const jaRegistrado = resultado.mensagem.includes('já registrada');
+    const foto = document.getElementById('kioskSuccessFoto');
+    const letra = document.getElementById('kioskSuccessAvatarLetra');
+    if(aluno.foto){
+      foto.src = aluno.foto; foto.style.display = 'block'; letra.style.display = 'none';
+    } else {
+      letra.textContent = (aluno.nome || '?').slice(0,1).toUpperCase();
+      letra.style.display = 'flex'; foto.style.display = 'none';
+    }
+    document.getElementById('kioskAlreadyFlag').style.display = jaRegistrado ? 'block' : 'none';
+    document.getElementById('kioskSuccessNome').textContent = aluno.nome;
+    const agora = new Date();
+    const hora = String(agora.getHours()).padStart(2,'0') + ':' + String(agora.getMinutes()).padStart(2,'0');
+    document.getElementById('kioskSuccessMeta').textContent = 'Presença às ' + hora;
+    document.getElementById('kioskSuccessBadge').textContent = (jaRegistrado ? 'ℹ️ ' : '✓ ') + resultado.mensagem;
+  }catch(err){
+    console.error('Erro ao preencher detalhes da tela de sucesso (mas a confirmação já foi mostrada):', err);
+  }
+
+  clearTimeout(window._kioskSuccessTimer);
+  window._kioskSuccessTimer = setTimeout(()=>{
+    if(kioskAtivo){
+      kioskAttemptStartTs = null; // evita "não identificado" imediato se o mesmo rosto ainda estiver no quadro
+      kioskState = 'standby-force'; // truque pra garantir a troca de tela mesmo vindo de 'success'
+      setKioskState('standby');
+      document.getElementById('kioskStandbyHeadline').textContent = 'Aproxime seu rosto';
+    }
+  }, 4000);
+}
+
+/* ---------- Chamar professor: manual ou por voz, direto na tela de falha ---------- */
+document.getElementById('btnKioskManual').addEventListener('click', ()=>{
+  unidadeAtual = kioskUnidade;
+  document.getElementById('manualUnidadeLabel').textContent = kioskUnidade;
+  document.getElementById('manualBusca').value = '';
+  // No quiosque é sempre presença de agora — esconde o seletor de data e garante hoje.
+  document.getElementById('manualData').value = dataHojeISO();
+  document.getElementById('manualDataField').style.display = 'none';
+  manualPresentesSet = new Set(presentesHojeIds);
+  renderManualLista('');
+  document.getElementById('manualModal').classList.add('active');
+  setTimeout(()=> document.getElementById('manualBusca').focus(), 200);
+});
+
+document.getElementById('btnKioskVoz').addEventListener('click', async ()=>{
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){
+    toast('Reconhecimento de voz não disponível neste navegador — use a busca manual');
+    return;
+  }
+  try{
+    // pede a permissão de microfone de forma explícita primeiro — mais confiável no iOS do que deixar só o SpeechRecognition pedir
+    const micTeste = await navigator.mediaDevices.getUserMedia({ audio: true });
+    micTeste.getTracks().forEach(t=>t.stop());
+  }catch(err){
+    toast('Permissão de microfone negada — use a busca manual');
+    return;
+  }
+  try{
+    vozRecognition = new SR();
+    vozRecognition.lang = 'pt-BR';
+    vozRecognition.interimResults = false;
+    vozRecognition.maxAlternatives = 1;
+    toast('🎤 Fale o nome completo do aluno...');
+    vozRecognition.onresult = (event)=>{
+      const texto = event.results[0][0].transcript;
+      unidadeAtual = kioskUnidade;
+      document.getElementById('manualUnidadeLabel').textContent = kioskUnidade;
+      document.getElementById('manualBusca').value = texto;
+      document.getElementById('manualData').value = dataHojeISO();
+      document.getElementById('manualDataField').style.display = 'none';
+      manualPresentesSet = new Set(presentesHojeIds);
+      renderManualLista(texto);
+      document.getElementById('manualModal').classList.add('active');
+    };
+    vozRecognition.onerror = (event)=>{
+      if(event.error === 'service-not-allowed' || event.error === 'not-allowed'){
+        toast('Ditado desativado neste iPad — Ajustes > Geral > Teclado > Ativar Ditado. Use a busca manual por enquanto.');
+      } else {
+        toast('Não entendi (' + (event.error || 'erro') + ') — tente a busca manual');
+      }
+    };
+    vozRecognition.onend = religarSaidaDeAudio; // usar o microfone pode derrubar a saída de som no iOS — religa depois
+    vozRecognition.start();
+  }catch(err){
+    toast('Erro ao acessar o microfone: ' + err.message);
+  }
+});
+
+/* depois de confirmar presença manual/por voz durante o quiosque, volta pra tela de espera */
+const _confirmarManualOriginal = confirmarManual;
+confirmarManual = async function(alunoId){
+  await _confirmarManualOriginal(alunoId);
+  if(kioskAtivo){
+    kioskAttemptStartTs = null;
+    kioskState = 'manual-force';
+    setKioskState('standby');
+    document.getElementById('kioskStandbyHeadline').textContent = 'Aproxime seu rosto';
+  }
+};
+
+/* ---------- Sair do quiosque: botão visível OU 2 toques rápidos na tela ---------- */
+document.getElementById('btnKioskSair').addEventListener('click', fecharKiosk);
+document.getElementById('btnKioskTrocarCamera').addEventListener('click', trocarCameraKiosk);
+
+document.getElementById('kioskOverlay').addEventListener('click', (e)=>{
+  if(e.target.closest('button')) return;
+  const agora = Date.now();
+  kioskTapTimes.push(agora);
+  kioskTapTimes = kioskTapTimes.filter(t=> agora - t < 600);
+  if(kioskTapTimes.length >= 2){
+    kioskTapTimes = [];
+    if(navigator.vibrate) navigator.vibrate(50);
+    toast('Saindo do Modo Quiosque...');
+    setTimeout(fecharKiosk, 250);
+  }
+});
+
+document.getElementById('btnKiosk').addEventListener('click', iniciarKiosk);
+
+initFirebase();
+</script>
+<script>
+/* ---------- BSA Professor: PIN e botão Atualizar ---------- */
+(function(){
+  const PIN_PROFESSOR = '2468';
+  const CHAVE = 'bsaProfessorPin';
+  const ov = document.getElementById('pinOverlay');
+  const inp = document.getElementById('pinInput');
+  function liberar(){ ov.style.display = 'none'; }
+  let salvo = null;
+  try{ salvo = localStorage.getItem(CHAVE); }catch(e){}
+  if(salvo === PIN_PROFESSOR){ liberar(); }
+  else { setTimeout(()=>{ try{ inp.focus(); }catch(e){} }, 300); }
+  function tentar(){
+    if(inp.value === PIN_PROFESSOR){
+      try{ localStorage.setItem(CHAVE, PIN_PROFESSOR); }catch(e){}
+      liberar();
+    } else {
+      document.getElementById('pinErro').textContent = 'PIN incorreto';
+      inp.value = '';
+      if(navigator.vibrate) navigator.vibrate(200);
+    }
+  }
+  document.getElementById('pinBtn').addEventListener('click', tentar);
+  inp.addEventListener('keydown', e=>{ if(e.key === 'Enter') tentar(); });
+
+  document.getElementById('btnFecharFicha').addEventListener('click', fecharFicha);
+  document.getElementById('fichaModal').addEventListener('click', e=>{ if(e.target.id === 'fichaModal') fecharFicha(); });
+
+  // Tira o ?upd= da barra de endereço depois de atualizar
+  if(location.search.indexOf('upd=') !== -1){
+    try{ history.replaceState(null, '', location.pathname); }catch(e){}
+  }
+  document.getElementById('btnAtualizarProf').addEventListener('click', async ()=>{
+    if(!navigator.onLine){ toast('Precisa de internet pra atualizar'); return; }
+    const btn = document.getElementById('btnAtualizarProf');
+    btn.disabled = true; btn.textContent = '⏳ Atualizando...';
+    try{
+      if('caches' in window){
+        const nomes = await caches.keys();
+        await Promise.all(nomes.filter(n=> n.indexOf('bsa-hub-cache-') === 0).map(n=> caches.delete(n)));
+      }
+      if('serviceWorker' in navigator){
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r=> r.unregister()));
+      }
+    }catch(e){}
+    location.replace('bsa-professor.html?upd=' + Date.now());
+  });
+})();
+</script>
+</body>
+</html>
