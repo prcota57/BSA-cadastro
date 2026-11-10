@@ -908,6 +908,7 @@ function renderAlunoDetail(app){
         + (extras>0 ? 'Marcar pago ('+fmtMoeda(Number(m.valor)+extras)+')' : 'Marcar pago') + '</button>';
     } else {
       html += '<div class="meta" style="font-size:12px;color:var(--ink-soft);">Pago em '+fmtDataBR(m.dataPagamento)+(m.bancoPagamento?' · '+m.bancoPagamento:'')+'</div>';
+      html += '<button class="btn btn-outline" style="width:100%;margin-top:8px;" data-action="desfazerPagamento" data-id="'+m.id+'">↩️ Desfazer pagamento</button>';
       if(extras>0){
         html += '<div class="meta" style="font-size:13px;margin-top:10px;line-height:1.6;">'
           + (matriculaPendente ? 'Matrícula pendente: '+fmtMoeda(a.valorMatricula)+'<br>' : '')
@@ -1134,6 +1135,18 @@ var Actions = {
       showToast('Marcado como pago!');
       render();
     }catch(e){ showToast('Não foi possível salvar: '+e.message); }
+  },
+  desfazerPagamento:async function(el){
+    var id = el.dataset.id;
+    var m = state.mensalidades.find(function(x){return x.id===id;});
+    if(!confirm('Desfazer o pagamento'+(m?' de '+m.nomeAluno:'')+'? A mensalidade volta a ficar em aberto.')) return;
+    try{
+      var del = firebase.firestore.FieldValue.delete();
+      await db.collection('mensalidades').doc(id).update({ statusPagamento: del, dataPagamento: del, bancoPagamento: del });
+      if(m){ delete m.statusPagamento; delete m.dataPagamento; delete m.bancoPagamento; }
+      showToast('Pagamento desfeito.');
+      render();
+    }catch(e){ showToast('Não foi possível desfazer: '+e.message); }
   },
   excluirMensalidadeOrfa:async function(el){
     var id = el.dataset.id;
