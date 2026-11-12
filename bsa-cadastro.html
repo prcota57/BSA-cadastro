@@ -355,6 +355,7 @@
     <div class="chip active" data-unit="todas">Todas unidades <span class="cnt-tag" id="cnt-todas">(0)</span></div>
     <div class="chip" data-unit="Carlos Prates">Carlos Prates <span class="cnt-tag" id="cnt-carlosprates">(0)</span></div>
     <div class="chip" data-unit="Estoril">Estoril <span class="cnt-tag" id="cnt-estoril">(0)</span></div>
+    <div class="chip" data-unit="avulsos">🎟️ Avulsos <span class="cnt-tag" id="cnt-avulsos">(0)</span></div>
   </div>
   <div class="chipsrow" id="statusChips" style="padding-top:0;">
     <div class="chip active" data-status="todos">Todos status</div>
@@ -507,6 +508,7 @@
         <select id="fStatusGeral" onchange="atualizarCampoRetorno()">
           <option value="ativo">Ativo</option>
           <option value="trancado">Trancado (pausa temporária)</option>
+          <option value="avulso">Avulso (paga por aula, não conta como aluno)</option>
           <option value="inativo">Inativo</option>
         </select>
       </div>
@@ -943,6 +945,27 @@ function listenAlunos(){
     document.getElementById('statusLine').textContent = 'erro de sincronização';
   });
   listenPendentes();
+  listenAulasAvulsas();
+}
+
+/* ---------- Aulas avulsas (saldo de crédito / dívida do aluno avulso) ---------- */
+let aulasAvulsasCache = [];
+function listenAulasAvulsas(){
+  db.collection('aulasAvulsas').onSnapshot(snap=>{
+    aulasAvulsasCache = snap.docs.map(d=> d.data());
+    renderLista();
+  }, err=> console.error(err));
+}
+function saldoAvulso(alunoId){
+  const creditos = aulasAvulsasCache.filter(x=> x.alunoId === alunoId && x.statusPagamento === 'pago' && !x.dataAula).length;
+  const dividas = aulasAvulsasCache.filter(x=> x.alunoId === alunoId && x.statusPagamento !== 'pago' && x.statusPagamento !== 'isento').length;
+  return { creditos, dividas };
+}
+function saldoAvulsoTexto(alunoId){
+  const s = saldoAvulso(alunoId);
+  if(s.dividas) return ' · ⚠️ deve ' + s.dividas + ' aula(s)';
+  if(s.creditos) return ' · ✅ ' + s.creditos + ' paga(s)';
+  return ' · sem crédito';
 }
 
 /* ---------- Cadastros pendentes (vindos do formulário público) ---------- */
@@ -1092,7 +1115,9 @@ async function aprovarPendente(p){
 
 /* ---------- Contador de alunos por unidade ---------- */
 function updateUnitCounts(){
-  const ativos = alunosCache.filter(a => a.statusGeral !== 'inativo' && a.statusGeral !== 'trancado');
+  // Avulso não conta como aluno: fica fora das contagens das unidades, só no chip próprio
+  const ativos = alunosCache.filter(a => a.statusGeral !== 'inativo' && a.statusGeral !== 'trancado' && a.statusGeral !== 'avulso');
+  document.getElementById('cnt-avulsos').textContent = '(' + alunosCache.filter(a => a.statusGeral === 'avulso').length + ')';
   const cp = ativos.filter(a => a.unidade === 'Carlos Prates').length;
   const est = ativos.filter(a => a.unidade === 'Estoril').length;
   document.getElementById('cnt-todas').textContent = '(' + ativos.length + ')';
@@ -1539,7 +1564,7 @@ document.getElementById('btnSalvar').addEventListener('click', async ()=>{
   try{
     if(editingId){
       await db.collection('alunos').doc(editingId).update(dados);
-      if(dados.statusGeral === 'inativo' || dados.statusGeral === 'trancado') await zerarPendenciasFinanceiras(editingId);
+      if(dados.statusGeral === 'inativo' || dados.statusGeral === 'trancado' || dados.statusGeral === 'avulso') await zerarPendenciasFinanceiras(editingId);
       showToast('Aluno atualizado');
     }else{
       dados.id = await gerarProximoId();
@@ -1621,7 +1646,13 @@ function tempoDeCasa(iso){
 function renderLista(){
   const term = document.getElementById('searchInput').value.trim().toLowerCase();
   let lista = alunosCache.filter(a=>{
-    if(filterUnit !== 'todas' && a.unidade !== filterUnit) return false;
+    if(filterUnit === 'avulsos'){
+      if(a.statusGeral !== 'avulso') return false;
+    } else {
+      if(filterUnit !== 'todas' && a.unidade !== filterUnit) return false;
+      // Na lista normal o avulso não aparece — só no chip "Avulsos" ou buscando pelo nome
+      if(a.statusGeral === 'avulso' && !term) return false;
+    }
     if(filterStatus !== 'todos' && a.statusMensalidade !== filterStatus) return false;
     if(!passaFiltroMatricula(a)) return false;
     if(term){
@@ -1649,6 +1680,7 @@ function renderLista(){
     const qtdFotos = descritoresExistentes(a).length;
     const seloFotos = qtdFotos < 3 ? `<span class="schedule-pill" style="background:rgba(255,200,51,.16); color:#8a6d1f;">📷 ${qtdFotos}/3</span>` : '';
     const seloMat = (filterMat !== 'todos' && a.dataMatricula) ? `<span class="schedule-pill" style="background:rgba(20,120,70,.12); color:#1f6b45;">📅 ${formatarDataBR(a.dataMatricula.slice(0,10))}${tempoDeCasa(a.dataMatricula.slice(0,10)) ? ' · ' + tempoDeCasa(a.dataMatricula.slice(0,10)) : ''}</span>` : '';
+    const seloAvulso = a.statusGeral === 'avulso' ? `<span class="schedule-pill" style="background:rgba(212,160,23,.18); color:#8a6d1f;">🎟️ Avulso${saldoAvulsoTexto(a._docId)}</span>` : '';
     const seloTrancado = a.statusGeral === 'trancado' ? `<span class="schedule-pill" style="background:rgba(90,140,255,.16); color:#2952a3;">🔒 Trancado${a.dataRetornoPrevista ? ' até ' + formatarDataBR(a.dataRetornoPrevista) : ''}</span>` : '';
     return `
       <div class="card ${a.statusGeral === 'inativo' ? 'inativo' : (a.statusGeral === 'trancado' ? 'trancado' : '')}" onclick="abrirDetalhe('${a._docId}')">
@@ -1666,6 +1698,7 @@ function renderLista(){
             ${seloFotos}
             ${seloTrancado}
             ${seloMat}
+            ${seloAvulso}
           </div>
         </div>
         <div class="chevron">›</div>
@@ -1814,7 +1847,7 @@ function mensagemBoasVindasVolta(nome){
 function renderNovatos(){
   const ativo = document.querySelector('#novatosChips .chip.active');
   const range = ativo ? ativo.dataset.range : 'semana';
-  let lista = alunosCache.filter(a => a.statusGeral !== 'inativo' && a.statusGeral !== 'trancado' && (a.dataMatricula || a.dataReativacao));
+  let lista = alunosCache.filter(a => a.statusGeral !== 'inativo' && a.statusGeral !== 'trancado' && a.statusGeral !== 'avulso' && (a.dataMatricula || a.dataReativacao));
   lista = lista.map(a=>{
     const diasMat = a.dataMatricula ? diasDesdeMatricula(a.dataMatricula) : Infinity;
     const diasReat = a.dataReativacao ? diasDesdeMatricula(a.dataReativacao) : Infinity;
@@ -1867,7 +1900,7 @@ function camposFaltantes(a){
   return faltando;
 }
 function listaIncompletos(){
-  return alunosCache.filter(a => a.statusGeral !== 'inativo' && camposFaltantes(a).length > 0);
+  return alunosCache.filter(a => a.statusGeral !== 'inativo' && a.statusGeral !== 'avulso' && camposFaltantes(a).length > 0);
 }
 function atualizarBadgeIncompletos(){
   const n = listaIncompletos().length;
@@ -1945,6 +1978,7 @@ function abrirDetalhe(docId){
       <b>${a.responsavelWhatsapp || '—'}</b>
     </div>
     ${a.observacoes ? `<div class="card" style="display:block; margin-bottom:16px;"><div class="hint">Observações</div>${a.observacoes}</div>` : ''}
+    ${a.statusGeral === 'avulso' ? (()=>{ const sv = saldoAvulso(docId); return `<div class="card" style="display:block; margin-bottom:16px;"><div class="hint">🎟️ Aluno avulso — R$ 70 por aula, pago antes</div><b>${sv.dividas ? '⚠️ ' + sv.dividas + ' aula(s) sem pagamento' : (sv.creditos ? '✅ ' + sv.creditos + ' aula(s) paga(s) disponível(is)' : 'Sem aula paga no momento')}</b><div class="hint" style="margin-top:6px;">Pagamentos e cobranças ficam na aba Avulsos do BSA Finanças.</div></div>`; })() : ''}
     ${a.statusGeral === 'trancado' ? `<div class="card" style="display:block; margin-bottom:16px;"><div class="hint">🔒 Matrícula trancada</div><b>Retorno previsto: ${a.dataRetornoPrevista ? formatarDataBR(a.dataRetornoPrevista) : 'não definido'}</b></div>` : ''}
     <div class="card" style="display:block; margin-bottom:16px;">
       <div class="hint">Fotos para reconhecimento facial</div>
@@ -1954,10 +1988,11 @@ function abrirDetalhe(docId){
     <button class="btn btn-primary btn-block" onclick="editarAluno('${docId}')">Editar</button>
     ${a.statusGeral === 'ativo' ? `
       <button class="btn btn-outline btn-block" onclick="trancarAluno('${docId}')">🔒 Trancar matrícula</button>
+      <button class="btn btn-outline btn-block" onclick="tornarAvulso('${docId}')">🎟️ Tornar avulso (paga por aula)</button>
       <button class="btn btn-outline btn-block" onclick="marcarInativo('${docId}')">Marcar como inativo</button>
     ` : `
-      <button class="btn btn-outline btn-block" onclick="reativarAluno('${docId}')">▶️ Reativar aluno</button>
-      ${a.statusGeral === 'trancado' ? `<button class="btn btn-outline btn-block" onclick="marcarInativo('${docId}')">Marcar como inativo</button>` : ''}
+      <button class="btn btn-outline btn-block" onclick="reativarAluno('${docId}')">${a.statusGeral === 'avulso' ? '✅ Matricular (virar mensalista)' : '▶️ Reativar aluno'}</button>
+      ${(a.statusGeral === 'trancado' || a.statusGeral === 'avulso') ? `<button class="btn btn-outline btn-block" onclick="marcarInativo('${docId}')">Marcar como inativo</button>` : ''}
     `}
     <button class="btn btn-danger btn-block" onclick="excluirAluno('${docId}')">Excluir cadastro</button>
     <button class="btn btn-outline btn-block" onclick="fecharDetalhe()">Fechar</button>
@@ -1993,7 +2028,7 @@ function editarAluno(docId){
   document.getElementById('fRespWhats').value = a.responsavelWhatsapp || '';
   document.getElementById('fStatusMens').value = a.statusMensalidade;
   document.getElementById('fMatricula').value = a.dataMatricula || '';
-  document.getElementById('fStatusGeral').value = (a.statusGeral === 'inativo' || a.statusGeral === 'trancado') ? a.statusGeral : 'ativo';
+  document.getElementById('fStatusGeral').value = (a.statusGeral === 'inativo' || a.statusGeral === 'trancado' || a.statusGeral === 'avulso') ? a.statusGeral : 'ativo';
   document.getElementById('fDataRetorno').value = a.dataRetornoPrevista || '';
   atualizarCampoRetorno();
   document.getElementById('fObs').value = a.observacoes || '';
@@ -2038,6 +2073,14 @@ async function marcarInativo(docId){
   await db.collection('alunos').doc(docId).update({statusGeral:'inativo', dataRetornoPrevista:null});
   await zerarPendenciasFinanceiras(docId);
   showToast('Aluno marcado como inativo e pendências financeiras zeradas');
+  fecharDetalhe();
+}
+
+async function tornarAvulso(docId){
+  if(!confirm('Tornar este aluno AVULSO? Ele sai da contagem de alunos, não gera mais mensalidade (as pendentes são zeradas) e passa a pagar R$ 70 por aula.')) return;
+  await db.collection('alunos').doc(docId).update({statusGeral:'avulso', dataRetornoPrevista:null});
+  await zerarPendenciasFinanceiras(docId);
+  showToast('Aluno agora é avulso — mensalidades pendentes zeradas');
   fecharDetalhe();
 }
 
@@ -2133,6 +2176,7 @@ function parseStatusAluno(v){
   const norm = String(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
   if(norm.includes('inativo')) return 'inativo';
   if(norm.includes('trancado')) return 'trancado';
+  if(norm.includes('avulso')) return 'avulso';
   if(norm.includes('ativo')) return 'ativo';
   return '';
 }
@@ -2258,7 +2302,7 @@ async function confirmarImportacao(){
         if(r.statusAluno) upd.statusGeral = r.statusAluno;
         await db.collection('alunos').doc(existente._docId).update(upd);
         Object.assign(existente, upd);
-        if(upd.statusGeral === 'inativo' || upd.statusGeral === 'trancado') await zerarPendenciasFinanceiras(existente._docId);
+        if(upd.statusGeral === 'inativo' || upd.statusGeral === 'trancado' || upd.statusGeral === 'avulso') await zerarPendenciasFinanceiras(existente._docId);
         atualizados++;
       }else{
         const id = await gerarProximoId();

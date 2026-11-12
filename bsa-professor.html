@@ -1182,6 +1182,58 @@ function carregarTodosAlunos(){
     renderAniversariantesSemanaPresenca();
   }, err=>{ console.error(err); });
   carregarMensalidades();
+  carregarAulasAvulsas();
+}
+
+/* ---------- Aulas avulsas (aluno que paga por aula, R$ 70 antes) ---------- */
+// Mantido em memória por onSnapshot — nada de leitura de rede na hora do check-in (funciona offline).
+const VALOR_AULA_AVULSA = 70;
+let avulsasCache = [];
+function carregarAulasAvulsas(){
+  db.collection('aulasAvulsas').onSnapshot(snap=>{
+    avulsasCache = snap.docs.map(d=> Object.assign({ _docId: d.id }, d.data()));
+  }, err=>{ console.error(err); });
+}
+// Usa 1 crédito pago (o mais antigo). Sem crédito: lança a aula em aberto (R$ 70) pro financeiro cobrar.
+function processarAulaAvulsa(aluno, dataISO){
+  const jaTem = avulsasCache.find(x=> x.alunoId === aluno.id && x.dataAula === dataISO);
+  if(jaTem) return { pago: jaTem.statusPagamento === 'pago', restantes: 0 };
+  const creditos = avulsasCache.filter(x=> x.alunoId === aluno.id && x.statusPagamento === 'pago' && !x.dataAula)
+    .sort((a,b)=> (a.dataPagamento||'').localeCompare(b.dataPagamento||''));
+  if(creditos.length){
+    const c = creditos[0];
+    c.dataAula = dataISO;
+    db.collection('aulasAvulsas').doc(c._docId).update({ dataAula: dataISO, unidadeAula: unidadeAtual || aluno.unidade })
+      .catch(err=> console.error('Uso do crédito avulso ficou na fila pra sincronizar:', err));
+    return { pago: true, restantes: creditos.length - 1 };
+  }
+  const completo = todosAlunosCache.find(x=> x.id === aluno.id) || aluno;
+  const id = aluno.id + '_' + dataISO;
+  const doc = {
+    alunoId: aluno.id, nomeAluno: aluno.nome, unidade: aluno.unidade,
+    responsavelNome: completo.responsavelNome || '', responsavelWhatsapp: completo.responsavelWhatsapp || '',
+    valor: VALOR_AULA_AVULSA, statusPagamento: 'pendente', dataPagamento: null,
+    dataAula: dataISO, unidadeAula: unidadeAtual || aluno.unidade
+  };
+  avulsasCache.push(Object.assign({ _docId: id }, doc));
+  db.collection('aulasAvulsas').doc(id).set(doc)
+    .catch(err=> console.error('Aula avulsa em aberto ficou na fila pra sincronizar:', err));
+  return { pago: false, restantes: 0 };
+}
+// Presença removida: devolve o crédito (se foi aula paga) ou apaga a cobrança em aberto.
+function desfazerAulaAvulsa(presencaDocId){
+  const i = presencaDocId.lastIndexOf('_');
+  if(i < 0) return;
+  const alunoId = presencaDocId.slice(0, i), dataISO = presencaDocId.slice(i + 1);
+  const av = avulsasCache.find(x=> x.alunoId === alunoId && x.dataAula === dataISO);
+  if(!av) return;
+  if(av.statusPagamento === 'pago'){
+    av.dataAula = null;
+    db.collection('aulasAvulsas').doc(av._docId).update({ dataAula: null }).catch(err=> console.error(err));
+  } else {
+    avulsasCache = avulsasCache.filter(x=> x !== av);
+    db.collection('aulasAvulsas').doc(av._docId).delete().catch(err=> console.error(err));
+  }
 }
 
 /* ---------- Inadimplência (pra avisar na hora de bater a presença) ---------- */
@@ -1689,6 +1741,7 @@ document.getElementById('btnHistoryHoje').addEventListener('click', ()=> listenH
 async function excluirPresenca(docId, nome){
   if(!confirm('Remover a presença de ' + nome + '?')) return;
   try{
+    desfazerAulaAvulsa(docId);
     await db.collection('presencas').doc(docId).delete();
     toast('Presença de ' + nome + ' removida');
   }catch(err){
@@ -1782,7 +1835,7 @@ function renderFaltantes(){
   }
   countEl.textContent = '· ' + unidadeAtual;
   const hoje = diaSemanaHoje();
-  const esperados = todosAlunosCache.filter(a => a.unidade === unidadeAtual && a.diasTreino && a.diasTreino.includes(hoje));
+  const esperados = todosAlunosCache.filter(a => a.statusGeral !== 'avulso' && a.unidade === unidadeAtual && a.diasTreino && a.diasTreino.includes(hoje));
   if(esperados.length === 0){
     cont.innerHTML = ''; resumo.textContent = '';
     vazio.style.display = 'block';
@@ -2142,6 +2195,7 @@ async function marcarReconhecimentoErrado(docId, aluno){
   try{
     await db.collection('presencas').doc(docId).delete();
   }catch(e){ /* se falhar em apagar, segue mesmo assim pro reconhecimento manual */ }
+  try{ desfazerAulaAvulsa(docId); }catch(e){}
   toast('Presença de ' + aluno.nome + ' removida — escolha o aluno certo');
   // se o professor fechar o reconhecimento manual sem escolher ninguém (ocupado no meio da aula),
   // fica uma pendência registrada em vez de esquecer o problema
@@ -2226,8 +2280,9 @@ async function marcarPresenca(aluno, distance, origem, dataOverride){
 
   // Reposição agendada e limite semanal só fazem sentido em tempo real (data de hoje) — pra
   // uma presença retroativa não tentamos adivinhar/cruzar isso, só registra a presença mesmo.
-  const reposicao = retroativo ? null : await buscarReposicaoAgendadaHoje(aluno);
-  const foraDoHorario = !reposicao && estaForaDoHorario(aluno, dataISO);
+  const ehAvulso = aluno.statusGeral === 'avulso';
+  const reposicao = (retroativo || ehAvulso) ? null : await buscarReposicaoAgendadaHoje(aluno);
+  const foraDoHorario = !ehAvulso && !reposicao && estaForaDoHorario(aluno, dataISO);
   const unidadeDivergente = aluno.unidade !== unidadeAtual;
 
   // Aluno veio mais vezes essa semana do que os dias fixos cadastrados pra ele, e não é
@@ -2235,7 +2290,7 @@ async function marcarPresenca(aluno, distance, origem, dataOverride){
   // você lembrar de esclarecer com o responsável se foi combinado ou não.
   const diasFixos = (aluno.diasTreino || []).length;
   const jaVeioSemana = retroativo ? 0 : (presencasSemanaMap.get(aluno.id) || 0);
-  const excedeuSemana = !retroativo && !reposicao && diasFixos > 0 && (jaVeioSemana + 1) > diasFixos;
+  const excedeuSemana = !ehAvulso && !retroativo && !reposicao && diasFixos > 0 && (jaVeioSemana + 1) > diasFixos;
   const avisoSemana = excedeuSemana
     ? (' · ⚠️ ' + (jaVeioSemana + 1) + 'x essa semana (combinado: ' + diasFixos + 'x) — avisar responsável')
     : '';
@@ -2256,7 +2311,7 @@ async function marcarPresenca(aluno, distance, origem, dataOverride){
     confianca: (distance !== null && distance !== undefined) ? Math.round(Math.max(0, (1 - distance/0.6)) * 100) : null,
     duvidoso: duvidoso,
     origemRegistro: origem,
-    tipoRegistro: reposicao ? 'reposicao' : (foraDoHorario ? 'fora_horario' : 'normal'),
+    tipoRegistro: ehAvulso ? 'avulso' : (reposicao ? 'reposicao' : (foraDoHorario ? 'fora_horario' : 'normal')),
     reposicaoId: reposicao ? reposicao._docId : null,
     excedeuSemana: excedeuSemana,
     diasTreino: aluno.diasTreino || [],
@@ -2283,6 +2338,15 @@ async function marcarPresenca(aluno, distance, origem, dataOverride){
   });
 
   const avisoUnidade = unidadeDivergente ? (' · aluno da unidade ' + aluno.unidade) : '';
+
+  if(ehAvulso){
+    const av = processarAulaAvulsa(aluno, dataISO);
+    const txt = av.pago
+      ? '🎟️ AVULSO — aula paga ✓'
+      : '🎟️ AVULSO ⚠️ pagamento pendente — avise a coordenação';
+    ref.update({ avulsoPago: av.pago }).catch(()=>{});
+    return { mensagem: txt + avisoRetro, tocarBip: true, docId, duvidoso, avulsoNaoPago: !av.pago };
+  }
 
   if(reposicao){
     // Mesma lógica: não espera confirmação do servidor pra seguir.
@@ -2539,6 +2603,7 @@ function alunosEsperadosAgora(){
   const agoraMin = new Date().getHours()*60 + new Date().getMinutes();
   return todosAlunosCache.filter(a=>{
     if(a.unidade !== kioskUnidade) return false;
+    if(a.statusGeral === 'avulso') return false;
     if(!a.diasTreino || !a.diasTreino.includes(hoje)) return false;
     const hMin = horarioParaMinutosKiosk(a.horarioTreino);
     if(hMin === null) return true; // sem horário definido, não filtra por hora — melhor mostrar do que esconder

@@ -133,7 +133,8 @@ var firebaseConfig = {
 var db = null;
 /* Mensalidades de meses anteriores a este são ignoradas em toda cobrança, relatório e cálculo de saúde — sistema passou a ser abastecido a partir daqui */
 var MES_INICIO_SISTEMA = '2026-09';
-var state = { screen:'dashboard', alunos:[], todosAlunoIds:[], mensalidades:[], movimentacoes:[], movTab:'entrada', search:'', searchInad:'', currentAlunoId:null, filaLista:[], filaIndex:0, extratoTexto:'', extratoResultado:null };
+var VALOR_AULA_AVULSA = 70;
+var state = { screen:'dashboard', alunos:[], avulsos:[], aulasAvulsas:[], todosAlunoIds:[], mensalidades:[], movimentacoes:[], movTab:'entrada', search:'', searchInad:'', currentAlunoId:null, filaLista:[], filaIndex:0, extratoTexto:'', extratoResultado:null };
 
 function initFirebase(){
   if(firebaseConfig.apiKey === "COLE_AQUI"){
@@ -191,11 +192,18 @@ async function carregarTudo(){
   try{
     var alunosSnap = await db.collection('alunos').get();
     state.alunos = [];
+    state.avulsos = [];
     state.todosAlunoIds = [];
     alunosSnap.forEach(function(doc){
       var d = doc.data();
       state.todosAlunoIds.push(doc.id);
       if(d.statusGeral === 'inativo' || d.statusGeral === 'trancado') return;
+      // Aluno avulso: paga por aula (R$ 70), não gera mensalidade e fica fora dos números de mensalistas
+      if(d.statusGeral === 'avulso'){
+        state.avulsos.push({ id: doc.id, nome: d.nome||'(sem nome)', unidade: d.unidade||'', foto: d.foto||null,
+          responsavelNome: d.responsavelNome||'', responsavelWhatsapp: d.responsavelWhatsapp||'' });
+        return;
+      }
       state.alunos.push({
         id: doc.id, nome: d.nome||'(sem nome)', unidade: d.unidade||'',
         foto: d.foto||null, responsavelNome: d.responsavelNome||'',
@@ -208,6 +216,7 @@ async function carregarTudo(){
     await garantirMensalidadesDoMes();
     await carregarMensalidades();
     await carregarMovimentacoes();
+    await carregarAulasAvulsas();
     render();
   }catch(err){
     document.getElementById('app').innerHTML = '<div class="setup-banner"><b>Erro ao carregar</b>'+err.message+'</div>';
@@ -291,6 +300,25 @@ async function carregarMovimentacoes(){
   snap.forEach(function(doc){ state.movimentacoes.push(Object.assign({id:doc.id}, doc.data())); });
 }
 
+async function carregarAulasAvulsas(){
+  var snap = await db.collection('aulasAvulsas').get();
+  state.aulasAvulsas = [];
+  snap.forEach(function(doc){ state.aulasAvulsas.push(Object.assign({id:doc.id}, doc.data())); });
+}
+// Crédito = aula avulsa paga ainda não usada. Dívida = aula feita sem pagamento antes.
+function creditosAvulso(alunoId){
+  return state.aulasAvulsas.filter(function(x){ return x.alunoId===alunoId && x.statusPagamento==='pago' && !x.dataAula; });
+}
+function dividasAvulso(alunoId){
+  return state.aulasAvulsas.filter(function(x){ return (!alunoId || x.alunoId===alunoId) && x.statusPagamento!=='pago' && x.statusPagamento!=='isento'; })
+    .sort(function(a,b){ return (a.dataAula||'').localeCompare(b.dataAula||''); });
+}
+function msgCobrancaAvulso(a, dividas){
+  var datas = dividas.map(function(d){ return fmtDataBR(d.dataAula); }).join(', ');
+  var total = dividas.reduce(function(s,d){ return s+(Number(d.valor)||0); },0);
+  return 'Olá, '+((a.responsavelNome||'').split(' ')[0]||'tudo bem')+'! 😊 Passando pra lembrar que a aula avulsa do '+((a.nome||'').split(' ')[0])+' ('+datas+') ficou em aberto — total de '+fmtMoeda(total)+'. Pode fazer pelo PIX e mandar o comprovante aqui? Obrigado! ⚽';
+}
+
 function statusComputado(m){
   if(m.statusPagamento === 'pago') return 'pago';
   if(m.statusPagamento === 'isento') return 'isento';
@@ -352,6 +380,16 @@ function conferirExtratoLocal(entradas){
   var revisar = [];
   var alunosPorId = {};
   state.alunos.forEach(function(a){ alunosPorId[a.id] = a; });
+  var avulsosExtrato = [];
+  entradas = entradas.filter(function(entrada){
+    // Pagamento de aula avulsa: responsável de UM aluno avulso + valor exato da aula
+    if(Math.abs(entrada.valor - VALOR_AULA_AVULSA) >= 0.005) return true;
+    var nn = normalizeNomeExtrato(entrada.nomeOriginal);
+    var achados = state.avulsos.filter(function(a){ return a.responsavelNome && normalizeNomeExtrato(a.responsavelNome)===nn; });
+    if(achados.length!==1) return true;
+    avulsosExtrato.push({ entrada:entrada, aluno:achados[0] });
+    return false;
+  });
   entradas.forEach(function(entrada){
     var nomeNorm = normalizeNomeExtrato(entrada.nomeOriginal);
     var jaExisteAlunoComEsseNome = state.alunos.some(function(a){ return normalizeNomeExtrato(a.responsavelNome)===nomeNorm; });
@@ -386,7 +424,7 @@ function conferirExtratoLocal(entradas){
       revisar.push({ entrada:entrada, motivo:'Nome bate, mas o valor é diferente do cadastrado (esperado '+fmtMoeda(candidato.valor)+' para '+candidato.nomeAluno+').', candidatos:pendentes });
     }
   });
-  return { autoBaixados:autoBaixados, revisar:revisar };
+  return { autoBaixados:autoBaixados, revisar:revisar, avulsos:avulsosExtrato };
 }
 
 /* ---------- render router ---------- */
@@ -401,6 +439,7 @@ function render(){
   if(state.screen==='alunoDetail') return renderAlunoDetail(app);
   if(state.screen==='movimentacoes') return renderMovimentacoes(app);
   if(state.screen==='extrato') return renderExtrato(app);
+  if(state.screen==='avulsos') return renderAvulsos(app);
 }
 
 var CATEGORIAS_ENTRADA = {matricula:'Taxa de matrícula', uniforme:'Uniforme'};
@@ -508,6 +547,14 @@ function renderExtrato(app){
   }
   html += '</div>';
 
+  if(r.avulsos && r.avulsos.length){
+    html += '<div class="panel"><h2>🎟️ Aulas avulsas</h2>';
+    r.avulsos.forEach(function(x){
+      html += '<div class="row-card"><div class="info"><div class="name">'+x.aluno.nome+'</div><div class="meta">Responsável: '+x.entrada.nomeOriginal+' · '+fmtMoeda(x.entrada.valor)+' · '+(x.acao==='divida'?'quitou aula em aberto':'virou crédito de 1 aula')+'</div></div><span class="pill pago">pago</span></div>';
+    });
+    html += '</div>';
+  }
+
   html += '<div class="panel"><h2>⚠️ Para revisar manualmente</h2>';
   if(r.revisar.length===0){
     html += '<div class="empty">Nada pendente de revisão.</div>';
@@ -552,6 +599,7 @@ function tabsHtml(){
     + '<button class="tab-btn'+(state.screen==='inadimplentes'?' active':'')+'" data-action="irInadimplentes">Inadimplentes</button>'
     + '<button class="tab-btn'+(state.screen==='recorrentes'?' active':'')+'" data-action="irRecorrentes">Recorrentes</button>'
     + '<button class="tab-btn'+(state.screen==='alunos'?' active':'')+'" data-action="irAlunos">Alunos</button>'
+    + '<button class="tab-btn'+(state.screen==='avulsos'?' active':'')+'" data-action="irAvulsos">Avulsos'+(dividasAvulso().length?' ⚠️':'')+'</button>'
     + '<button class="tab-btn'+(state.screen==='movimentacoes'?' active':'')+'" data-action="irMovimentacoes">Mov.</button>'
     + '<button class="tab-btn'+(state.screen==='extrato'?' active':'')+'" data-action="irExtrato">Extrato</button>'
     + '</div>';
@@ -625,6 +673,11 @@ function renderDashboard(app){
   var totalEntradasExtras = movDoMes.filter(function(x){ return x.tipo==='entrada'; }).reduce(function(s,x){ return s+(Number(x.valor)||0); },0);
   var totalSaidas = movDoMes.filter(function(x){ return x.tipo==='saida'; }).reduce(function(s,x){ return s+(Number(x.valor)||0); },0);
   totalRecebido += totalEntradasExtras;
+  // Aulas avulsas: o dinheiro entra no caixa (recebido/saldo), mas não mexe na taxa de inadimplência dos mensalistas
+  var avulsoRecebidoMes = state.aulasAvulsas.filter(function(x){ return x.statusPagamento==='pago' && (x.dataPagamento||'').slice(0,7)===mes; })
+    .reduce(function(s,x){ return s+(Number(x.valor)||0); },0);
+  var avulsoEmAberto = dividasAvulso().reduce(function(s,x){ return s+(Number(x.valor)||0); },0);
+  totalRecebido += avulsoRecebidoMes;
   var saldoMes = totalRecebido - totalSaidas;
   var totalContas = qtdPago+qtdPendente+qtdAtrasado;
   var taxaInad = totalContas>0 ? Math.round((qtdAtrasado/totalContas)*100) : 0;
@@ -666,7 +719,13 @@ function renderDashboard(app){
     + '<div class="stat areceber"><div class="lbl">Saídas no mês</div><div class="num">'+fmtMoeda(totalSaidas)+'</div></div>'
     + '<div class="stat recebido"><div class="lbl">Saldo do mês</div><div class="num">'+fmtMoeda(saldoMes)+'</div></div>'
     + '</div>';
-  html += '<div class="stat-row"><div class="stat inadimplencia"><div class="lbl">Taxa de inadimplência</div><div class="num">'+taxaInad+'%</div></div></div>';
+  if(avulsoRecebidoMes>0 || avulsoEmAberto>0){
+    html += '<div class="stat-row" data-action="irAvulsos" style="cursor:pointer;">'
+      + '<div class="stat recebido"><div class="lbl">🎟️ Avulsas recebidas (mês)</div><div class="num">'+fmtMoeda(avulsoRecebidoMes)+'</div></div>'
+      + '<div class="stat areceber"><div class="lbl">🎟️ Avulsas em aberto</div><div class="num">'+fmtMoeda(avulsoEmAberto)+'</div></div>'
+      + '</div>';
+  }
+  html += '<div class="stat-row"><div class="stat inadimplencia"><div class="lbl">Taxa de inadimplência (mensalistas)</div><div class="num">'+taxaInad+'%</div></div></div>';
 
   html += '<div class="stat-row"><div class="stat areceber"><div class="lbl">Despesas fixas previstas (mês)</div><div class="num">'+fmtMoeda(totalFixas)+'</div></div></div>';
 
@@ -706,6 +765,10 @@ function renderInadimplentes(app){
     return m.nomeAluno.toLowerCase().indexOf(state.searchInad.toLowerCase()) !== -1;
   });
 
+  var dividasAv = dividasAvulso();
+  if(dividasAv.length>0){
+    html += '<div class="banner" data-action="irAvulsos" style="cursor:pointer;">🎟️ '+dividasAv.length+' aula(s) avulsa(s) não paga(s) — '+fmtMoeda(dividasAv.reduce(function(s,x){return s+(Number(x.valor)||0);},0))+'. Toque pra ver na aba Avulsos.</div>';
+  }
   if(todosAtrasados.length>0){
     html += '<button class="btn btn-primary btn-block" style="margin-bottom:14px;" data-action="iniciarFilaCobranca">📲 Disparar cobrança em massa ('+todosAtrasados.length+')</button>';
   }
@@ -941,6 +1004,85 @@ function renderAlunoDetail(app){
   app.innerHTML = html;
 }
 
+function selectBancoHtml(key){
+  return '<div class="field" style="margin-top:8px;"><label>Banco do pagamento</label><select data-banco-for="'+key+'">'
+    + '<option value="">Selecione</option><option value="C6">C6 Bank</option><option value="Nubank">Nubank</option></select></div>';
+}
+function renderAvulsos(app){
+  setHeader('BSA Finanças', 'conectado', false);
+  var mes = mesAtualStr();
+  var html = tabsHtml();
+  var recebidoMes = state.aulasAvulsas.filter(function(x){ return x.statusPagamento==='pago' && (x.dataPagamento||'').slice(0,7)===mes; })
+    .reduce(function(s,x){ return s+(Number(x.valor)||0); },0);
+  var emAberto = dividasAvulso().reduce(function(s,x){ return s+(Number(x.valor)||0); },0);
+  html += '<div class="stat-row">'
+    + '<div class="stat recebido"><div class="lbl">Recebido no mês</div><div class="num">'+fmtMoeda(recebidoMes)+'</div></div>'
+    + '<div class="stat areceber"><div class="lbl">Em aberto</div><div class="num">'+fmtMoeda(emAberto)+'</div></div>'
+    + '</div>';
+  html += '<div class="hint" style="margin:0 0 12px;">Aula avulsa: '+fmtMoeda(VALOR_AULA_AVULSA)+', paga antes. Cada pagamento vira 1 crédito, que é usado sozinho quando o aluno bate a presença.</div>';
+  if(state.avulsos.length===0){
+    html += '<div class="empty">Nenhum aluno avulso. Pra criar, mude o status do aluno para "Avulso" no BSA Cadastro.</div>';
+    app.innerHTML = html; return;
+  }
+  var lista = state.avulsos.slice().sort(function(a,b){
+    var da = dividasAvulso(a.id).length, dbb = dividasAvulso(b.id).length;
+    if(da!==dbb) return dbb-da;
+    return a.nome.localeCompare(b.nome);
+  });
+  lista.forEach(function(a){
+    var creditos = creditosAvulso(a.id);
+    var dividas = dividasAvulso(a.id);
+    var aulasMes = state.aulasAvulsas.filter(function(x){ return x.alunoId===a.id && (x.dataAula||'').slice(0,7)===mes; }).length;
+    var ultima = state.aulasAvulsas.filter(function(x){ return x.alunoId===a.id && x.dataAula; }).map(function(x){return x.dataAula;}).sort().pop();
+    var foto = a.foto ? '<img class="avatar" src="'+a.foto+'">' : '<div class="avatar">'+iniciais(a.nome)+'</div>';
+    var pill = dividas.length ? '<span class="pill atrasado">deve '+fmtMoeda(dividas.reduce(function(s,x){return s+(Number(x.valor)||0);},0))+'</span>'
+      : (creditos.length ? '<span class="pill pago">'+creditos.length+' paga(s)</span>' : '<span class="pill pendente">sem crédito</span>');
+    html += '<div class="row-card" style="flex-direction:column;align-items:stretch;">'
+      + '<div style="display:flex;align-items:center;gap:12px;">'+foto
+      + '<div class="info"><div class="name">'+a.nome+'</div><div class="meta">'+a.unidade+' · '+aulasMes+' aula(s) este mês'+(ultima?' · última '+fmtDataBR(ultima):'')+'</div></div>'
+      + pill + '</div>';
+    if(aulasMes>=3){
+      html += '<div class="banner" style="margin:8px 0 0;">💡 '+aulasMes+' aulas este mês ('+fmtMoeda(aulasMes*VALOR_AULA_AVULSA)+') — já vale mais que a mensalidade. Ofereça a matrícula!</div>';
+    }
+    dividas.forEach(function(d){
+      html += '<div style="border-top:1px solid var(--line);margin-top:8px;padding-top:8px;">'
+        + '<div class="meta">⚠️ Aula de '+fmtDataBR(d.dataAula)+' sem pagamento · '+fmtMoeda(d.valor)+'</div>'
+        + selectBancoHtml('avd_'+d.id)
+        + '<div class="btn-row"><button class="btn btn-blue" data-action="pagarDividaAvulso" data-id="'+d.id+'">Marcar pago</button>'
+        + '<button class="btn btn-outline" data-action="isentarDividaAvulso" data-id="'+d.id+'">Isentar</button></div></div>';
+    });
+    if(dividas.length && a.responsavelWhatsapp){
+      html += '<a class="btn btn-outline" style="text-decoration:none;text-align:center;margin-top:8px;" target="_blank" href="'+waLink(a.responsavelWhatsapp, msgCobrancaAvulso(a, dividas))+'">📲 Enviar cobrança</a>';
+    }
+    html += '<div style="border-top:1px solid var(--line);margin-top:8px;padding-top:8px;">'
+      + selectBancoHtml('avc_'+a.id)
+      + '<div class="btn-row"><button class="btn btn-primary" data-action="receberAvulso" data-aluno-id="'+a.id+'">💵 Recebi '+fmtMoeda(VALOR_AULA_AVULSA)+'</button>'
+      + (creditos.length ? '<button class="btn btn-outline" data-action="removerCreditoAvulso" data-id="'+creditos[creditos.length-1].id+'">− crédito</button>' : '')
+      + '</div></div>';
+    html += '</div>';
+  });
+  app.innerHTML = html;
+}
+
+// Pagamento de aula avulsa: se o aluno tem aula em aberto, quita a mais antiga; senão vira crédito.
+async function registrarPagamentoAvulso(a, banco){
+  var hoje = hojeStr();
+  var dividas = dividasAvulso(a.id);
+  if(dividas.length){
+    var d = dividas[0];
+    var upd = { statusPagamento:'pago', dataPagamento:hoje };
+    if(banco) upd.bancoPagamento = banco;
+    await db.collection('aulasAvulsas').doc(d.id).update(upd);
+    Object.assign(d, upd);
+    return 'divida';
+  }
+  var novo = { alunoId:a.id, nomeAluno:a.nome, unidade:a.unidade, responsavelNome:a.responsavelNome, responsavelWhatsapp:a.responsavelWhatsapp,
+    valor:VALOR_AULA_AVULSA, statusPagamento:'pago', dataPagamento:hoje, bancoPagamento:banco||null, dataAula:null };
+  var ref = await db.collection('aulasAvulsas').add(novo);
+  state.aulasAvulsas.push(Object.assign({id:ref.id}, novo));
+  return 'credito';
+}
+
 /* ---------- actions ---------- */
 var Actions = {
   irDashboard:function(){ state.screen='dashboard'; render(); },
@@ -960,6 +1102,52 @@ var Actions = {
   irRecorrentes:function(){ state.screen='recorrentes'; render(); },
   irAlunos:function(){ state.screen='alunos'; render(); },
   irMovimentacoes:function(){ state.screen='movimentacoes'; render(); },
+  irAvulsos:function(){ state.screen='avulsos'; render(); },
+  receberAvulso:async function(el){
+    var a = state.avulsos.find(function(x){ return x.id===el.dataset.alunoId; });
+    if(!a){ showToast('Aluno não encontrado.'); return; }
+    var sel = document.querySelector('select[data-banco-for="avc_'+a.id+'"]');
+    if(!sel || !sel.value){ showToast('Selecione o banco do pagamento.'); return; }
+    try{
+      var acao = await registrarPagamentoAvulso(a, sel.value);
+      showToast(acao==='divida' ? 'Aula em aberto quitada ✓' : 'Crédito de 1 aula lançado ✓');
+      render();
+    }catch(e){ showToast('Não foi possível salvar: '+e.message); }
+  },
+  pagarDividaAvulso:async function(el){
+    var id = el.dataset.id;
+    var sel = document.querySelector('select[data-banco-for="avd_'+id+'"]');
+    if(!sel || !sel.value){ showToast('Selecione o banco do pagamento.'); return; }
+    try{
+      var upd = { statusPagamento:'pago', dataPagamento:hojeStr(), bancoPagamento:sel.value };
+      await db.collection('aulasAvulsas').doc(id).update(upd);
+      var d = state.aulasAvulsas.find(function(x){ return x.id===id; });
+      if(d) Object.assign(d, upd);
+      showToast('Marcado como pago ✓');
+      render();
+    }catch(e){ showToast('Não foi possível salvar: '+e.message); }
+  },
+  isentarDividaAvulso:async function(el){
+    if(!confirm('Isentar essa aula avulsa (não será cobrada)?')) return;
+    var id = el.dataset.id;
+    try{
+      await db.collection('aulasAvulsas').doc(id).update({ statusPagamento:'isento' });
+      var d = state.aulasAvulsas.find(function(x){ return x.id===id; });
+      if(d) d.statusPagamento = 'isento';
+      showToast('Aula isentada.');
+      render();
+    }catch(e){ showToast('Não foi possível salvar: '+e.message); }
+  },
+  removerCreditoAvulso:async function(el){
+    if(!confirm('Remover 1 crédito de aula (lançado por engano)?')) return;
+    var id = el.dataset.id;
+    try{
+      await db.collection('aulasAvulsas').doc(id).delete();
+      state.aulasAvulsas = state.aulasAvulsas.filter(function(x){ return x.id!==id; });
+      showToast('Crédito removido.');
+      render();
+    }catch(e){ showToast('Não foi possível remover: '+e.message); }
+  },
   irExtrato:function(){ state.screen='extrato'; state.extratoResultado=null; render(); },
   conferirExtrato:async function(){
     var texto = document.getElementById('extratoTexto').value;
@@ -975,8 +1163,12 @@ var Actions = {
         var local = state.mensalidades.find(function(x){return x.id===m.id;});
         if(local){ local.statusPagamento='pago'; local.dataPagamento=hojeStr(); }
       }
+      for(var j=0;j<resultado.avulsos.length;j++){
+        var av = resultado.avulsos[j];
+        av.acao = await registrarPagamentoAvulso(av.aluno, null);
+      }
       state.extratoResultado = resultado;
-      showToast(resultado.autoBaixados.length+' baixados automaticamente, '+resultado.revisar.length+' para revisar.');
+      showToast(resultado.autoBaixados.length+' baixados automaticamente, '+resultado.revisar.length+' para revisar'+(resultado.avulsos.length? ', '+resultado.avulsos.length+' aula(s) avulsa(s)':'')+'.');
       render();
     }catch(e){ showToast('Deu baixa em parte, mas houve um erro: '+e.message); render(); }
   },

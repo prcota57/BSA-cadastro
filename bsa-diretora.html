@@ -415,6 +415,8 @@ function notaAcaoTexto(chave){
 const MES_INICIO_SISTEMA = '2026-09';
 let alunosCache = [];
 let trancadosCache = [];
+let avulsosCache = [];       // alunos avulsos (pagam por aula) — fora de todas as métricas de alunos
+let aulasAvulsasCache = [];
 let presencasCache = [];   // últimos 40 dias
 let presentesHojeSet = new Set();
 let mensalidadesCache = [];
@@ -462,7 +464,7 @@ async function init(){
 
 async function carregarTudo(){
   document.getElementById('subStatus').textContent = 'atualizando…';
-  const [alunosSnap, presencasSnap, mensalidadesSnap, danosSnap, tarefasSnap, avaliacoesSnap, cadastrosPendentesSnap, pendReconhecimentoSnap, remarketingDoc, pendenciaAcoesSnap] = await Promise.all([
+  const [alunosSnap, presencasSnap, mensalidadesSnap, danosSnap, tarefasSnap, avaliacoesSnap, cadastrosPendentesSnap, pendReconhecimentoSnap, remarketingDoc, pendenciaAcoesSnap, aulasAvulsasSnap] = await Promise.all([
     db.collection('alunos').get(),
     db.collection('presencas').where('data','>=', dataISOOffset(40)).get(),
     db.collection('mensalidades').get(),
@@ -472,8 +474,11 @@ async function carregarTudo(){
     db.collection('cadastrosPendentes').where('status','==','pendente').get(),
     db.collection('pendenciasReconhecimento').where('resolvido','==', false).get(),
     db.collection('appdata').doc('captacao_remarketing').get(),
-    db.collection('pendenciaAcoes').get()
+    db.collection('pendenciaAcoes').get(),
+    db.collection('aulasAvulsas').get()
   ]);
+  aulasAvulsasCache = [];
+  aulasAvulsasSnap.forEach(doc=> aulasAvulsasCache.push({ id: doc.id, ...doc.data() }));
 
   pendenciaAcoesCache = {};
   pendenciaAcoesSnap.forEach(doc=> pendenciaAcoesCache[doc.id] = doc.data());
@@ -493,9 +498,15 @@ async function carregarTudo(){
 
   alunosCache = [];
   trancadosCache = [];
+  avulsosCache = [];
   alunosSnap.forEach(doc=>{
     const d = doc.data();
     if(d.statusGeral === 'inativo') return;
+    if(d.statusGeral === 'avulso'){
+      avulsosCache.push({ id: doc.id, nome: d.nome || '(sem nome)', unidade: d.unidade || '',
+        responsavelWhatsapp: d.responsavelWhatsapp || '', responsavelNome: d.responsavelNome || '' });
+      return;
+    }
     if(d.statusGeral === 'trancado'){
       trancadosCache.push({
         id: doc.id, nome: d.nome || '(sem nome)', unidade: d.unidade || '',
@@ -739,6 +750,54 @@ function computarTrancados(){
   return itens;
 }
 
+function computarAvulsos(){
+  const itens = [];
+  const hoje = dataHojeISO();
+  avulsosCache.forEach(a=>{
+    const aulas = aulasAvulsasCache.filter(x=> x.alunoId === a.id);
+    // 1) Aula avulsa feita sem pagamento
+    const dividas = aulas.filter(x=> x.statusPagamento !== 'pago' && x.statusPagamento !== 'isento' && x.dataAula);
+    if(dividas.length){
+      const chave = 'avulsoDivida_' + a.id + '_' + dividas.length;
+      if(!acaoAtiva(chave)){
+        const maisAntiga = dividas.map(x=> x.dataAula).sort()[0];
+        const dias = Math.max(0, Math.round((new Date(hoje+'T00:00:00') - new Date(maisAntiga+'T00:00:00')) / 86400000));
+        const total = dividas.reduce((s,x)=> s + (Number(x.valor)||0), 0);
+        const acoes = [];
+        if(a.responsavelWhatsapp) acoes.push({ tipo:'wpp', label:'Cobrar', url: gerarLinkWhatsApp(a.responsavelWhatsapp, `Olá! 😊 Passando pra lembrar que a aula avulsa do(a) ${primeiroNome(a.nome)} ficou em aberto (R$ ${total.toFixed(2).replace('.',',')}). Pode fazer pelo PIX e mandar o comprovante aqui? Obrigado! ⚽`) });
+        acoes.push({ tipo:'link', label:'Abrir Finanças', url:'bsa-financas.html' });
+        acoes.push({ tipo:'registrar', label:'📝 Registrar ação', chave, pendTipo:'avulso', refNome: a.nome });
+        itens.push({
+          id: 'avdiv_' + a.id, tipo:'avulso', unidade: a.unidade, score: calcularScore(clamp(10 + dias*3, 0, 40), 18, clamp(dividas.length*8, 0, 25)),
+          alunoId: a.id, alunoNome: a.nome, ico: '🎟️',
+          titulo: 'Aula avulsa não paga — ' + a.nome,
+          detalhe: dividas.length + ' aula(s) · ' + 'R$ ' + total.toFixed(2).replace('.',',') + ' · desde ' + fmtDataBR(maisAntiga) + notaAcaoTexto(chave),
+          acoes
+        });
+      }
+    }
+    // 2) Avulso sumido há 60+ dias — sugerir inativar
+    const ultima = aulas.filter(x=> x.dataAula).map(x=> x.dataAula).sort().pop();
+    if(ultima){
+      const dias = Math.round((new Date(hoje+'T00:00:00') - new Date(ultima+'T00:00:00')) / 86400000);
+      const chave = 'avulsoSumido_' + a.id + '_' + ultima;
+      if(dias >= 60 && !acaoAtiva(chave)){
+        itens.push({
+          id: 'avsum_' + a.id, tipo:'avulso', unidade: a.unidade, score: calcularScore(10, 6, 5),
+          alunoId: a.id, alunoNome: a.nome, ico: '💤',
+          titulo: 'Avulso sem aparecer há ' + dias + ' dias — ' + a.nome,
+          detalhe: 'Última aula ' + fmtDataBR(ultima) + ' · considere marcar como inativo' + notaAcaoTexto(chave),
+          acoes: [
+            { tipo:'link', label:'Abrir cadastro', url:'bsa-cadastro.html?abrirAluno=' + a.id, primaria:true },
+            { tipo:'registrar', label:'📝 Registrar ação', chave, pendTipo:'avulso', refNome: a.nome }
+          ]
+        });
+      }
+    }
+  });
+  return itens;
+}
+
 function computarAniversarios(){
   const itens = [];
   const hoje = new Date();
@@ -834,6 +893,7 @@ function computarERenderizar(){
     ...computarDanos(),
     ...computarTarefas(),
     ...computarTrancados(),
+    ...computarAvulsos(),
     ...computarAniversarios(),
     ...computarPendenciasReconhecimento(),
     ...computarLeadsRemarketing()
