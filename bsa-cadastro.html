@@ -362,6 +362,21 @@
     <div class="chip" data-status="inadimplente">Inadimplente</div>
     <div class="chip" data-status="isento">Isento</div>
   </div>
+  <div class="chipsrow" id="matChips" style="padding-top:0;">
+    <div class="chip active" data-mat="todos">📅 Matrícula: qualquer data</div>
+    <div class="chip" data-mat="mes">Este mês</div>
+    <div class="chip" data-mat="3m">Últimos 3 meses</div>
+    <div class="chip" data-mat="6m">Últimos 6 meses</div>
+    <div class="chip" data-mat="ano">Este ano</div>
+    <div class="chip" data-mat="1a">Há mais de 1 ano</div>
+    <div class="chip" data-mat="semdata">Sem data</div>
+    <div class="chip" data-mat="periodo">📆 Escolher período</div>
+  </div>
+  <div id="matPeriodo" style="display:none; padding:0 16px 12px; gap:8px; align-items:center; flex-wrap:wrap;">
+    <label style="font-size:13px; color:var(--ink-soft);">De <input type="date" id="matDe" style="padding:7px; border-radius:10px; border:1px solid var(--line); font-size:14px;"></label>
+    <label style="font-size:13px; color:var(--ink-soft);">até <input type="date" id="matAte" style="padding:7px; border-radius:10px; border:1px solid var(--line); font-size:14px;"></label>
+  </div>
+  <div id="matResumo" style="display:none; padding:0 16px 8px; font-size:13px; font-weight:600; color:var(--ink-soft);"></div>
   <div class="bday-banner" id="bdayBanner">
     <div class="bday-title">🎂 Aniversariante(s) de hoje</div>
     <div id="bdayBannerList"></div>
@@ -715,6 +730,7 @@ function abrirCompletarFotos(alunoId){
 }
 let filterUnit = "todas";
 let filterStatus = "todos";
+let filterMat = "todos";
 
 function showToast(msg){
   const t = document.getElementById('toast');
@@ -1559,11 +1575,55 @@ document.querySelectorAll('#statusChips .chip').forEach(c=>{
   });
 });
 
+document.querySelectorAll('#matChips .chip').forEach(c=>{
+  c.addEventListener('click', ()=>{
+    document.querySelectorAll('#matChips .chip').forEach(x=>x.classList.remove('active'));
+    c.classList.add('active');
+    filterMat = c.dataset.mat;
+    document.getElementById('matPeriodo').style.display = filterMat === 'periodo' ? 'flex' : 'none';
+    renderLista();
+  });
+});
+['matDe','matAte'].forEach(id=> document.getElementById(id).addEventListener('change', renderLista));
+
+function passaFiltroMatricula(a){
+  if(filterMat === 'todos') return true;
+  const iso = (a.dataMatricula || '').slice(0,10);
+  const valida = /^\d{4}-\d{2}-\d{2}$/.test(iso);
+  if(filterMat === 'semdata') return !valida;
+  if(!valida) return false;
+  const hoje = hojeLocalISO();
+  const dias = diasDesdeMatricula(iso);
+  if(filterMat === 'mes') return iso.slice(0,7) === hoje.slice(0,7);
+  if(filterMat === '3m') return dias >= 0 && dias <= 92;
+  if(filterMat === '6m') return dias >= 0 && dias <= 183;
+  if(filterMat === 'ano') return iso.slice(0,4) === hoje.slice(0,4);
+  if(filterMat === '1a') return dias > 365;
+  if(filterMat === 'periodo'){
+    const de = document.getElementById('matDe').value;
+    const ate = document.getElementById('matAte').value;
+    if(de && iso < de) return false;
+    if(ate && iso > ate) return false;
+    return true;
+  }
+  return true;
+}
+function tempoDeCasa(iso){
+  const dias = diasDesdeMatricula(iso);
+  if(dias === 9999 || dias < 0) return '';
+  if(dias < 31) return dias <= 1 ? 'recém-matriculado' : `há ${dias} dias`;
+  const meses = Math.floor(dias / 30.44);
+  if(meses < 12) return `há ${meses} ${meses === 1 ? 'mês' : 'meses'}`;
+  const anos = Math.floor(meses / 12), resto = meses % 12;
+  return `há ${anos} ${anos === 1 ? 'ano' : 'anos'}${resto ? ' e ' + resto + (resto === 1 ? ' mês' : ' meses') : ''}`;
+}
+
 function renderLista(){
   const term = document.getElementById('searchInput').value.trim().toLowerCase();
   let lista = alunosCache.filter(a=>{
     if(filterUnit !== 'todas' && a.unidade !== filterUnit) return false;
     if(filterStatus !== 'todos' && a.statusMensalidade !== filterStatus) return false;
+    if(!passaFiltroMatricula(a)) return false;
     if(term){
       const nomeMatch = a.nome && a.nome.toLowerCase().includes(term);
       const respMatch = a.responsavelNome && a.responsavelNome.toLowerCase().includes(term);
@@ -1572,6 +1632,12 @@ function renderLista(){
     return true;
   });
   document.getElementById('countBadge').textContent = alunosCache.length;
+  const resumo = document.getElementById('matResumo');
+  if(filterMat !== 'todos'){
+    if(filterMat !== 'semdata') lista.sort((x,y)=> (y.dataMatricula||'').localeCompare(x.dataMatricula||''));
+    resumo.style.display = 'block';
+    resumo.textContent = `${lista.length} aluno${lista.length === 1 ? '' : 's'} neste filtro` + (filterMat !== 'semdata' ? ' · mais recentes primeiro' : '');
+  } else resumo.style.display = 'none';
   const container = document.getElementById('listContainer');
   if(lista.length === 0){
     container.innerHTML = `<div class="empty"><div class="big">🎽</div><div>Nenhum aluno encontrado.</div></div>`;
@@ -1582,6 +1648,7 @@ function renderLista(){
     const foto = a.foto ? `<img class="avatar" src="${a.foto}">` : `<div class="avatar placeholder">${iniciais}</div>`;
     const qtdFotos = descritoresExistentes(a).length;
     const seloFotos = qtdFotos < 3 ? `<span class="schedule-pill" style="background:rgba(255,200,51,.16); color:#8a6d1f;">📷 ${qtdFotos}/3</span>` : '';
+    const seloMat = (filterMat !== 'todos' && a.dataMatricula) ? `<span class="schedule-pill" style="background:rgba(20,120,70,.12); color:#1f6b45;">📅 ${formatarDataBR(a.dataMatricula.slice(0,10))}${tempoDeCasa(a.dataMatricula.slice(0,10)) ? ' · ' + tempoDeCasa(a.dataMatricula.slice(0,10)) : ''}</span>` : '';
     const seloTrancado = a.statusGeral === 'trancado' ? `<span class="schedule-pill" style="background:rgba(90,140,255,.16); color:#2952a3;">🔒 Trancado${a.dataRetornoPrevista ? ' até ' + formatarDataBR(a.dataRetornoPrevista) : ''}</span>` : '';
     return `
       <div class="card ${a.statusGeral === 'inativo' ? 'inativo' : (a.statusGeral === 'trancado' ? 'trancado' : '')}" onclick="abrirDetalhe('${a._docId}')">
@@ -1598,6 +1665,7 @@ function renderLista(){
             ${a.diasTreino && a.diasTreino.length ? `<span class="schedule-pill">${formatarHorarioFixo(a.diasTreino, a.horarioTreino)}</span>` : ''}
             ${seloFotos}
             ${seloTrancado}
+            ${seloMat}
           </div>
         </div>
         <div class="chevron">›</div>
@@ -1860,7 +1928,7 @@ function abrirDetalhe(docId){
       <div class="card" style="display:block;"><div class="hint">Categoria</div><b>${a.categoria || '—'}</b></div>
       <div class="card" style="display:block;"><div class="hint">Unidade</div><b>${a.unidade}</b></div>
       <div class="card" style="display:block;"><div class="hint">Mensalidade</div><b>${a.statusMensalidade}</b></div>
-      <div class="card" style="display:block;"><div class="hint">Matrícula</div><b>${a.dataMatricula || '—'}</b></div>
+      <div class="card" style="display:block;"><div class="hint">Matrícula</div><b>${a.dataMatricula ? formatarDataBR(a.dataMatricula.slice(0,10)) : '—'}</b>${a.dataMatricula && tempoDeCasa(a.dataMatricula.slice(0,10)) ? `<div class="hint">${tempoDeCasa(a.dataMatricula.slice(0,10))}</div>` : ''}</div>
     </div>
     <div class="card" style="display:block; margin-bottom:16px;">
       <div class="hint">Horário fixo de treino</div>
