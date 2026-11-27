@@ -322,7 +322,7 @@
   <section class="screen" id="screen-leilao">
     <div class="card" style="text-align:center">
       <h3 style="font-size:17px">🔨 Vi um carro no leilão</h3>
-      <div class="hint">Fale o modelo, o ano e o lance. Ex.: <b>"Gol 1.0 2014, 22 mil"</b></div>
+      <div class="hint">Fale o modelo, o ano, o lance e os defeitos. Ex.: <b>"Gol 1.0 2014, 22 mil, parachoque amassado e embreagem patinando"</b></div>
       <div class="voz-wrap" style="padding-top:0">
         <div class="mic-circle mic-sm" id="leiMic" onclick="ouvirLeilao()">🎤</div>
         <div class="capture-status" id="leiStatus">Toque e fale</div>
@@ -1795,15 +1795,90 @@ function valorDoTexto(t){
   const mR = t.match(/r\$\s*(\d[\d.]*(?:,\d{1,2})?)/) || t.match(/(\d[\d.]*(?:,\d{1,2})?)\s*(reais|real)/) || t.match(/\b(\d{1,3}(?:\.\d{3})+|\d{4,6})\b/);
   return mR ? num(mR[1]) : 0;
 }
+/* ===== TABELA DE DEFEITOS (carro popular; faixa peça + mão de obra) =====
+   Fontes da pesquisa (nov/2026): retífica R$3,5–6 mil; embreagem R$900–2.500; câmbio manual R$1.500–5.000;
+   pintura por peça R$200–800; funilaria R$300–2.500; pintura completa R$2–7 mil; compressor do ar R$2–3,5 mil;
+   evaporador R$800–2.500; airbag ~R$2 mil por bolsa. Itens marcados est:true são estimativas sem fonte direta. */
+const DEFEITOS = [
+  {id:'retifica',  n:'Motor fundido / retífica',     min:3500, max:6000,  re:/motor fundid|fundiu|retifica|bateu biela|motor batendo|motor travad|biela/, ml:'kit retifica motor'},
+  {id:'motor',     n:'Trocar motor (usado)',          min:6000, max:15000, re:/trocar (o )?motor|motor usado|sem motor|motor quebrad|motor estourad/, ml:'motor parcial', est:true},
+  {id:'cabecote',  n:'Junta do cabeçote',             min:800,  max:2500,  re:/cabecote|junta queimad|ferveu|esquent|superaquec/, ml:'junta cabecote', est:true},
+  {id:'embreagem', n:'Embreagem',                     min:900,  max:2500,  re:/embreagem|patinand|platô|plato/, ml:'kit embreagem'},
+  {id:'cambio',    n:'Câmbio manual',                 min:1500, max:5000,  re:/cambio(?! autom)|marcha (arranhando|escapando|nao entra|dura)|caixa de marcha|engrenagem/, ml:'cambio'},
+  {id:'cambioAut', n:'Câmbio automático',             min:4000, max:12000, re:/cambio autom|automatico (com )?defeito|cvt/, ml:'cambio automatico', est:true},
+  {id:'parachoque',n:'Parachoque (troca + pintura)',  min:600,  max:1300,  re:/parachoque|para-choque|para choque/, ml:'parachoque'},
+  {id:'pintPeca',  n:'Pintura de 1 peça',             min:200,  max:800,   re:/pintar (a |uma )?(porta|peca|capo|tampa)|risc|pintura de (uma )?peca|retoque/, ml:''},
+  {id:'funilaria', n:'Amassado / funilaria',          min:300,  max:2500,  re:/amassad|funilaria|lanternagem|lataria|porta batid|amassou/, ml:''},
+  {id:'frente',    n:'Frente batida (forte)',         min:4000, max:12000, re:/frente batid|batida forte|colisao|frente toda|capo amassad|batido de frente/, ml:'kit frente', est:true},
+  {id:'traseira',  n:'Traseira batida',               min:2000, max:7000,  re:/traseira batid|batido atras|traseira amassad|batida traseira/, ml:'lanterna traseira', est:true},
+  {id:'pintTotal', n:'Pintura completa',              min:2000, max:7000,  re:/pintura completa|pintar (o carro )?todo|pintura toda|pintura queimad|pintura ruim/, ml:''},
+  {id:'parabrisa', n:'Para-brisa',                    min:600,  max:1500,  re:/para-brisa|parabrisa|para brisa/, ml:'parabrisa', est:true},
+  {id:'vidro',     n:'Vidro lateral / traseiro',      min:200,  max:600,   re:/vidro (lateral|traseiro|da porta|quebrad)|vigia/, ml:'vidro porta', est:true},
+  {id:'farol',     n:'Farol / lanterna',              min:250,  max:900,   re:/farol|lanterna|milha/, ml:'farol', est:true},
+  {id:'retrovisor',n:'Retrovisor',                    min:150,  max:600,   re:/retrovisor|espelho/, ml:'retrovisor', est:true},
+  {id:'airbag',    n:'Airbag disparado',              min:3000, max:8000,  re:/airbag|air bag|bolsa/, ml:'airbag', est:true},
+  {id:'arComp',    n:'Ar-condicionado (compressor)',  min:2000, max:3500,  re:/compressor|ar (condicionado )?(nao gela|parad|quebrad|com defeito)|sem ar/, ml:'compressor ar condicionado'},
+  {id:'arGas',     n:'Ar-condicionado (gás/vazamento)',min:150, max:800,   re:/gas do ar|recarga|vazamento do ar|ar fraco/, ml:'', est:true},
+  {id:'direcao',   n:'Caixa de direção',              min:1600, max:3000,  re:/direcao (dura|pesada|com defeito|vazando|ruim|quebrad|travad)|caixa de direcao|volante (duro|pesado)|cremalheira/, ml:'caixa direcao hidraulica'},
+  {id:'amortecedor',n:'Amortecedores',                min:400,  max:1500,  re:/amortecedor|suspensao (batend|ruim)|batendo embaixo/, ml:'amortecedor dianteiro'},
+  {id:'suspensao', n:'Suspensão (bandeja, pivô, bucha)',min:300,max:900,   re:/bandeja|pivo|bucha|bieleta|barulho na suspensao|suspensao/, ml:'bandeja', est:true},
+  {id:'freio',     n:'Freios (pastilha + disco)',     min:300,  max:900,   re:/freio|pastilha|disco de freio|fluido de freio/, ml:'kit freio', est:true},
+  {id:'pneus',     n:'Pneus (jogo)',                  min:1200, max:2400,  re:/pneu|careca|step/, ml:'pneu aro', est:true},
+  {id:'rodas',     n:'Rodas tortas / trocar',         min:400,  max:2000,  re:/roda tort|roda amassad|rodas tortas|trocar rodas/, ml:'roda', est:true},
+  {id:'bateria',   n:'Bateria',                       min:400,  max:800,   re:/bateria|sem carga|nao (da|pega) partida/, ml:'bateria', est:true},
+  {id:'alternador',n:'Alternador',                    min:500,  max:1500,  re:/alternador|nao carrega/, ml:'alternador'},
+  {id:'partida',   n:'Motor de partida',              min:450,  max:1100,  re:/motor de partida|arranque|nao arranca/, ml:'motor de partida'},
+  {id:'eletrica',  n:'Parte elétrica / chicote',      min:300,  max:2000,  re:/problema eletric|parte eletric|defeito eletric|chicote|fiacao|curto|pane/, ml:'chicote', est:true},
+  {id:'injecao',   n:'Injeção / bicos / bobina',      min:300,  max:1500,  re:/injecao|bico|bobina|vela|falhando|engasgand|luz da injecao/, ml:'bico injetor', est:true},
+  {id:'modulo',    n:'Módulo / central (ECU)',         min:800,  max:2500,  re:/modulo|central|ecu|imobilizador/, ml:'modulo injecao', est:true},
+  {id:'radiador',  n:'Radiador / arrefecimento',      min:400,  max:1200,  re:/radiador|ventoinha|arrefecimento|bomba d.?agua|vazando agua/, ml:'radiador', est:true},
+  {id:'chave',     n:'Chave / ignição',               min:300,  max:900,   re:/sem chave|chave (perdida|quebrad)|ignicao|miolo/, ml:'chave canivete', est:true},
+  {id:'interior',  n:'Interior (banco, forro, painel)',min:300, max:1500,  re:/banco|estofad|forro|painel|tapete|interior/, ml:'', est:true},
+  {id:'ferrugem',  n:'Ferrugem',                      min:500,  max:3000,  re:/ferrugem|enferruj|podre|corros/, ml:'', est:true},
+  {id:'alagado',   n:'Alagado / enchente (risco alto)',min:5000,max:15000, re:/alagad|enchente|agua dentro|submers/, ml:'', est:true},
+  {id:'revisao',   n:'Revisão geral (óleo, filtros, correia)',min:300,max:1200, re:/revisao|oleo|filtro|correia dentada|correia/, ml:'kit correia dentada', est:true},
+  {id:'escapamento',n:'Escapamento / catalisador',    min:250,  max:1500,  re:/escapamento|catalisador|silencioso/, ml:'escapamento', est:true}
+];
+function fatorCarro(fipe){ return fipe>90000 ? 1.7 : fipe>50000 ? 1.3 : 1; }
+// aprendizado: média do que você realmente pagou em gastos cuja descrição bate com o defeito
+function precoReal(def){
+  const vs = lancs.filter(l=>l.tipo!=='km' && num(l.valor)>0 && def.re.test(norm(l.descricao||''))).map(l=>num(l.valor));
+  if(!vs.length) return null;
+  return {media: sum(vs)/vs.length, n: vs.length};
+}
+function faixaDefeito(def, fipe){
+  const pr = precoReal(def);
+  if(pr) return {min: pr.media*0.8, max: pr.media*1.25, real: pr};
+  const f = fatorCarro(fipe);
+  return {min: def.min*f, max: def.max*f, real:null};
+}
+function detectarDefeitos(texto){
+  const t = norm(texto);
+  const achados = DEFEITOS.filter(d=>d.re.test(t)).map(d=>d.id);
+  // evitar duplicar: se "frente batida", não precisa também parachoque/funilaria
+  if(achados.includes('parachoque') && achados.includes('funilaria') && !/porta|lataria|lateral|capo|paralama|teto|tampa/.test(t)){ achados.splice(achados.indexOf('funilaria'),1); }
+  if(achados.includes('frente')) return achados.filter(x=>!['parachoque','funilaria','farol'].includes(x));
+  if(achados.includes('motor')) return achados.filter(x=>x!=='retifica');
+  if(achados.includes('cambioAut')) return achados.filter(x=>x!=='cambio');
+  if(achados.includes('arComp')) return achados.filter(x=>x!=='arGas');
+  return achados;
+}
+function limparDefeitosDoTexto(texto){
+  let t = norm(texto);
+  DEFEITOS.forEach(d=>{ t = t.replace(new RegExp(d.re.source,'g'),' '); });
+  return t.replace(/\b(com|sem|e|o|a|os|as|de|do|da|no|na|um|uma|defeito|problema|precisa|ruim|quebrad[oa])\b/g,' ');
+}
+
 async function analisarLeilao(texto){
   texto = (texto||'').trim(); if(!texto){ toast('Fale ou digite o carro e o lance'); return; }
   const preco = valorDoTexto(texto);
   $('leiResultado').innerHTML = '<div class="card loading">🔎 Procurando na FIPE…</div>';
   try{
-    const r = await buscarFipeTexto(texto);
+    const defeitos = detectarDefeitos(texto);
+    const r = await buscarFipeTexto(defeitos.length ? limparDefeitosDoTexto(texto) : texto);
     if(r.erro){ $('leiResultado').innerHTML = `<div class="alerta red"><span class="i">🤔</span><div>${esc(r.erro)}</div></div>`; return; }
     if(!r.ano){ $('leiResultado').innerHTML = `<div class="alerta"><span class="i">📅</span><div>Faltou o <b>ano</b>. Ex.: "${esc(texto)} 2015"</div></div>`; return; }
-    const seguir = v => { lei = {texto, fipe:v, preco, reparo:'medio'}; renderLeilao(); };
+    const seguir = v => { lei = {texto, fipe:v, preco, reparo: defeitos.length?'nenhum':'medio', defeitos}; renderLeilao(); };
     if(r.unico){ const v = await valorFipeAno(r.marca.c, r.cands[0].c, r.ano); if(v){ seguir(v); return; } }
     $('leiResultado').innerHTML = '';
     escolherVersao(r, seguir, 'Qual versão do lote?');
@@ -1813,8 +1888,19 @@ function reparoLeilao(){
   const nivel = REPARO_NIVEIS.find(x=>x[0]===lei.reparo);
   return lei.reparoValor!=null ? lei.reparoValor : (CFG['reparo_'+lei.reparo]!=null ? CFG['reparo_'+lei.reparo] : nivel[2]);
 }
+function faixasLeilao(){
+  const fipe = lei.fipe.valor;
+  const itens = (lei.defeitos||[]).map(id=>{ const d = DEFEITOS.find(x=>x.id===id); return Object.assign({d}, faixaDefeito(d, fipe)); });
+  const extra = reparoLeilao();   // botões Nada/Leve/Médio/Pesado = coisas que você ainda não sabe
+  return {itens, extra, min: sum(itens.map(x=>x.min)) + extra, max: sum(itens.map(x=>x.max)) + extra};
+}
+function linkML(termo){
+  const c = lei && lei.fipe ? (lei.fipe.modeloNome||'').split(' ')[0] + ' ' + lei.fipe.anoModelo : '';
+  return 'https://lista.mercadolivre.com.br/' + encodeURIComponent((termo+' '+c).trim().replace(/\s+/g,'-'));
+}
 function renderLeilao(){
   if(!lei) return;
+  const fx = faixasLeilao();
   $('leiResultado').innerHTML = `
   <div class="card">
     <div style="font-size:12px; color:var(--ink-soft)">FIPE ${esc(lei.fipe.mes||'')}</div>
@@ -1822,53 +1908,82 @@ function renderLeilao(){
     <div class="hint" style="margin-top:0">${esc(lei.fipe.marcaNome)} ${esc(lei.fipe.modeloNome)} • ${lei.fipe.anoModelo===32000?'0 km':lei.fipe.anoModelo}</div>
     <label>Lance</label>
     <input type="text" inputmode="decimal" class="valor-big" id="leiPreco" value="${fmtIn(lei.preco)}" placeholder="R$" oninput="lei.preco=num(this.value); calcLeilao()">
-    <label>Quanto de reforma você enxerga?</label>
-    <div class="chip-row" id="leiRep">${REPARO_NIVEIS.map(([k,n,v])=>{ const vv = CFG['reparo_'+k]!=null?CFG['reparo_'+k]:v; return `<div class="chip ${lei.reparo===k&&lei.reparoValor==null?'sel':''}" onclick="lei.reparo='${k}'; lei.reparoValor=null; renderLeilao()">${n}${vv?' ~'+brlShort(vv):''}</div>`; }).join('')}</div>
-    <input type="text" inputmode="decimal" style="margin-top:8px" placeholder="Ou digite o valor da reforma" value="${lei.reparoValor!=null?fmtIn(lei.reparoValor):''}" oninput="lei.reparoValor=this.value?num(this.value):null; document.querySelectorAll('#leiRep .chip').forEach(x=>x.classList.toggle('sel', !this.value && x.textContent.startsWith(REPARO_NIVEIS.find(r=>r[0]===lei.reparo)[1]))); calcLeilao()">
+  </div>
+  <div class="sec-title">🔧 Defeitos <small>${fx.itens.length?brlShort(fx.min-fx.extra)+' a '+brlShort(fx.max-fx.extra):'nenhum citado'}</small></div>
+  <div class="card">
+    ${fx.itens.length ? fx.itens.map(x=>`<div class="lanc">
+      <div class="b"><div class="t">${esc(x.d.n)}</div>
+        <div class="s">${brl(x.min)} a ${brl(x.max)} ${x.real?`• 🧠 seu preço real (${x.real.n}x)`:(x.d.est?'• estimativa':'• pesquisa')}${x.d.ml?` • <a href="${linkML(x.d.ml)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">ver peça no ML</a>`:''}</div></div>
+      <button class="btn btn-danger btn-sm" style="width:40px; padding:8px 0" onclick="lei.defeitos=lei.defeitos.filter(d=>d!=='${x.d.id}'); renderLeilao()">✕</button>
+    </div>`).join('') : '<div class="loading">Fale os defeitos junto (ex.: "motor fundido, parachoque amassado") ou adicione abaixo.</div>'}
+    <button class="btn btn-outline btn-sm" style="margin-top:10px" onclick="abrirAddDefeito()">＋ Adicionar defeito</button>
+    ${fx.itens.length?`<div class="hint">Preços pra carro ${fatorCarro(lei.fipe.valor)>1?'de faixa maior (×'+String(fatorCarro(lei.fipe.valor)).replace('.',',')+' sobre carro popular)':'popular'}. Quando você lançar gastos reais com esses nomes, o app troca pela sua média.</div>`:''}
+    <label>E o que você ainda não sabe? (surpresas)</label>
+    <div class="chip-row" id="leiRep">${REPARO_NIVEIS.map(([k,n,v])=>{ const vv = CFG['reparo_'+k]!=null?CFG['reparo_'+k]:v; return `<div class="chip ${lei.reparo===k&&lei.reparoValor==null?'sel':''}" onclick="lei.reparo='${k}'; lei.reparoValor=null; renderLeilao()">${n}${vv?' +'+brlShort(vv):''}</div>`; }).join('')}</div>
   </div>
   <div id="leiCalc"></div>`;
   calcLeilao();
 }
+function abrirAddDefeito(){
+  abrirModal(`<h2>＋ Adicionar defeito</h2><input type="text" id="defBusca" placeholder="🔎 Procurar (ex.: freio)" oninput="filtrarDefeitos()">
+    <div id="defLista" style="margin-top:10px"></div><button class="btn btn-outline" onclick="fecharModal()">Fechar</button>`);
+  filtrarDefeitos();
+}
+function filtrarDefeitos(){
+  const q = norm($('defBusca').value);
+  const lst = DEFEITOS.filter(d=>!(lei.defeitos||[]).includes(d.id) && (!q || norm(d.n).includes(q) || d.re.test(q)));
+  $('defLista').innerHTML = lst.map(d=>{ const f = faixaDefeito(d, lei.fipe.valor); return `<div class="versao" onclick="lei.defeitos=(lei.defeitos||[]).concat('${d.id}'); fecharModal(); renderLeilao()">${esc(d.n)}<div class="hint" style="margin:2px 0 0">${brl(f.min)} a ${brl(f.max)}</div></div>`; }).join('') || '<div class="loading">Nada encontrado.</div>';
+}
 function calcLeilao(){
   if(!lei || !$('leiCalc')) return;
-  const d = calcNegocio({origem:'leilao', fipe:lei.fipe.valor, preco:lei.preco, comissao:CFG.comissaoLeilao, taxas:CFG.taxasLeilao, doc:CFG.docEstimada, reparo:reparoLeilao(), reserva:CFG.reserva, desc:descEfetivo('leilao')});
+  const fx = faixasLeilao();
+  const base = {origem:'leilao', fipe:lei.fipe.valor, preco:lei.preco, comissao:CFG.comissaoLeilao, taxas:CFG.taxasLeilao, doc:CFG.docEstimada, desc:descEfetivo('leilao')};
+  const bom = calcNegocio(Object.assign({}, base, {reparo:fx.min, reserva:0}));
+  const ruim = calcNegocio(Object.assign({}, base, {reparo:fx.max, reserva: fx.itens.length ? CFG.reserva : CFG.reserva}));
   let cls='none', h='Qual o lance?', sub='Coloque o valor do lance acima.';
-  if(d.P>0){
-    if(d.roi>=d.m){ cls='ok'; h='✅ Vale a pena'; sub=`Lucro de ${pct(d.roi)} sobre o investido.`; }
-    else if(d.lucro>=0){ cls='mid'; h='⚠️ Margem apertada'; sub=`Só ${pct(d.roi)} de lucro — qualquer surpresa come o ganho.`; }
-    else { cls='bad'; h='❌ Não compensa'; sub=`Nesse lance você perde ${brl(-d.lucro)}.`; }
+  if(bom.P>0){
+    if(ruim.roi>=ruim.m){ cls='ok'; h='✅ Vale a pena — seguro'; sub=`Mesmo se tudo sair caro, você lucra ${pct(ruim.roi)}.`; }
+    else if(ruim.lucro>=0){ cls='ok'; h='✅ Vale, com folga pequena'; sub=`No pior caso ainda lucra ${brl(ruim.lucro)} (${pct(ruim.roi)}), abaixo da sua meta.`; }
+    else if(bom.roi>=bom.m){ cls='mid'; h='⚠️ É aposta'; sub=`Se os reparos saírem baratos, lucra ${pct(bom.roi)}. Se saírem caros, perde ${brl(-ruim.lucro)}.`; }
+    else if(bom.lucro>=0){ cls='mid'; h='⚠️ Margem apertada'; sub=`Mesmo no melhor caso só ${pct(bom.roi)} de lucro.`; }
+    else { cls='bad'; h='❌ Não compensa'; sub=`Até no melhor caso você perde ${brl(-bom.lucro)}.`; }
   }
   const warns = [];
   if(!CFG.docEstimada) warns.push('Documentação está zerada nos Ajustes — o resultado fica otimista.');
   if(!CFG.taxasLeilao) warns.push('Taxas fixas do leilão (pátio/adm.) estão zeradas nos Ajustes.');
+  if((lei.defeitos||[]).includes('alagado')) warns.push('Carro alagado costuma dar problema elétrico por meses depois. Pense duas vezes.');
+  if((lei.defeitos||[]).includes('airbag')) warns.push('Airbag tem que ser trocado por peça nova, não existe conserto.');
+  const ln = (rot, a, b) => `<div class="ln"><span>${rot}</span><b>${a===b?brl(a):brl(a)+' / '+brl(b)}</b></div>`;
   $('leiCalc').innerHTML = `<div class="verdict ${cls}">
     <div class="h">${h}</div><div class="sub">${sub}</div>
     <div class="lines">
-      <div class="ln"><span>Venda estimada (FIPE −${Math.round(d.desc*100)}%)</span><b>${brl(d.V)}</b></div>
-      ${d.P>0?`<div class="ln"><span>Lance</span><b>− ${brl(d.P)}</b></div>`:''}
-      ${d.comissao?`<div class="ln"><span>Comissão leiloeiro (${Math.round(d.c*100)}%)</span><b>− ${brl(d.comissao)}</b></div>`:''}
-      ${d.F?`<div class="ln"><span>Taxas do leilão</span><b>− ${brl(d.F)}</b></div>`:''}
-      ${d.D?`<div class="ln"><span>Documentação</span><b>− ${brl(d.D)}</b></div>`:''}
-      ${d.R?`<div class="ln"><span>Reforma</span><b>− ${brl(d.R)}</b></div>`:''}
-      ${d.reserva?`<div class="ln"><span>Reserva imprevistos</span><b>− ${brl(d.reserva)}</b></div>`:''}
-      ${d.P>0?`<div class="ln tot"><span>Lucro previsto</span><b>${brl(d.lucro)}</b></div>`:''}
+      <div class="ln" style="opacity:.8"><span></span><b>melhor / pior caso</b></div>
+      ${ln('Venda estimada (FIPE −'+Math.round(bom.desc*100)+'%)', bom.V, ruim.V)}
+      ${bom.P>0?ln('Lance', -bom.P, -ruim.P):''}
+      ${bom.comissao?ln('Comissão leiloeiro', -bom.comissao, -ruim.comissao):''}
+      ${bom.F?ln('Taxas do leilão', -bom.F, -ruim.F):''}
+      ${bom.D?ln('Documentação', -bom.D, -ruim.D):''}
+      ${(fx.max>0)?ln('Reparos + surpresas', -bom.R, -(ruim.R+ruim.reserva)):''}
+      ${bom.P>0?`<div class="ln tot"><span>Lucro</span><b>${brl(bom.lucro)} / ${brl(ruim.lucro)}</b></div>`:''}
     </div>
-    <div class="lance"><div><div class="l">Dê no máximo</div><div class="v">${d.lanceMax>0?brl(Math.floor(d.lanceMax/100)*100):'—'}</div></div>
-      <div style="text-align:right"><div class="l">Sem prejuízo até</div><div class="v" style="font-size:16px">${d.empate>0?brl(Math.floor(d.empate/100)*100):'—'}</div></div></div>
+    <div class="lance"><div><div class="l">Lance seguro (pior caso)</div><div class="v">${ruim.lanceMax>0?brl(Math.floor(ruim.lanceMax/100)*100):'—'}</div></div>
+      <div style="text-align:right"><div class="l">Arriscando (melhor caso)</div><div class="v" style="font-size:16px">${bom.lanceMax>0?brl(Math.floor(bom.lanceMax/100)*100):'—'}</div></div></div>
     ${warns.map(w=>`<div class="warn">⚠️ ${w}</div>`).join('')}
   </div>
   <button class="btn btn-dark" onclick="salvarLote()">⭐ Salvar na lista de olho</button>`;
 }
 function salvarLote(){
   if(!lei) return;
-  const v = lei.fipe;
-  const repValor = reparoLeilao();
+  const v = lei.fipe, fx = faixasLeilao();
+  const reparos = fx.itens.map(x=>({n:x.d.n, v:String(Math.round((x.min+x.max)/2))}));
+  if(fx.extra) reparos.push({n:'Surpresas', v:String(fx.extra)});
   const ref = db.collection(COL_CARROS).doc();
   ref.set({
     apelido: (v.modeloNome||'').split(' ').slice(0,2).join(' ') + ' ' + v.anoModelo, marca:v.marcaNome, modelo:v.modeloNome, ano:String(v.anoModelo),
-    origem:'leilao', status:'avaliando', valorCompra:0, precoAlvo:lei.preco, orcamentoReparo: Math.round(repValor*(1+CFG.reserva/100)),
-    fipe:v, fipeCompra:v.valor, checklist:{}, criadoEm:TS(), criadoLocal:new Date().toISOString(), notas:'Leilão: '+lei.texto,
-    avaliacao:{fipe:v.valor, lance:lei.preco, comissao:CFG.comissaoLeilao/100, taxas:CFG.taxasLeilao, doc:CFG.docEstimada, reparos: repValor?[{n:'Reforma estimada', v:String(repValor)}]:[], reserva:CFG.reserva/100, desc:descEfetivo('leilao')/100, data:hojeISO()}
+    origem:'leilao', status:'avaliando', valorCompra:0, precoAlvo:lei.preco, orcamentoReparo: Math.round(fx.max*(1+CFG.reserva/100)),
+    fipe:v, fipeCompra:v.valor, checklist:{}, criadoEm:TS(), criadoLocal:new Date().toISOString(),
+    notas:'Leilão: '+lei.texto+(fx.itens.length?'\nDefeitos: '+fx.itens.map(x=>x.d.n).join(', '):''),
+    avaliacao:{fipe:v.valor, lance:lei.preco, comissao:CFG.comissaoLeilao/100, taxas:CFG.taxasLeilao, doc:CFG.docEstimada, reparos, reserva:CFG.reserva/100, desc:descEfetivo('leilao')/100, data:hojeISO(), defeitos:lei.defeitos||[]}
   });
   toast('⭐ Lote salvo'); vibra(80);
   lei = null; $('leiResultado').innerHTML=''; $('leiTexto').value=''; $('leiLive').textContent='';
