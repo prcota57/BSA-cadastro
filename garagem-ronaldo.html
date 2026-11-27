@@ -225,6 +225,18 @@
   .celebra .e{font-size:60px;}
   .celebra .v{font-family:'Space Grotesk'; font-weight:800; font-size:40px; margin-top:6px;}
   .loading{font-size:12.5px; color:var(--ink-soft); padding:6px 2px;}
+  .big3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:14px;}
+  .big3 button{border:none; border-radius:20px; padding:18px 4px 14px; background:#fff; border:1.5px solid var(--line); font-family:'Space Grotesk'; font-weight:700; font-size:14.5px; color:var(--ink); display:flex; flex-direction:column; align-items:center; gap:6px; box-shadow:0 3px 10px rgba(0,0,0,.05);}
+  .big3 button .ic{font-size:34px;}
+  .big3 button:active{transform:scale(.97);}
+  .row-mini{display:flex; gap:8px; margin-top:12px;}
+  .row-mini button{flex:1; margin:0;}
+  .valor-big{font-size:34px !important; font-weight:800; font-family:'Space Grotesk' !important; text-align:center; padding:16px !important;}
+  .link-btns{display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-top:8px;}
+  .link-btns a{display:block; text-align:center; text-decoration:none; background:#F6F3EE; border:1px solid var(--line); border-radius:12px; padding:10px 4px; font-size:12px; font-weight:700; color:var(--ink); font-family:'Space Grotesk';}
+  .mic-sm{width:110px; height:110px; font-size:42px; margin-top:22px;}
+  .versao{padding:12px; border:1.5px solid var(--line); border-radius:12px; margin-bottom:8px; font-size:14px; font-weight:600; background:#fff;}
+  .versao:active{background:var(--orange-soft);}
 </style>
 </head>
 <body>
@@ -284,28 +296,44 @@
 
   <!-- LANÇAR POR VOZ -->
   <section class="screen" id="screen-voz">
-    <label style="margin-top:0">Carro</label>
+    <label style="margin-top:0">Qual carro?</label>
     <div class="chip-row" id="vozCarros"></div>
-    <div class="voz-wrap">
-      <div class="mic-circle" id="micCircle" onclick="toggleEscuta()">🎤</div>
-      <div class="capture-status" id="vozStatus">Toque no microfone e fale</div>
-      <div class="live" id="vozLive"></div>
-      <div style="display:flex; gap:8px; width:100%; max-width:360px">
-        <button class="btn btn-dark" style="flex:1" onclick="lerNota()">📸 Foto da nota</button>
-        <button class="btn btn-outline" style="flex:1; margin-top:14px" onclick="abrirLancamento({})">⌨️ Digitar</button>
-      </div>
-      <div class="exemplos">
-        <b>Exemplos do que falar:</b><br>
-        • "Paguei <b>450</b> no <b>eletricista</b>, alternador"<br>
-        • "Comprei <b>pastilha de freio</b> 180 reais"<br>
-        • "Fui no <b>pintor</b>, <b>32 km</b> ida e volta"<br>
-        • "<b>Transferência</b> no despachante 1.200"<br>
-        • "Fiquei <b>3 horas</b> no <b>Zé</b> com o Gol"<br>
-        Se falar o nome do carro (ex. "Gol"), ele escolhe o carro sozinho. Falou "no Zé" / "na Auto Peças Silva"? Ele guarda o prestador.
-      </div>
+    <div class="big3">
+      <button onclick="abrirRapido('combustivel')"><span class="ic">⛽</span>Combustível</button>
+      <button onclick="abrirRapido('peca')"><span class="ic">⚙️</span>Peça</button>
+      <button onclick="abrirRapido('servico')"><span class="ic">🔧</span>Serviço</button>
     </div>
-    <div class="sec-title">Últimos lançamentos</div>
+    <div class="row-mini">
+      <button class="btn btn-outline btn-sm" onclick="lerNota()">📸 Foto da nota</button>
+      <button class="btn btn-outline btn-sm" onclick="abrirLancamento({tipo:'km'})">🚗 Ida (km)</button>
+      <button class="btn btn-outline btn-sm" onclick="abrirLancamento({})">➕ Outro</button>
+    </div>
+    <div class="voz-wrap">
+      <div class="mic-circle mic-sm" id="micCircle" onclick="toggleEscuta()">🎤</div>
+      <div class="capture-status" id="vozStatus">Ou toque e fale</div>
+      <div class="live" id="vozLive"></div>
+      <div class="hint">Ex.: "abasteci 50 reais" • "eletricista 300" • "peça do alternador 180"</div>
+    </div>
+    <div class="sec-title">Últimos lançamentos <small>toque pra corrigir</small></div>
     <div class="card" id="ultimosLanc"></div>
+  </section>
+
+  <!-- LEILÃO -->
+  <section class="screen" id="screen-leilao">
+    <div class="card" style="text-align:center">
+      <h3 style="font-size:17px">🔨 Vi um carro no leilão</h3>
+      <div class="hint">Fale o modelo, o ano e o lance. Ex.: <b>"Gol 1.0 2014, 22 mil"</b></div>
+      <div class="voz-wrap" style="padding-top:0">
+        <div class="mic-circle mic-sm" id="leiMic" onclick="ouvirLeilao()">🎤</div>
+        <div class="capture-status" id="leiStatus">Toque e fale</div>
+        <div class="live" id="leiLive"></div>
+      </div>
+      <input type="text" id="leiTexto" placeholder="Ou digite: Onix 2019 35 mil" onkeydown="if(event.key==='Enter') analisarLeilao(this.value)">
+      <button class="btn btn-dark" onclick="analisarLeilao($('leiTexto').value)">Analisar</button>
+    </div>
+    <div id="leiResultado"></div>
+    <div class="sec-title">Lotes que estou de olho <small>do melhor pro pior</small></div>
+    <div id="leiLista"></div>
   </section>
 
   <!-- AVALIAR -->
@@ -358,8 +386,8 @@
   <button id="nav-painel" class="active" onclick="irPara('painel')"><span class="ic">📊</span>Painel</button>
   <button id="nav-carros" onclick="irPara('carros')"><span class="ic">🚗</span>Carros</button>
   <button id="nav-voz" class="mic" onclick="irPara('voz')"><span class="ic">🎤</span>Lançar</button>
+  <button id="nav-leilao" onclick="irPara('leilao')"><span class="ic">🔨</span>Leilão</button>
   <button id="nav-avaliar" onclick="irPara('avaliar')"><span class="ic">🔍</span>Avaliar</button>
-  <button id="nav-ajustes" onclick="abrirAjustes()"><span class="ic">⚙️</span>Ajustes</button>
 </div>
 
 <!-- DETALHE DO CARRO -->
@@ -405,7 +433,8 @@ const CFG_PADRAO = {
   diasAlerta: 45,       // dias à venda antes de alertar
   selic: 13.75,         // % a.a. — usado só se não conseguir buscar no Banco Central
   minVisita: 30,        // minutos que você fica em cada ida (espera, conversa)
-  velMedia: 30          // km/h média no trânsito de BH
+  velMedia: 30,         // km/h média no trânsito de BH
+  reparo_leve: 1500, reparo_medio: 4000, reparo_pesado: 8000
 };
 let CFG = Object.assign({}, CFG_PADRAO, JSON.parse(localStorage.getItem('garagemCfg')||'{}'));
 // Selic automática (Banco Central) — usada pra calcular quanto o dinheiro parado no carro renderia
@@ -571,7 +600,8 @@ function irPara(t){
   telaAtual = t;
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   $('screen-'+t).classList.add('active');
-  ['painel','carros','voz','avaliar'].forEach(n=>$('nav-'+n).classList.toggle('active', n===t));
+  ['painel','carros','voz','leilao','avaliar'].forEach(n=>$('nav-'+n).classList.toggle('active', n===t));
+  if(t==='leilao') renderLeilaoLista();
   if(t!=='voz') pararEscuta();
   if(t==='avaliar') iniciarAvaliar();
   window.scrollTo(0,0);
@@ -584,6 +614,7 @@ function renderTudo(){
   if(telaAtual==='painel') renderPainel();
   if(telaAtual==='carros') renderCarros();
   if(telaAtual==='voz') renderVoz();
+  if(telaAtual==='leilao') renderLeilaoLista();
   if(carroAtualId && $('detalhe').classList.contains('active')) renderDetalhe();
 }
 function renderHeader(){
@@ -957,15 +988,17 @@ function salvarCarro(id){
     dataCompra: $('ecData').value, orcamentoReparo: num($('ecOrc').value), precoAnuncio: num($('ecAnuncio').value)
   };
   if(!d.apelido && !d.modelo){ toast('Coloque pelo menos o apelido ou o modelo'); return; }
-  if(id){ db.collection(COL_CARROS).doc(id).update(d); }
+  const antes = id ? carros.find(x=>x._id===id) : null;
+  const precisaFipe = (d.marca||d.modelo) && d.ano && (!antes || !antes.fipe || !antes.fipe.marcaCod || antes.modelo!==d.modelo || antes.ano!==d.ano);
+  let alvoId = id;
+  if(id){ db.collection(COL_CARROS).doc(id).update(d); fecharModal(); vibra(); toast('✅ Salvo'); }
   else{
     d.status='reparo'; d.criadoEm=TS(); d.criadoLocal=new Date().toISOString(); d.checklist={};
-    const ref = db.collection(COL_CARROS).doc();
+    const ref = db.collection(COL_CARROS).doc(); alvoId = ref.id;
     ref.set(d); fecharModal(); vibra(); toast('✅ Carro criado');
     setTimeout(()=>abrirDetalhe(ref.id), 150);
-    return;
   }
-  fecharModal(); vibra(); toast('✅ Salvo');
+  if(precisaFipe) setTimeout(()=>fipeAutomaticaCarro(alvoId, [d.marca, d.modelo, d.ano].join(' ')), 400);
 }
 
 /* ================= LANÇAMENTOS ================= */
@@ -995,7 +1028,7 @@ function abrirLancamento(pre, editId){
     <label>Suas horas nisso (opcional)</label>
     <input type="text" inputmode="decimal" id="lcHoras" value="${l.horas&&!l.horasEstimadas?fmtIn(l.horas):''}" placeholder="${l.tipo==='km'?'Vazio = estimo sozinho (trânsito + espera)':'Ex.: 2'}">
     <label>Data</label>
-    <input type="date" id="lcData" value="${esc(l.data||hojeISO())}">
+    ${chipsData('lcData', l.data||hojeISO())}
     <button class="btn btn-primary" onclick="salvarLancamento()">Salvar</button>
     ${editId?`<button class="btn btn-danger" onclick="excluirLancamento('${editId}')">Excluir lançamento</button>`:''}
     <button class="btn btn-outline" onclick="fecharModal()">Cancelar</button>
@@ -1034,7 +1067,8 @@ function renderCamposLanc(){
       <label>Valor</label>
       <input type="text" inputmode="decimal" id="lcValor" value="${l.valor?fmtIn(l.valor):''}" placeholder="R$" style="font-size:22px; font-weight:700; font-family:'Space Grotesk'">
       <label>Descrição</label>
-      <input type="text" id="lcDesc" value="${esc(l.descricao||'')}" placeholder="Ex.: Alternador recondicionado">`;
+      <input type="text" id="lcDesc" value="${esc(l.descricao||'')}" placeholder="Ex.: Alternador recondicionado">
+      ${l.categoria==='pecas'?`<label>🔎 Onde comprar</label><div class="link-btns">${linksPeca((l.descricao||'').replace(/\(p\/.*\)/,''), carros.find(c=>c._id===l.carroId))}</div>`:''}`;
   }
 }
 function prevKm(){
@@ -1453,7 +1487,7 @@ function limparAvaliacao(){
 
 /* ================= VOZ ================= */
 function renderVoz(){
-  const ativos = carros.filter(c=>c.status==='reparo'||c.status==='venda'||c.status==='avaliando');
+  const ativos = carrosAtivos();
   if(carroVozId && !ativos.some(c=>c._id===carroVozId)) carroVozId = null;
   if(!carroVozId && ativos.length) carroVozId = ativos[0]._id;
   $('vozCarros').innerHTML = ativos.length ? ativos.map(c=>`<div class="chip ${c._id===carroVozId?'sel':''}" onclick="carroVozId='${c._id}'; localStorage.setItem('garagemCarroVoz', carroVozId); renderVoz()">🚗 ${esc(nomeCarro(c))}</div>`).join('') : '<div class="hint">Nenhum carro na garagem. Cadastre um na aba Carros.</div>';
@@ -1574,6 +1608,278 @@ function interpretarFala(texto){
   return out;
 }
 
+/* ================= DATA RÁPIDA ================= */
+function ontemISO(){ const d=new Date(); d.setDate(d.getDate()-1); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); }
+function chipsData(id, valor){
+  const h=hojeISO(), o=ontemISO(); const outra = valor!==h && valor!==o;
+  return `<div class="chip-row" id="${id}Chips">
+    <div class="chip ${valor===h?'sel':''}" onclick="setData('${id}','${h}',this)">Hoje</div>
+    <div class="chip ${valor===o?'sel':''}" onclick="setData('${id}','${o}',this)">Ontem</div>
+    <div class="chip ${outra?'sel':''}" onclick="setData('${id}',null,this)">📅 Outro dia</div>
+  </div>
+  <input type="date" id="${id}" value="${esc(valor)}" style="margin-top:8px; display:${outra?'block':'none'}">`;
+}
+function setData(id, v, el){
+  document.querySelectorAll('#'+id+'Chips .chip').forEach(x=>x.classList.remove('sel')); el.classList.add('sel');
+  const inp=$(id); if(v){ inp.value=v; inp.style.display='none'; } else { inp.style.display='block'; try{ inp.showPicker && inp.showPicker(); }catch(e){} }
+}
+
+/* ================= LANÇAMENTO RÁPIDO (3 BOTÕES) ================= */
+const SERVICOS = [['mecanico','🔧 Mecânico'],['eletricista','⚡ Eletricista'],['lanternagem','🛠️ Lanternagem'],['pintura','🎨 Pintura'],['pneus','🛞 Borracharia'],['estetica','✨ Lavagem/Estética'],['doc','📄 Documento/Despachante'],['guincho','🚛 Guincho'],['outros','📦 Outro']];
+let rap = null;
+function carrosAtivos(){ const g = carros.filter(c=>c.status==='reparo'||c.status==='venda'); return g.length ? g : carros.filter(c=>c.status==='avaliando'); }
+function abrirRapido(tipo){
+  const ativos = carrosAtivos();
+  if(!ativos.length){ toast('Cadastre um carro primeiro'); irPara('carros'); return; }
+  rap = {tipo, carroId: (carroAtualId && ativos.some(c=>c._id===carroAtualId)) ? carroAtualId : (ativos.some(c=>c._id===carroVozId)?carroVozId:ativos[0]._id), servico: tipo==='servico'?'mecanico':'', paraServico:''};
+  const titulo = {combustivel:'⛽ Combustível', peca:'⚙️ Peça', servico:'🔧 Serviço'}[tipo];
+  abrirModal(`
+    <h2>${titulo}</h2>
+    ${ativos.length>1?`<div class="chip-row" id="rpCarros" style="margin-top:8px">${ativos.map(c=>`<div class="chip ${c._id===rap.carroId?'sel':''}" onclick="rap.carroId='${c._id}'; document.querySelectorAll('#rpCarros .chip').forEach(x=>x.classList.remove('sel')); this.classList.add('sel')">🚗 ${esc(nomeCarro(c))}</div>`).join('')}</div>`:`<div class="hint">🚗 ${esc(nomeCarro(ativos[0]))}</div>`}
+    ${tipo==='servico'?`<label>Que serviço?</label><div class="chip-row" id="rpServ">${SERVICOS.map(([k,n])=>`<div class="chip ${k===rap.servico?'sel':''}" onclick="rap.servico='${k}'; document.querySelectorAll('#rpServ .chip').forEach(x=>x.classList.remove('sel')); this.classList.add('sel')">${n}</div>`).join('')}</div>`:''}
+    ${tipo==='peca'?`<label>Qual peça?</label><input type="text" id="rpPeca" placeholder="Ex.: alternador, pastilha de freio" oninput="atualizarLinksPeca()">
+      <label>Pra qual serviço? (opcional)</label><div class="chip-row" id="rpPara">${[['mecanico','Mecânico'],['eletricista','Eletricista'],['lanternagem','Lanternagem'],['pintura','Pintura']].map(([k,n])=>`<div class="chip" onclick="const on=rap.paraServico==='${k}'; rap.paraServico=on?'':'${k}'; document.querySelectorAll('#rpPara .chip').forEach(x=>x.classList.remove('sel')); if(!on) this.classList.add('sel')">${n}</div>`).join('')}</div>
+      <label>🔎 Onde comprar essa peça</label><div class="link-btns" id="rpLinks"></div>
+      <div class="hint">Google Lens: tire a foto da peça lá e ele mostra onde vende, nova e usada.</div>`:''}
+    <label>Valor</label>
+    <input type="text" inputmode="decimal" id="rpValor" class="valor-big" placeholder="R$ 0">
+    <label>Quando?</label>
+    ${chipsData('rpData', hojeISO())}
+    ${tipo==='servico'?`<label>Quem fez? (opcional)</label><input type="text" id="rpForn" placeholder="Ex.: Zé Mecânico">`:''}
+    <button class="btn btn-primary" onclick="salvarRapido()">Salvar</button>
+    <button class="btn btn-outline" onclick="fecharModal()">Cancelar</button>`);
+  if(tipo==='peca') atualizarLinksPeca();
+  setTimeout(()=>{ const el = tipo==='peca'?$('rpPeca'):$('rpValor'); if(el) el.focus(); }, 60);
+}
+function linksPeca(peca, carro){
+  const termo = [peca, carro && (carro.modelo||carro.apelido), carro && carro.ano].filter(Boolean).join(' ').trim() || 'peça carro';
+  const ml = 'https://lista.mercadolivre.com.br/' + encodeURIComponent(termo.replace(/\s+/g,'-'));
+  const desm = 'https://www.google.com/search?q=' + encodeURIComponent(termo + ' usado desmanche Belo Horizonte');
+  return `<a href="${ml}" target="_blank" rel="noopener">🛒 Mercado Livre</a><a href="${desm}" target="_blank" rel="noopener">♻️ Desmanche BH</a><a href="https://lens.google.com/" target="_blank" rel="noopener">📷 Google Lens</a>`;
+}
+function atualizarLinksPeca(){ if(!$('rpLinks')) return; $('rpLinks').innerHTML = linksPeca($('rpPeca').value.trim(), carros.find(c=>c._id===rap.carroId)); }
+function salvarRapido(){
+  const valor = num($('rpValor').value);
+  if(!(valor>0)){ toast('Coloque o valor'); $('rpValor').focus(); return; }
+  const d = {carroId: rap.carroId, tipo:'gasto', valor, data: $('rpData').value || hojeISO(), criadoEm: TS(), criadoLocal: Date.now(), horas:0, horasEstimadas:false};
+  if(rap.tipo==='combustivel'){ d.categoria='combustivel'; d.descricao='Abastecimento'; }
+  if(rap.tipo==='peca'){
+    d.categoria='pecas'; const pc = $('rpPeca').value.trim();
+    const para = {mecanico:'mecânico', eletricista:'eletricista', lanternagem:'lanternagem', pintura:'pintura'}[rap.paraServico];
+    d.descricao = (pc ? pc.charAt(0).toUpperCase()+pc.slice(1) : 'Peça') + (para ? ' (p/ '+para+')' : '');
+    if(rap.paraServico) d.paraServico = rap.paraServico;
+  }
+  if(rap.tipo==='servico'){ d.categoria = rap.servico||'mecanico'; d.descricao = (SERVICOS.find(x=>x[0]===d.categoria)||['',''])[1].replace(/^\S+\s/,''); d.fornecedor = ($('rpForn').value||'').trim(); }
+  db.collection(COL_LANC).add(d);
+  carroVozId = d.carroId; localStorage.setItem('garagemCarroVoz', d.carroId);
+  fecharModal(); vibra(80);
+  toast(`✅ ${brl(valor,true)} • ${nomeCarro(carros.find(c=>c._id===d.carroId))}`);
+}
+
+/* ================= BUSCA FIPE POR TEXTO (automática) ================= */
+const MODELO_MARCA = {
+  'VW - VolksWagen':['gol','fox','polo','voyage','saveiro','up','virtus','t-cross','tcross','nivus','jetta','golf','amarok','spacefox','crossfox','parati','kombi','taos','tiguan','santana'],
+  'GM - Chevrolet':['onix','prisma','celta','corsa','cruze','cobalt','spin','s10','tracker','agile','classic','montana','vectra','astra','meriva','zafira','equinox','trailblazer','captiva','sonic','joy'],
+  'Fiat':['uno','palio','siena','strada','mobi','argo','cronos','toro','idea','punto','doblo','fiorino','pulse','fastback','bravo','linea','weekend','stilo','tempra','marea'],
+  'Ford':['ka','fiesta','ecosport','focus','ranger','fusion','escort','courier','edge','territory','maverick','bronco'],
+  'Hyundai':['hb20','hb20s','creta','tucson','i30','ix35','azera','elantra','santa','veloster'],
+  'Renault':['sandero','logan','kwid','duster','clio','captur','oroch','fluence','megane','symbol','scenic','stepway'],
+  'Toyota':['corolla','etios','yaris','hilux','sw4','rav4','camry','prius'],
+  'Honda':['civic','fit','city','hr-v','hrv','wr-v','wrv','cr-v','crv','accord'],
+  'Nissan':['march','versa','kicks','sentra','frontier','livina','tiida'],
+  'Jeep':['compass','renegade','commander'],
+  'Peugeot':['208','2008','207','206','308','3008','307','408','partner'],
+  'Citroën':['c3','c4','aircross','xsara','picasso','cactus','c4l'],
+  'Mitsubishi':['l200','pajero','asx','outlander','lancer','eclipse'],
+  'Kia Motors':['sportage','cerato','picanto','soul','sorento'],
+  'Chery':['tiggo','celer','qq','arrizo']
+};
+const ALIAS_MARCA = {'vw':'VW - VolksWagen','volkswagen':'VW - VolksWagen','volks':'VW - VolksWagen','gm':'GM - Chevrolet','chevrolet':'GM - Chevrolet','chevrolé':'GM - Chevrolet','fiat':'Fiat','ford':'Ford','hyundai':'Hyundai','renault':'Renault','toyota':'Toyota','honda':'Honda','nissan':'Nissan','jeep':'Jeep','peugeot':'Peugeot','citroen':'Citroën','mitsubishi':'Mitsubishi','kia':'Kia Motors','chery':'Chery','caoa':'Chery'};
+function extrairAno(t){ const m = norm(t).match(/\b(19[89]\d|20[0-3]\d)\b/); return m ? m[1] : ''; }
+async function buscarFipeTexto(texto){
+  let t = norm(texto);
+  const ano = extrairAno(t);
+  if(ano) t = t.replace(ano,' ');
+  t = t.replace(/\d+(?:[.,]\d+)?\s*mil(?:\s*(?:e\s*)?\d+)?/g,' ').replace(/r\$\s*[\d.,]+/g,' ').replace(/[\d.,]+\s*(reais|real)\b/g,' ').replace(/\b\d{1,3}(?:\.\d{3})+\b|\b\d{4,}\b/g,' ').replace(/[;,]/g,' ');
+  const tokens = t.split(/\s+/).filter(w=>w && !/^(r\$|reais|mil|lance|por|de|do|da|e|o|a|ano|modelo|carro|no|leilao|valor)$/.test(w));
+  const marcas = await fipeMarcas();
+  let marcaNome = null;
+  for(const w of tokens){ if(ALIAS_MARCA[w]){ marcaNome = ALIAS_MARCA[w]; break; } }
+  if(!marcaNome){ for(const [mn, mods] of Object.entries(MODELO_MARCA)){ if(tokens.some(w=>mods.includes(w))){ marcaNome = mn; break; } } }
+  let marca = marcaNome ? marcas.find(m=>norm(m.n)===norm(marcaNome)) : null;
+  if(!marca){ marca = marcas.find(m=>tokens.some(w=>w.length>=3 && norm(m.n).includes(w))); }
+  if(!marca) return {erro:'Não reconheci a marca/modelo. Fale também a marca, ex.: "Fiat Uno 2015".'};
+  const marcaTokens = norm(marca.n).split(/[\s-]+/);
+  const modTokens = tokens.filter(w=>!marcaTokens.includes(w) && !ALIAS_MARCA[w]);
+  if(!modTokens.length) return {erro:'Faltou o modelo. Ex.: "'+marca.n.split(' - ').pop()+' Gol 2014".'};
+  const modelos = await fipeModelos(marca.c);
+  const pontua = m => { const n = norm(m.n); const ws = n.split(/[\s/]+/); let sc = 0; modTokens.forEach((w,i)=>{ if(ws.includes(w)) sc += (i===0?10:3); else if(n.includes(w)) sc += (i===0?6:1); }); return sc; };
+  const cands = modelos.map(m=>({m, sc:pontua(m)})).filter(x=>x.sc>=6).sort((a,b)=>b.sc-a.sc || a.m.n.length-b.m.n.length).slice(0,25);
+  if(!cands.length) return {erro:`Não achei "${modTokens.join(' ')}" na FIPE da ${marca.n}.`};
+  let lista = cands;
+  if(ano){
+    const top = cands.slice(0,12);
+    const tem = await Promise.all(top.map(x=>fipeAnos(marca.c, x.m.c).then(as=>as.some(a=>String(a.c).startsWith(ano+'-'))).catch(()=>null)));
+    const filt = top.filter((x,i)=>tem[i]!==false);
+    if(!filt.length) return {erro:`A FIPE não tem "${modTokens.join(' ')}" no ano ${ano}. Confira o ano ou o modelo.`};
+    lista = filt;
+  }
+  return {marca, ano, cands: lista.map(x=>x.m), unico: lista.length===1 || lista[0].sc > lista[1].sc+2};
+}
+async function valorFipeAno(marcaCod, modeloCod, ano){
+  const anos = await fipeAnos(marcaCod, modeloCod);
+  let a = ano ? anos.find(x=>String(x.c).startsWith(ano+'-')) : null;
+  if(!a && !ano) a = anos[0];
+  if(!a) return null;
+  return await fipeValor(marcaCod, modeloCod, a.c);
+}
+// Mostra lista de versões; ao tocar, busca o valor e chama cb
+function escolherVersao(r, cb, titulo){
+  window._versaoCb = async (codigo)=>{
+    toast('Buscando FIPE…');
+    try{ const v = await valorFipeAno(r.marca.c, codigo, r.ano); if(!v){ toast('Essa versão não tem o ano '+r.ano+' na FIPE. Escolha outra.'); return; } fecharModal(); cb(v); }
+    catch(e){ toast('Sem conexão com a FIPE agora'); }
+  };
+  abrirModal(`<h2>${titulo||'Qual versão?'}</h2><div class="hint" style="margin-bottom:10px">${esc(r.marca.n)}${r.ano?' • '+r.ano:''} — toque na certa</div>
+    ${r.cands.slice(0,20).map(m=>`<div class="versao" onclick="_versaoCb('${m.c}')">${esc(m.n)}</div>`).join('')}
+    <button class="btn btn-outline" onclick="fecharModal()">Cancelar</button>`);
+}
+async function fipeAutomaticaCarro(id, texto){
+  try{
+    const r = await buscarFipeTexto(texto);
+    if(r.erro){ toast('FIPE: '+r.erro); return; }
+    const aplicar = v => {
+      const c = carros.find(x=>x._id===id) || {};
+      const upd = {fipe:v}; if(!c.fipeCompra) upd.fipeCompra = v.valor;
+      db.collection(COL_CARROS).doc(id).update(upd); toast('📊 FIPE: '+brl(v.valor)); vibra();
+    };
+    if(r.unico){ const v = await valorFipeAno(r.marca.c, r.cands[0].c, r.ano); if(v){ aplicar(v); return; } }
+    escolherVersao(r, aplicar, 'Qual versão do carro?');
+  }catch(e){ toast('Não consegui buscar a FIPE agora'); }
+}
+
+/* ================= CÁLCULO PURO ================= */
+function calcNegocio(o){
+  const c = o.origem==='leilao' ? num(o.comissao)/100 : 0;
+  const F = o.origem==='leilao' ? num(o.taxas) : 0;
+  const D = num(o.doc), R = num(o.reparo), r = num(o.reserva)/100, desc = num(o.desc)/100;
+  const V = num(o.vendaManual)>0 ? num(o.vendaManual) : num(o.fipe)*(1-desc);
+  const P = num(o.preco);
+  const comissao = P*c, reserva = R*r;
+  const custo = P + comissao + F + D + R + reserva;
+  const lucro = V - custo, roi = custo>0 ? lucro/custo : null, m = CFG.metaRoi/100;
+  const lanceMax = V>0 ? (V/(1+m) - F - D - R*(1+r))/(1+c) : null;
+  const empate = V>0 ? (V - F - D - R*(1+r))/(1+c) : null;
+  return {P,c,F,D,R,r,desc,V,comissao,reserva,custo,lucro,roi,lanceMax,empate,m};
+}
+
+/* ================= ABA LEILÃO ================= */
+const REPARO_NIVEIS = [['nenhum','Nada',0],['leve','Leve',1500],['medio','Médio',4000],['pesado','Pesado',8000]];
+let lei = null;
+function ouvirLeilao(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ toast('Voz não disponível — digite no campo'); return; }
+  const rec = new SR(); rec.lang='pt-BR'; rec.interimResults=true; rec.continuous=false;
+  let final='';
+  $('leiMic').classList.add('listening'); $('leiStatus').textContent='Ouvindo…'; $('leiLive').textContent=''; vibra(40);
+  rec.onresult = ev=>{ let txt=''; for(let i=0;i<ev.results.length;i++){ txt += ev.results[i][0].transcript; if(ev.results[i].isFinal) final = txt; } $('leiLive').textContent = txt; };
+  rec.onerror = e=>{ if(e.error==='not-allowed') toast('Microfone bloqueado nos Ajustes do iPhone'); };
+  rec.onend = ()=>{ $('leiMic').classList.remove('listening'); $('leiStatus').textContent='Toque e fale'; const t=(final||$('leiLive').textContent).trim(); if(t){ $('leiTexto').value=t; analisarLeilao(t); } };
+  try{ rec.start(); }catch(e){}
+}
+function valorDoTexto(t){
+  t = norm(t);
+  const ano = extrairAno(t); if(ano) t = t.replace(ano,' ');
+  const mMil = t.match(/(\d+(?:[.,]\d+)?)\s*mil(?:\s*(?:e\s*)?(\d+))?/);
+  if(mMil) return num(mMil[1])*1000 + (mMil[2]?num(mMil[2]):0);
+  const mR = t.match(/r\$\s*(\d[\d.]*(?:,\d{1,2})?)/) || t.match(/(\d[\d.]*(?:,\d{1,2})?)\s*(reais|real)/) || t.match(/\b(\d{1,3}(?:\.\d{3})+|\d{4,6})\b/);
+  return mR ? num(mR[1]) : 0;
+}
+async function analisarLeilao(texto){
+  texto = (texto||'').trim(); if(!texto){ toast('Fale ou digite o carro e o lance'); return; }
+  const preco = valorDoTexto(texto);
+  $('leiResultado').innerHTML = '<div class="card loading">🔎 Procurando na FIPE…</div>';
+  try{
+    const r = await buscarFipeTexto(texto);
+    if(r.erro){ $('leiResultado').innerHTML = `<div class="alerta red"><span class="i">🤔</span><div>${esc(r.erro)}</div></div>`; return; }
+    if(!r.ano){ $('leiResultado').innerHTML = `<div class="alerta"><span class="i">📅</span><div>Faltou o <b>ano</b>. Ex.: "${esc(texto)} 2015"</div></div>`; return; }
+    const seguir = v => { lei = {texto, fipe:v, preco, reparo:'medio'}; renderLeilao(); };
+    if(r.unico){ const v = await valorFipeAno(r.marca.c, r.cands[0].c, r.ano); if(v){ seguir(v); return; } }
+    $('leiResultado').innerHTML = '';
+    escolherVersao(r, seguir, 'Qual versão do lote?');
+  }catch(e){ $('leiResultado').innerHTML = '<div class="alerta red"><span class="i">📶</span><div>Sem conexão com a FIPE agora. Tente de novo.</div></div>'; }
+}
+function reparoLeilao(){
+  const nivel = REPARO_NIVEIS.find(x=>x[0]===lei.reparo);
+  return lei.reparoValor!=null ? lei.reparoValor : (CFG['reparo_'+lei.reparo]!=null ? CFG['reparo_'+lei.reparo] : nivel[2]);
+}
+function renderLeilao(){
+  if(!lei) return;
+  $('leiResultado').innerHTML = `
+  <div class="card">
+    <div style="font-size:12px; color:var(--ink-soft)">FIPE ${esc(lei.fipe.mes||'')}</div>
+    <div class="num" style="font-size:26px; font-weight:800">${brl(lei.fipe.valor)}</div>
+    <div class="hint" style="margin-top:0">${esc(lei.fipe.marcaNome)} ${esc(lei.fipe.modeloNome)} • ${lei.fipe.anoModelo===32000?'0 km':lei.fipe.anoModelo}</div>
+    <label>Lance</label>
+    <input type="text" inputmode="decimal" class="valor-big" id="leiPreco" value="${fmtIn(lei.preco)}" placeholder="R$" oninput="lei.preco=num(this.value); calcLeilao()">
+    <label>Quanto de reforma você enxerga?</label>
+    <div class="chip-row" id="leiRep">${REPARO_NIVEIS.map(([k,n,v])=>{ const vv = CFG['reparo_'+k]!=null?CFG['reparo_'+k]:v; return `<div class="chip ${lei.reparo===k&&lei.reparoValor==null?'sel':''}" onclick="lei.reparo='${k}'; lei.reparoValor=null; renderLeilao()">${n}${vv?' ~'+brlShort(vv):''}</div>`; }).join('')}</div>
+    <input type="text" inputmode="decimal" style="margin-top:8px" placeholder="Ou digite o valor da reforma" value="${lei.reparoValor!=null?fmtIn(lei.reparoValor):''}" oninput="lei.reparoValor=this.value?num(this.value):null; document.querySelectorAll('#leiRep .chip').forEach(x=>x.classList.toggle('sel', !this.value && x.textContent.startsWith(REPARO_NIVEIS.find(r=>r[0]===lei.reparo)[1]))); calcLeilao()">
+  </div>
+  <div id="leiCalc"></div>`;
+  calcLeilao();
+}
+function calcLeilao(){
+  if(!lei || !$('leiCalc')) return;
+  const d = calcNegocio({origem:'leilao', fipe:lei.fipe.valor, preco:lei.preco, comissao:CFG.comissaoLeilao, taxas:CFG.taxasLeilao, doc:CFG.docEstimada, reparo:reparoLeilao(), reserva:CFG.reserva, desc:descEfetivo('leilao')});
+  let cls='none', h='Qual o lance?', sub='Coloque o valor do lance acima.';
+  if(d.P>0){
+    if(d.roi>=d.m){ cls='ok'; h='✅ Vale a pena'; sub=`Lucro de ${pct(d.roi)} sobre o investido.`; }
+    else if(d.lucro>=0){ cls='mid'; h='⚠️ Margem apertada'; sub=`Só ${pct(d.roi)} de lucro — qualquer surpresa come o ganho.`; }
+    else { cls='bad'; h='❌ Não compensa'; sub=`Nesse lance você perde ${brl(-d.lucro)}.`; }
+  }
+  const warns = [];
+  if(!CFG.docEstimada) warns.push('Documentação está zerada nos Ajustes — o resultado fica otimista.');
+  if(!CFG.taxasLeilao) warns.push('Taxas fixas do leilão (pátio/adm.) estão zeradas nos Ajustes.');
+  $('leiCalc').innerHTML = `<div class="verdict ${cls}">
+    <div class="h">${h}</div><div class="sub">${sub}</div>
+    <div class="lines">
+      <div class="ln"><span>Venda estimada (FIPE −${Math.round(d.desc*100)}%)</span><b>${brl(d.V)}</b></div>
+      ${d.P>0?`<div class="ln"><span>Lance</span><b>− ${brl(d.P)}</b></div>`:''}
+      ${d.comissao?`<div class="ln"><span>Comissão leiloeiro (${Math.round(d.c*100)}%)</span><b>− ${brl(d.comissao)}</b></div>`:''}
+      ${d.F?`<div class="ln"><span>Taxas do leilão</span><b>− ${brl(d.F)}</b></div>`:''}
+      ${d.D?`<div class="ln"><span>Documentação</span><b>− ${brl(d.D)}</b></div>`:''}
+      ${d.R?`<div class="ln"><span>Reforma</span><b>− ${brl(d.R)}</b></div>`:''}
+      ${d.reserva?`<div class="ln"><span>Reserva imprevistos</span><b>− ${brl(d.reserva)}</b></div>`:''}
+      ${d.P>0?`<div class="ln tot"><span>Lucro previsto</span><b>${brl(d.lucro)}</b></div>`:''}
+    </div>
+    <div class="lance"><div><div class="l">Dê no máximo</div><div class="v">${d.lanceMax>0?brl(Math.floor(d.lanceMax/100)*100):'—'}</div></div>
+      <div style="text-align:right"><div class="l">Sem prejuízo até</div><div class="v" style="font-size:16px">${d.empate>0?brl(Math.floor(d.empate/100)*100):'—'}</div></div></div>
+    ${warns.map(w=>`<div class="warn">⚠️ ${w}</div>`).join('')}
+  </div>
+  <button class="btn btn-dark" onclick="salvarLote()">⭐ Salvar na lista de olho</button>`;
+}
+function salvarLote(){
+  if(!lei) return;
+  const v = lei.fipe;
+  const repValor = reparoLeilao();
+  const ref = db.collection(COL_CARROS).doc();
+  ref.set({
+    apelido: (v.modeloNome||'').split(' ').slice(0,2).join(' ') + ' ' + v.anoModelo, marca:v.marcaNome, modelo:v.modeloNome, ano:String(v.anoModelo),
+    origem:'leilao', status:'avaliando', valorCompra:0, precoAlvo:lei.preco, orcamentoReparo: Math.round(repValor*(1+CFG.reserva/100)),
+    fipe:v, fipeCompra:v.valor, checklist:{}, criadoEm:TS(), criadoLocal:new Date().toISOString(), notas:'Leilão: '+lei.texto,
+    avaliacao:{fipe:v.valor, lance:lei.preco, comissao:CFG.comissaoLeilao/100, taxas:CFG.taxasLeilao, doc:CFG.docEstimada, reparos: repValor?[{n:'Reforma estimada', v:String(repValor)}]:[], reserva:CFG.reserva/100, desc:descEfetivo('leilao')/100, data:hojeISO()}
+  });
+  toast('⭐ Lote salvo'); vibra(80);
+  lei = null; $('leiResultado').innerHTML=''; $('leiTexto').value=''; $('leiLive').textContent='';
+  setTimeout(renderLeilaoLista, 300);
+}
+function renderLeilaoLista(){
+  if(!$('leiLista')) return;
+  const ord = carros.filter(c=>c.status==='avaliando').map(c=>Object.assign({c}, totais(c))).sort((a,b)=>(b.roi==null?-9:b.roi)-(a.roi==null?-9:a.roi));
+  $('leiLista').innerHTML = ord.length ? ord.map((x,i)=>cardCarro(x.c, x, (i===0&&ord.length>1)?'🥇 ':'')).join('') : '<div class="card loading">Nenhum lote salvo. Analise um carro acima e toque em "Salvar na lista de olho".</div>';
+}
+
 /* ================= NOTA FISCAL POR FOTO ================= */
 let tessPromise = null;
 function carregarTesseract(){
@@ -1627,6 +1933,9 @@ function abrirAjustes(){
     <div class="row2"><div>${campo('descLeilao','Revenda abaixo da FIPE — leilão %')}</div><div>${campo('descParticular','Revenda abaixo da FIPE — outros %')}</div></div>
     <div class="row2"><div>${campo('metaRoi','Meta de lucro mínimo %')}</div><div>${campo('reserva','Reserva p/ imprevistos %')}</div></div>
     ${campo('diasAlerta','Alertar carro parado à venda após (dias)')}
+    <div class="sec-title">Reforma no leilão (botões Leve/Médio/Pesado)</div>
+    <div class="row2"><div><label>Leve R$</label><input type="text" inputmode="decimal" id="cf_reparo_leve" value="${fmtIn(CFG.reparo_leve)}"></div><div><label>Médio R$</label><input type="text" inputmode="decimal" id="cf_reparo_medio" value="${fmtIn(CFG.reparo_medio)}"></div></div>
+    <label>Pesado R$</label><input type="text" inputmode="decimal" id="cf_reparo_pesado" value="${fmtIn(CFG.reparo_pesado)}">
     <div class="sec-title">Automático</div>
     <div class="row2"><div>${campo('minVisita','Minutos por visita')}</div><div>${campo('velMedia','Velocidade média km/h')}</div></div>
     <div class="hint">Usado pra estimar sozinho suas horas em cada ida ao mecânico/pintor.</div>
